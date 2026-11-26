@@ -105,7 +105,15 @@
       if (done) return;
       done = true;
       boot.classList.add('is-done');
+      try {
+        boot.style.opacity = '0';
+        boot.style.visibility = 'hidden';
+        boot.style.pointerEvents = 'none';
+        setTimeout(function () { boot.style.display = 'none'; }, 360);
+      } catch (e0) { /* ignore */ }
     };
+    /* 点一下加载页也能进，避免任何情况下卡死 */
+    try { boot.addEventListener('pointerdown', finish); } catch (e1) { /* ignore */ }
     const names = Object.keys(SPR);
     const total = names.length || 1;
     const check = function () {
@@ -115,7 +123,7 @@
         if (im && im.complete && im.naturalWidth) loaded += 1;
       });
       if (bar) bar.style.width = Math.round(loaded / total * 100) + '%';
-      if (txt) txt.textContent = loaded >= total ? '准备完成' : '正在加载素材 ' + loaded + '/' + total;
+      if (txt) txt.textContent = loaded >= total ? '准备完成 · 点击进入' : '正在加载素材 ' + loaded + '/' + total;
       if (loaded >= total) finish();
       return loaded >= total;
     };
@@ -130,10 +138,11 @@
     let tries = 0;
     const timer = setInterval(function () {
       tries += 1;
-      if (check() || tries > 80) { clearInterval(timer); finish(); }
+      if (check() || tries > 28) { clearInterval(timer); finish(); }
     }, 120);
     check();
-    setTimeout(finish, 9000);
+    window.addEventListener('load', function () { setTimeout(finish, 300); });
+    setTimeout(finish, 4200);
   }
   bootGate();
 
