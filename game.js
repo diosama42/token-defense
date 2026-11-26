@@ -138,11 +138,11 @@
     let tries = 0;
     const timer = setInterval(function () {
       tries += 1;
-      if (check() || tries > 28) { clearInterval(timer); finish(); }
+      if (check() || tries > 10) { clearInterval(timer); finish(); }
     }, 120);
     check();
     window.addEventListener('load', function () { setTimeout(finish, 300); });
-    setTimeout(finish, 4200);
+    setTimeout(finish, 1200);
   }
   bootGate();
 
