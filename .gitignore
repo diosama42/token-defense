@@ -3,3 +3,5 @@
 tools/raw/
 *.log
 *.exe
+assets/raw/
+**/assets/raw/
