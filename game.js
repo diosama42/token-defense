@@ -61,6 +61,49 @@
     SPR[name] = img;
   });
 
+  /* 启动加载层：等所有立绘解码完再进开始页，避免手机上半张图 */
+  function bootGate() {
+    const boot = document.getElementById('boot');
+    if (!boot) return;
+    const bar = document.getElementById('boot-bar');
+    const txt = document.getElementById('boot-txt');
+    let done = false;
+    const finish = function () {
+      if (done) return;
+      done = true;
+      boot.classList.add('is-done');
+    };
+    const names = Object.keys(SPR);
+    const total = names.length || 1;
+    const check = function () {
+      let loaded = 0;
+      names.forEach(function (n) {
+        const im = SPR[n];
+        if (im && im.complete && im.naturalWidth) loaded += 1;
+      });
+      if (bar) bar.style.width = Math.round(loaded / total * 100) + '%';
+      if (txt) txt.textContent = loaded >= total ? '准备完成' : '正在加载素材 ' + loaded + '/' + total;
+      if (loaded >= total) finish();
+      return loaded >= total;
+    };
+    names.forEach(function (n) {
+      const im = SPR[n];
+      if (!im) return;
+      if (typeof im.addEventListener === 'function') {
+        im.addEventListener('load', check);
+        im.addEventListener('error', check);
+      }
+    });
+    let tries = 0;
+    const timer = setInterval(function () {
+      tries += 1;
+      if (check() || tries > 80) { clearInterval(timer); finish(); }
+    }, 120);
+    check();
+    setTimeout(finish, 9000);
+  }
+  bootGate();
+
   /* 四大主控 AI 娘（按最终设定：ChatGPT=白色龙娘，GLM=黑猫，紫发猫娘=Gemini） */
   const HEROES = [
     {
@@ -6758,6 +6801,7 @@
 
   function loop(now) {
     const rawDt = Math.max(0.001, (now - last) / 1000);
+    document.body.classList.toggle('is-playing', game.state === 'play');
     game.fps = game.fps ? game.fps * 0.92 + (1 / rawDt) * 0.08 : 1 / rawDt;
     game.lowFx = !!SAVE.lowFxSet || game.fps < 52;
     game._audioTick = (game._audioTick || 0) + 1;

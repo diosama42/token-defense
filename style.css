@@ -2851,3 +2851,58 @@ html.layout-edit .layout-hint { display: block; }
   border-bottom: 1px solid rgba(94, 231, 255, 0.18);
 }
 .charbook__group:first-child { margin-top: 0; }
+
+
+/* 启动加载层：手机解码 base64 大图期间不再露出半张立绘 */
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: radial-gradient(60% 55% at 50% 45%, #101a30, #03040a 75%);
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+.boot.is-done { opacity: 0; visibility: hidden; pointer-events: none; }
+.boot__k {
+  font: 700 10px/1 ui-monospace, monospace;
+  letter-spacing: 0.42em;
+  color: rgba(94, 231, 255, 0.6);
+}
+.boot__title {
+  font: 800 26px/1.1 "PingFang SC", system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  color: #eaf8ff;
+  text-shadow: 0 0 24px rgba(94, 231, 255, 0.45);
+}
+.boot__bar {
+  width: min(220px, 56vw);
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(94, 231, 255, 0.16);
+  overflow: hidden;
+}
+.boot__bar i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #5ee7ff, #6ef7b4);
+  transition: width 0.2s linear;
+}
+.boot__txt {
+  font: 600 11px/1.4 "PingFang SC", system-ui;
+  color: rgba(190, 230, 255, 0.55);
+  letter-spacing: 0.1em;
+}
+
+/* 非战斗状态隐藏 HUD 与触屏按键，避免出现在开始页/菜单上 */
+body:not(.is-playing) .hud,
+body:not(.is-playing) .pad {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
