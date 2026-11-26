@@ -3306,6 +3306,59 @@ body.is-playing .pad {
   transition: opacity 0.1s ease;
 }
 
+
+/* 暂停面板 */
+.pause {
+  position: fixed;
+  inset: 0;
+  z-index: 9600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(2, 4, 10, 0.72);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s, visibility 0.2s;
+}
+.pause.show { opacity: 1; visibility: visible; pointer-events: auto; }
+.pause__box {
+  width: min(360px, 90vw);
+  padding: 24px 22px 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(94, 231, 255, 0.3);
+  background: linear-gradient(180deg, rgba(14, 24, 40, 0.98), rgba(6, 10, 18, 0.98));
+  text-align: center;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+}
+.pause__k {
+  margin: 0 0 6px;
+  font: 700 9px/1 ui-monospace, monospace;
+  letter-spacing: 0.36em;
+  color: rgba(94, 231, 255, 0.55);
+}
+.pause__title { margin: 0 0 4px; font-size: 24px; color: #eaf8ff; }
+.pause__sub { margin: 0 0 16px; font-size: 10.5px; color: rgba(170, 210, 240, 0.45); }
+.pause__btns { display: flex; flex-direction: column; gap: 9px; }
+.pause__btn {
+  padding: 11px 0;
+  border-radius: 11px;
+  border: 1px solid rgba(94, 231, 255, 0.28);
+  background: rgba(94, 231, 255, 0.07);
+  color: #dff6ff;
+  font: 700 13px/1 "PingFang SC", system-ui;
+  cursor: pointer;
+}
+.pause__btn--main {
+  border-color: rgba(110, 247, 180, 0.55);
+  background: linear-gradient(180deg, rgba(30, 80, 70, 0.9), rgba(8, 30, 26, 0.9));
+  color: #d8ffe9;
+}
+.pause__btn:active { transform: translateY(1px); }
+body.is-paused .controls, body.is-paused .hud { pointer-events: none; }
+
 </style>
 </head>
 <body>
@@ -3370,6 +3423,11 @@ body.is-playing .pad {
     </div>
 
     <div class="hud__tools">
+      <button id="btn-pause" class="tool" type="button" aria-label="暂停">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+          <path d="M9 5v14M15 5v14" />
+        </svg>
+      </button>
       <button id="btn-settings" class="tool" type="button" aria-label="设置">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <circle cx="12" cy="12" r="3" />
@@ -3597,7 +3655,21 @@ body.is-playing .pad {
     </div>
   </section>
 
-  <!-- ================= 设置 ================= -->
+  <!-- ================= 暂停 ================= -->
+  <section class="pause" id="pause">
+    <div class="pause__box">
+      <p class="pause__k">PAUSED</p>
+      <h2 class="pause__title">已暂停</h2>
+      <p class="pause__sub">Esc / P 也可以继续</p>
+      <div class="pause__btns">
+        <button class="pause__btn pause__btn--main" id="pause-resume" type="button">继续游戏</button>
+        <button class="pause__btn" id="pause-settings" type="button">设置</button>
+        <button class="pause__btn" id="pause-menu" type="button">回到菜单</button>
+      </div>
+    </div>
+  </section>
+
+<!-- ================= 设置 ================= -->
   <section class="settings" id="settings">
     <div class="settings__panel">
       <h3 class="settings__title">设置</h3>
@@ -4536,6 +4608,7 @@ body.is-playing .pad {
     const name = btn.dataset.act;
     bindHold(btn,
       function () {
+        if (game.paused) return;
         input.held[name] = true;
         rippleAct(name);
         if (game.state === 'menu') startGame();
@@ -4548,6 +4621,7 @@ body.is-playing .pad {
   const jumpBtn = document.getElementById('btn-jump');
   bindHold(jumpBtn,
     function () {
+      if (game.paused) return;
       input.jumpQueued = true;
       flashJump();
       if (game.state === 'menu') startGame();
@@ -4558,6 +4632,11 @@ body.is-playing .pad {
   window.addEventListener('keydown', function (e) {
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].indexOf(e.code) >= 0) e.preventDefault();
     if (e.repeat) return;
+    if (e.code === 'Escape' || e.code === 'KeyP') {
+      if (game.state === 'play') { setPaused(!game.paused); return; }
+      if (settingsEl && settingsEl.classList.contains('show')) { closeSettings(); return; }
+    }
+    if (game.paused) return;
     keys[e.code] = true;
 
     if (game.state === 'menu' && (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyJ')) {
@@ -10401,6 +10480,9 @@ body.is-playing .pad {
     if (el.heroName) el.heroName.textContent = hero.name;
     if (el.heroBadge) el.heroBadge.textContent = hero.badge;
     resetWorld();
+    game.paused = false;
+    document.body.classList.remove('is-paused');
+    if (pauseEl) pauseEl.classList.remove('show');
     game.mode = startMode;
     game.state = 'play';
     startEl.classList.add('is-hidden');
@@ -10522,6 +10604,9 @@ body.is-playing .pad {
     resumeAudio();
     startBgm('battle');
     resetWorld();
+    game.paused = false;
+    document.body.classList.remove('is-paused');
+    if (pauseEl) pauseEl.classList.remove('show');
     game.mode = startMode;
     game.state = 'play';
     startEl.classList.add('is-hidden');
@@ -10537,6 +10622,19 @@ body.is-playing .pad {
     e.stopPropagation();
     retryRun();
   });
+
+  const btnPauseEl = document.getElementById('btn-pause');
+  if (btnPauseEl) btnPauseEl.addEventListener('click', function (e) { e.stopPropagation(); setPaused(true); });
+  const pauseResumeEl = document.getElementById('pause-resume');
+  if (pauseResumeEl) pauseResumeEl.addEventListener('click', function (e) { e.stopPropagation(); setPaused(false); });
+  const pauseSettingsEl = document.getElementById('pause-settings');
+  if (pauseSettingsEl) pauseSettingsEl.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (pauseEl) pauseEl.classList.remove('show');
+    openSettings();
+  });
+  const pauseMenuEl = document.getElementById('pause-menu');
+  if (pauseMenuEl) pauseMenuEl.addEventListener('click', function (e) { e.stopPropagation(); location.reload(); });
 
   ['btn-ending-menu', 'btn-true-menu', 'btn-hidden-menu', 'btn-over-menu'].forEach(function (id) {
     const b = document.getElementById(id);
@@ -10602,13 +10700,36 @@ body.is-playing .pad {
     if (setLowEl) setLowEl.checked = !!SAVE.lowFxSet;
   }
 
+  const pauseEl = document.getElementById('pause');
+  function setPaused(on) {
+    if (on) {
+      if (game.state !== 'play' || game.paused) return;
+      game.paused = true;
+      if (pauseEl) pauseEl.classList.add('show');
+      document.body.classList.add('is-paused');
+    } else {
+      game.paused = false;
+      if (pauseEl) pauseEl.classList.remove('show');
+      document.body.classList.remove('is-paused');
+      last = performance.now();
+    }
+  }
+
   function openSettings() {
+    if (game.state === 'play' && !game.paused) {
+      game.paused = true;
+      document.body.classList.add('is-paused');
+      if (pauseEl) pauseEl.classList.remove('show');
+    }
     syncSettings();
     if (settingsEl) settingsEl.classList.add('show');
   }
 
   function closeSettings() {
     if (settingsEl) settingsEl.classList.remove('show');
+    if (game.paused) {
+      if (pauseEl) pauseEl.classList.add('show');
+    }
     saveWrite();
   }
 
@@ -10860,7 +10981,9 @@ body.is-playing .pad {
     last = now;
     const reps = game.demoSpeed ? Math.min(8, game.demoSpeed | 0) : 1;
     try {
-      for (let i = 0; i < reps; i++) step(dt);
+      if (!game.paused) {
+        for (let i = 0; i < reps; i++) step(dt);
+      }
       draw();
       game._hudTick = (game._hudTick || 0) + 1;
       if (game._hudTick % 3 === 0) syncHud();
@@ -11630,6 +11753,35 @@ body.is-playing .pad {
             };
             tick();
           }, 300);
+        } else if (sc === 'pauseshot') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            document.getElementById('btn-pause').click();
+          }, 700);
+        } else if (sc === 'pausetest') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            document.getElementById('btn-pause').click();
+            const paused = game.paused && document.getElementById('pause').classList.contains('show');
+            document.getElementById('pause-resume').click();
+            const resumed = !game.paused;
+            document.getElementById('btn-settings').click();
+            const setPaused = game.paused && document.getElementById('settings').classList.contains('show');
+            document.getElementById('set-close').click();
+            const backPause = game.paused && document.getElementById('pause').classList.contains('show');
+            document.getElementById('pause-resume').click();
+            document.title = 'PAUSE paused=' + paused + ' resumed=' + resumed + ' setPaused=' + setPaused + ' backPause=' + backPause + ' final=' + game.paused;
+          }, 600);
         } else if (sc === 'warreviveui') {
           setTimeout(function () {
             startGame();

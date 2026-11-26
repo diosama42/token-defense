@@ -740,6 +740,7 @@
     const name = btn.dataset.act;
     bindHold(btn,
       function () {
+        if (game.paused) return;
         input.held[name] = true;
         rippleAct(name);
         if (game.state === 'menu') startGame();
@@ -752,6 +753,7 @@
   const jumpBtn = document.getElementById('btn-jump');
   bindHold(jumpBtn,
     function () {
+      if (game.paused) return;
       input.jumpQueued = true;
       flashJump();
       if (game.state === 'menu') startGame();
@@ -762,6 +764,11 @@
   window.addEventListener('keydown', function (e) {
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].indexOf(e.code) >= 0) e.preventDefault();
     if (e.repeat) return;
+    if (e.code === 'Escape' || e.code === 'KeyP') {
+      if (game.state === 'play') { setPaused(!game.paused); return; }
+      if (settingsEl && settingsEl.classList.contains('show')) { closeSettings(); return; }
+    }
+    if (game.paused) return;
     keys[e.code] = true;
 
     if (game.state === 'menu' && (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyJ')) {
@@ -6605,6 +6612,9 @@
     if (el.heroName) el.heroName.textContent = hero.name;
     if (el.heroBadge) el.heroBadge.textContent = hero.badge;
     resetWorld();
+    game.paused = false;
+    document.body.classList.remove('is-paused');
+    if (pauseEl) pauseEl.classList.remove('show');
     game.mode = startMode;
     game.state = 'play';
     startEl.classList.add('is-hidden');
@@ -6726,6 +6736,9 @@
     resumeAudio();
     startBgm('battle');
     resetWorld();
+    game.paused = false;
+    document.body.classList.remove('is-paused');
+    if (pauseEl) pauseEl.classList.remove('show');
     game.mode = startMode;
     game.state = 'play';
     startEl.classList.add('is-hidden');
@@ -6741,6 +6754,19 @@
     e.stopPropagation();
     retryRun();
   });
+
+  const btnPauseEl = document.getElementById('btn-pause');
+  if (btnPauseEl) btnPauseEl.addEventListener('click', function (e) { e.stopPropagation(); setPaused(true); });
+  const pauseResumeEl = document.getElementById('pause-resume');
+  if (pauseResumeEl) pauseResumeEl.addEventListener('click', function (e) { e.stopPropagation(); setPaused(false); });
+  const pauseSettingsEl = document.getElementById('pause-settings');
+  if (pauseSettingsEl) pauseSettingsEl.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (pauseEl) pauseEl.classList.remove('show');
+    openSettings();
+  });
+  const pauseMenuEl = document.getElementById('pause-menu');
+  if (pauseMenuEl) pauseMenuEl.addEventListener('click', function (e) { e.stopPropagation(); location.reload(); });
 
   ['btn-ending-menu', 'btn-true-menu', 'btn-hidden-menu', 'btn-over-menu'].forEach(function (id) {
     const b = document.getElementById(id);
@@ -6806,13 +6832,36 @@
     if (setLowEl) setLowEl.checked = !!SAVE.lowFxSet;
   }
 
+  const pauseEl = document.getElementById('pause');
+  function setPaused(on) {
+    if (on) {
+      if (game.state !== 'play' || game.paused) return;
+      game.paused = true;
+      if (pauseEl) pauseEl.classList.add('show');
+      document.body.classList.add('is-paused');
+    } else {
+      game.paused = false;
+      if (pauseEl) pauseEl.classList.remove('show');
+      document.body.classList.remove('is-paused');
+      last = performance.now();
+    }
+  }
+
   function openSettings() {
+    if (game.state === 'play' && !game.paused) {
+      game.paused = true;
+      document.body.classList.add('is-paused');
+      if (pauseEl) pauseEl.classList.remove('show');
+    }
     syncSettings();
     if (settingsEl) settingsEl.classList.add('show');
   }
 
   function closeSettings() {
     if (settingsEl) settingsEl.classList.remove('show');
+    if (game.paused) {
+      if (pauseEl) pauseEl.classList.add('show');
+    }
     saveWrite();
   }
 
@@ -7064,7 +7113,9 @@
     last = now;
     const reps = game.demoSpeed ? Math.min(8, game.demoSpeed | 0) : 1;
     try {
-      for (let i = 0; i < reps; i++) step(dt);
+      if (!game.paused) {
+        for (let i = 0; i < reps; i++) step(dt);
+      }
       draw();
       game._hudTick = (game._hudTick || 0) + 1;
       if (game._hudTick % 3 === 0) syncHud();
@@ -7834,6 +7885,35 @@
             };
             tick();
           }, 300);
+        } else if (sc === 'pauseshot') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            document.getElementById('btn-pause').click();
+          }, 700);
+        } else if (sc === 'pausetest') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            document.getElementById('btn-pause').click();
+            const paused = game.paused && document.getElementById('pause').classList.contains('show');
+            document.getElementById('pause-resume').click();
+            const resumed = !game.paused;
+            document.getElementById('btn-settings').click();
+            const setPaused = game.paused && document.getElementById('settings').classList.contains('show');
+            document.getElementById('set-close').click();
+            const backPause = game.paused && document.getElementById('pause').classList.contains('show');
+            document.getElementById('pause-resume').click();
+            document.title = 'PAUSE paused=' + paused + ' resumed=' + resumed + ' setPaused=' + setPaused + ' backPause=' + backPause + ' final=' + game.paused;
+          }, 600);
         } else if (sc === 'warreviveui') {
           setTimeout(function () {
             startGame();

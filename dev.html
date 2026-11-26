@@ -73,6 +73,11 @@
     </div>
 
     <div class="hud__tools">
+      <button id="btn-pause" class="tool" type="button" aria-label="暂停">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+          <path d="M9 5v14M15 5v14" />
+        </svg>
+      </button>
       <button id="btn-settings" class="tool" type="button" aria-label="设置">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <circle cx="12" cy="12" r="3" />
@@ -300,7 +305,21 @@
     </div>
   </section>
 
-  <!-- ================= 设置 ================= -->
+  <!-- ================= 暂停 ================= -->
+  <section class="pause" id="pause">
+    <div class="pause__box">
+      <p class="pause__k">PAUSED</p>
+      <h2 class="pause__title">已暂停</h2>
+      <p class="pause__sub">Esc / P 也可以继续</p>
+      <div class="pause__btns">
+        <button class="pause__btn pause__btn--main" id="pause-resume" type="button">继续游戏</button>
+        <button class="pause__btn" id="pause-settings" type="button">设置</button>
+        <button class="pause__btn" id="pause-menu" type="button">回到菜单</button>
+      </div>
+    </div>
+  </section>
+
+<!-- ================= 设置 ================= -->
   <section class="settings" id="settings">
     <div class="settings__panel">
       <h3 class="settings__title">设置</h3>

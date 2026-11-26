@@ -3293,3 +3293,56 @@ body.is-playing .pad {
   pointer-events: auto;
   transition: opacity 0.1s ease;
 }
+
+
+/* 暂停面板 */
+.pause {
+  position: fixed;
+  inset: 0;
+  z-index: 9600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(2, 4, 10, 0.72);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s, visibility 0.2s;
+}
+.pause.show { opacity: 1; visibility: visible; pointer-events: auto; }
+.pause__box {
+  width: min(360px, 90vw);
+  padding: 24px 22px 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(94, 231, 255, 0.3);
+  background: linear-gradient(180deg, rgba(14, 24, 40, 0.98), rgba(6, 10, 18, 0.98));
+  text-align: center;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+}
+.pause__k {
+  margin: 0 0 6px;
+  font: 700 9px/1 ui-monospace, monospace;
+  letter-spacing: 0.36em;
+  color: rgba(94, 231, 255, 0.55);
+}
+.pause__title { margin: 0 0 4px; font-size: 24px; color: #eaf8ff; }
+.pause__sub { margin: 0 0 16px; font-size: 10.5px; color: rgba(170, 210, 240, 0.45); }
+.pause__btns { display: flex; flex-direction: column; gap: 9px; }
+.pause__btn {
+  padding: 11px 0;
+  border-radius: 11px;
+  border: 1px solid rgba(94, 231, 255, 0.28);
+  background: rgba(94, 231, 255, 0.07);
+  color: #dff6ff;
+  font: 700 13px/1 "PingFang SC", system-ui;
+  cursor: pointer;
+}
+.pause__btn--main {
+  border-color: rgba(110, 247, 180, 0.55);
+  background: linear-gradient(180deg, rgba(30, 80, 70, 0.9), rgba(8, 30, 26, 0.9));
+  color: #d8ffe9;
+}
+.pause__btn:active { transform: translateY(1px); }
+body.is-paused .controls, body.is-paused .hud { pointer-events: none; }
