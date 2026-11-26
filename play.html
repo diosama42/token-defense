@@ -3229,6 +3229,12 @@ html.force-land .rotate-btn { bottom: calc(12px + var(--safe-b)); }
   color: rgba(160, 200, 230, 0.45);
 }
 
+
+/* 纯 CSS 兜底：不管 JS 有没有跑起来，3 秒后加载页一定消失 */
+@keyframes bootForceHide {
+  to { opacity: 0; visibility: hidden; pointer-events: none; }
+}
+
 </style>
 </head>
 <body>
@@ -3254,7 +3260,7 @@ html.force-land .rotate-btn { bottom: calc(12px + var(--safe-b)); }
     <p class="notice__hint">之后可在开始页底部点「声明」再次查看</p>
   </div>
 </div>
-<div id="boot" class="boot">
+<div id="boot" class="boot" style="animation:bootForceHide 0.5s ease 2.6s forwards">
   <div class="boot__k">TOKEN DEFENSE</div>
 <script>window.addEventListener("load",function(){setTimeout(function(){var b=document.getElementById("boot");if(b&&!b.classList.contains("is-done")){b.style.opacity="0";b.style.visibility="hidden";b.style.display="none";}},1200);});</script>
   <div class="boot__title">词元保卫战</div>
