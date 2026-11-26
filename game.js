@@ -57,7 +57,7 @@
   SPRITE_LIST.forEach(function (name) {
     const img = new Image();
     const inline = window.__SPRITE_DATA && window.__SPRITE_DATA[name];
-    img.src = inline || 'assets/sprites/' + name + '.png';
+    img.src = inline || 'assets/sprites/' + name + '.webp';
     SPR[name] = img;
   });
 
@@ -76,6 +76,7 @@
     };
     let seen = false;
     try { seen = localStorage.getItem(KEY) === '1'; } catch (e) { /* ignore */ }
+    try { if (/[?&]nonotice=1/.test(location.search)) seen = true; } catch (e1) { /* ignore */ }
     if (!seen) show();
     const ok = document.getElementById('notice-ok');
     if (ok) {
@@ -5336,10 +5337,10 @@
   let dialogQueue = [];
   let dialogDone = null;
 
-  const ASSET_VER = '17';
+  const ASSET_VER = '18';
   function spriteSrc(name) {
     const inline = window.__SPRITE_DATA && window.__SPRITE_DATA[name];
-    return inline || ('assets/sprites/' + name + '.png?v=' + ASSET_VER);
+    return inline || ('assets/sprites/' + name + '.webp?v=' + ASSET_VER);
   }
 
   function showDialog(lines, onDone) {
