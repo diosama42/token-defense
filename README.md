@@ -1,4 +1,4 @@
-# 绝地反击：Token 保卫战
+# 绝地反击：词元保卫战
 
 横版 2D 动作闯关 + Token 文字弹幕 + Galgame 分支叙事的网页游戏。
 纯 HTML/CSS/JavaScript（Canvas 2D）实现，无第三方运行依赖。
