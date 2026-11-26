@@ -4995,13 +4995,17 @@
       const title = document.createElement('b');
       title.textContent = (cg.bg || 'scene').toUpperCase();
       card.appendChild(title);
+      const thumbs = document.createElement('div');
+      thumbs.className = 'cg__thumbs';
       (cg.actors || []).slice(0, 4).forEach(function (a) {
         if (!a.img) return;
         const im = document.createElement('img');
         im.src = spriteSrc(a.img);
         im.alt = '';
-        card.appendChild(im);
+        im.loading = 'lazy';
+        thumbs.appendChild(im);
       });
+      if (thumbs.children.length) card.appendChild(thumbs);
       const txt = document.createElement('div');
       txt.textContent = cg.text;
       card.appendChild(txt);

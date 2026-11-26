@@ -2769,3 +2769,31 @@ html.layout-edit .layout-hint { display: block; }
   .over__inner, .start__inner { max-width: 92vw; }
   .start__btn { width: 100%; }
 }
+
+
+/* CG 卡片缩略图：固定小尺寸，绝不溢出卡片 */
+.cg__card {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cg__thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 38px;
+  overflow: hidden;
+}
+
+.cg__thumbs img,
+.cg__card > img {
+  width: 32px;
+  height: 32px;
+  max-width: 32px;
+  max-height: 32px;
+  object-fit: contain;
+  flex: 0 0 auto;
+  margin: 0;
+}
