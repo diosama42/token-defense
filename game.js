@@ -3131,7 +3131,8 @@
 
     const startPlay = function () {
       game.state = 'play';
-      document.body.classList.remove('is-cutscene');
+      document.body.classList.remove('is-cutscene', 'is-paused');
+      document.body.classList.add('is-playing');
       addText(W * 0.5, H * 0.24, '第 ' + (game.stage + 1) + ' 关 · ' + st.name, '255,209,102', 26);
       if (game.stage === 0) {
         addText(W * 0.5, H * 0.3, 'A/D 移动 · W 跳 · J 连发 · K 技能 · L 大招 · U 支援', '150,220,255', 13);
@@ -6742,8 +6743,8 @@
     game.mode = startMode;
     game.state = 'play';
     startEl.classList.add('is-hidden');
-    document.body.classList.remove('is-menu');
-    document.body.classList.remove('is-cutscene');
+    document.body.classList.remove('is-menu', 'is-cutscene', 'is-paused');
+    document.body.classList.add('is-playing');
     beginStage();
     addText(W * 0.5, H * 0.3, '重新开始！', '255,209,102', 20);
     sfx(660, 0.14, 'triangle', 0.05);
@@ -7094,14 +7095,12 @@
   function loop(now) {
     const rawDt = Math.max(0.001, (now - last) / 1000);
     const nowPlaying = game.state === 'play';
-    if (nowPlaying !== game._wasPlaying) {
-      document.body.classList.toggle('is-playing', nowPlaying);
-      if (nowPlaying) {
-        document.body.classList.remove('is-cutscene');
-        syncHud();
-      }
-      game._wasPlaying = nowPlaying;
+    document.body.classList.toggle('is-playing', nowPlaying);
+    if (nowPlaying && game._wasPlaying !== true) {
+      document.body.classList.remove('is-cutscene', 'is-paused');
+      syncHud();
     }
+    game._wasPlaying = nowPlaying;
     game.fps = game.fps ? game.fps * 0.92 + (1 / rawDt) * 0.08 : 1 / rawDt;
     game.lowFx = !!SAVE.lowFxSet || game.fps < 52;
     game._audioTick = (game._audioTick || 0) + 1;
@@ -7885,6 +7884,28 @@
             };
             tick();
           }, 300);
+        } else if (sc === 'revbtn') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            player.invuln = 0;
+            damagePlayer(99999, 1);
+            setTimeout(function () {
+              const btn = document.getElementById('btn-revive');
+              if (btn) btn.click();
+              setTimeout(function () {
+                const pad = document.querySelector('.pad');
+                const cs = getComputedStyle(pad);
+                document.title = 'REVBTN state=' + game.state + ' pad=' + cs.opacity + '/' + cs.visibility +
+                  ' cls=' + document.body.className + ' paused=' + game.paused + ' keys=' + document.querySelectorAll('.act__key').length;
+              }, 1200);
+            }, 2500);
+          }, 700);
         } else if (sc === 'pauseshot') {
           setTimeout(function () {
             startGame();
