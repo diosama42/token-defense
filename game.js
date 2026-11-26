@@ -471,7 +471,7 @@
   /* ---------- 存档（版本化 + 旧键迁移） ---------- */
   const SAVE_KEY = 'tb_save_v2';
   const SAVE = (function () {
-    const d = { easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {} };
+    const d = { easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0 };
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
@@ -5754,6 +5754,8 @@
   }
 
   function beginNextStage() {
+    /* 通关当前章 → 解锁下一章 */
+    if (game.stage + 1 > (SAVE.chapter || 0)) saveSet('chapter', game.stage + 1);
     game.stage += 1;
     if (game.stage >= STAGES.length) { playEnding(); return; }
     beginStage();
@@ -6458,6 +6460,72 @@
     overShown = false;
     syncHud();
   }
+
+  function startChapter(idx) {
+    if (idx > (SAVE.chapter || 0)) return;
+    if (!STAGES[idx]) return;
+    const chapEl = document.getElementById('chapters');
+    if (chapEl) chapEl.classList.remove('show');
+    startMode = 'story';
+    startEl.classList.add('is-hidden');
+    overEl.classList.remove('show');
+    resetWorld();
+    game.mode = 'story';
+    game.stage = idx;
+    game.state = 'play';
+    document.body.classList.remove('is-menu');
+    document.body.classList.remove('is-cutscene');
+    startBgm('battle');
+    beginStage();
+    addText(W * 0.5, H * 0.32, '第 ' + (idx + 1) + ' 章 · 从本章开始', '150,220,255', 16);
+    sfx(660, 0.14, 'triangle', 0.05);
+  }
+
+  function buildChapters() {
+    const grid = document.getElementById('chapters-grid');
+    const countEl = document.getElementById('chapters-count');
+    if (!grid) return;
+    grid.innerHTML = '';
+    const unlocked = SAVE.chapter || 0;
+    if (countEl) countEl.textContent = '已解锁 ' + (Math.min(unlocked, STAGES.length - 1) + 1) + ' / ' + STAGES.length;
+    STAGES.forEach(function (st, i) {
+      const locked = i > unlocked;
+      const cleared = i < unlocked;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chapter-card' + (locked ? ' is-locked' : '');
+      b.innerHTML = '<i class="chapter-card__no">CHAPTER ' + (i + 1) + '</i>' +
+        '<b>第 ' + (i + 1) + ' 章 · ' + st.name + '</b>' +
+        '<span>' + (st.bossName ? '关底：' + st.bossName : '') + (st.defense ? ' · 防守 ' + st.defense + 's' : '') + '</span>' +
+        '<i class="chapter-card__tag">' + (locked ? '未解锁' : cleared ? '已通关' : '可挑战') + '</i>';
+      if (!locked) {
+        b.addEventListener('click', function (e) {
+          e.stopPropagation();
+          startChapter(i);
+        });
+      }
+      grid.appendChild(b);
+    });
+  }
+
+  function bindChapters() {
+    const chapEl = document.getElementById('chapters');
+    if (!chapEl) return;
+    const openBtn = document.getElementById('btn-chapters');
+    if (openBtn) {
+      openBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        buildChapters();
+        chapEl.classList.add('show');
+      });
+    }
+    const closeBtn = document.getElementById('chapters-close');
+    if (closeBtn) closeBtn.addEventListener('click', function (e) { e.stopPropagation(); chapEl.classList.remove('show'); });
+    chapEl.addEventListener('click', function (e) {
+      if (e.target === chapEl) chapEl.classList.remove('show');
+    });
+  }
+  bindChapters();
 
   function startGame() {
     startBgm('battle');
@@ -7648,6 +7716,24 @@
             };
             tick();
           }, 300);
+        } else if (sc === 'chapterstest') {
+          setTimeout(function () {
+            SAVE.chapter = 3;
+            const no = document.getElementById('notice');
+            if (no) no.classList.remove('show');
+            buildChapters();
+            const el2 = document.getElementById('chapters');
+            if (el2) el2.classList.add('show');
+            document.title = 'CH ' + document.querySelectorAll('.chapter-card').length + ' locked=' + document.querySelectorAll('.chapter-card.is-locked').length;
+          }, 700);
+        } else if (sc === 'chapterstart') {
+          setTimeout(function () {
+            SAVE.chapter = 3;
+            startChapter(2);
+            setTimeout(function () {
+              document.title = 'CHSTART stage=' + (game.stage + 1) + ' state=' + game.state + ' hp=' + player.hp;
+            }, 1200);
+          }, 600);
         } else if (sc === 'nailorder2') {
           setTimeout(function () {
             startGame();

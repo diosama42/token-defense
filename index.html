@@ -181,6 +181,7 @@
 
       <button class="start__btn start__btn--main" id="btn-start" type="button">开始游戏</button>
 
+      <button class="start__btn start__btn--ghost" id="btn-chapters" type="button">章节选择</button>
       <button class="start__btn start__btn--ghost" id="btn-charbook" type="button">角色介绍</button>
         <button class="start__btn start__btn--ghost" id="btn-cg" type="button">CG 鉴赏</button>
 
@@ -245,7 +246,23 @@
     </div>
   </section>
 
-  <!-- ================= CG 鉴赏 ================= -->
+  <!-- ================= 章节选择 ================= -->
+  <section class="chapters" id="chapters">
+    <div class="chapters__box">
+      <div class="cg__head">
+        <div>
+          <p class="cg__kicker">CHAPTER SELECT</p>
+          <b class="cg__title">章节选择</b>
+          <span class="cg__count" id="chapters-count"></span>
+        </div>
+        <button class="cg__close" id="chapters-close" type="button">关闭</button>
+      </div>
+      <div class="chapters__grid" id="chapters-grid"></div>
+      <p class="chapters__tip">通关一章后解锁下一章；从所选章节开始，强化与队友从零开始</p>
+    </div>
+  </section>
+
+<!-- ================= CG 鉴赏 ================= -->
   <section class="cg" id="cg">
     <div class="cg__box">
       <div class="cg__head">
