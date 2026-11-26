@@ -6631,6 +6631,7 @@
     player.dead = false;
     player.hp = player.maxHp;
     player.invuln = 4.2;
+    game.hudForceT = 1.2;
     player.token = player.maxToken;
     player.dmgMul *= 1.12;
     player.defenseMul *= 0.92;
@@ -6651,7 +6652,9 @@
       { name: '梁圣', portrait: 'liang_sheng', text: '算力续上了。[w=220]伤害 +12%，受到的伤害 -8%。' }
     ], function () {
       game.state = 'play';
-      document.body.classList.remove('is-cutscene');
+      document.body.classList.remove('is-cutscene', 'is-menu');
+      document.body.classList.add('is-playing');
+      syncHud();
       addText(player.x, player.y - U(140), '复活 · 队友剩余 ' + allies.length, '150,220,255', 16);
     });
     return true;
@@ -7041,7 +7044,15 @@
 
   function loop(now) {
     const rawDt = Math.max(0.001, (now - last) / 1000);
-    document.body.classList.toggle('is-playing', game.state === 'play');
+    const nowPlaying = game.state === 'play';
+    if (nowPlaying !== game._wasPlaying) {
+      document.body.classList.toggle('is-playing', nowPlaying);
+      if (nowPlaying) {
+        document.body.classList.remove('is-cutscene');
+        syncHud();
+      }
+      game._wasPlaying = nowPlaying;
+    }
     game.fps = game.fps ? game.fps * 0.92 + (1 / rawDt) * 0.08 : 1 / rawDt;
     game.lowFx = !!SAVE.lowFxSet || game.fps < 52;
     game._audioTick = (game._audioTick || 0) + 1;
@@ -7057,6 +7068,7 @@
       draw();
       game._hudTick = (game._hudTick || 0) + 1;
       if (game._hudTick % 3 === 0) syncHud();
+      if (game.hudForceT > 0) { game.hudForceT -= dt; syncHud(); }
     } catch (err) {
       /* 出错不再整局冻结：清掉可疑弹幕/粒子，正常继续渲染，只弹一条轻提示 */
       window.__ERR = (err && err.message ? err.message : String(err)) + '\n' + ((err && err.stack) || '');
@@ -7821,6 +7833,33 @@
               }
             };
             tick();
+          }, 300);
+        } else if (sc === 'warreviveui') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            startSiliconWar(6);
+            setTimeout(function () {
+              player.invuln = 0;
+              damagePlayer(99999, 1);
+              const log = [];
+              let n = 0;
+              const tick = function () {
+                n++;
+                if (game.state === 'dialog') { const b = document.getElementById('dialog-next'); if (b) b.click(); }
+                const pad = document.querySelector('.pad');
+                const ctl = document.querySelector('.controls');
+                const cs = pad ? getComputedStyle(pad) : null;
+                const cs2 = ctl ? getComputedStyle(ctl) : null;
+                log.push(n + ':' + game.state + ':pad=' + (cs ? cs.opacity + '/' + cs.visibility : '-') + ':ctl=' + (cs2 ? cs2.opacity : '-') + ':cls=' + document.body.className);
+                if (n < 12) setTimeout(tick, 400);
+                else document.title = 'RVUI ' + log.slice(0, 12).join(' | ');
+              };
+              setTimeout(tick, 300);
+            }, 400);
           }, 300);
         } else if (sc === 'keyfx') {
           setTimeout(function () {
