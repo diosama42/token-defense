@@ -2672,7 +2672,23 @@
       PRE_BRANCHES[branchKey] && !game.branchDone[branchKey];
     if (showBranch) game.branchDone[branchKey] = true;
 
-    /* 先播 Boss 自身的过场（马斯克 + Grok 的剧情），再进入选项分支 */
+    const playStory = function () {
+      if (st.bossCine && st.bossCine.length) {
+        game.state = 'cine';
+        playCine(st.bossCine, talk);
+      } else {
+        talk();
+      }
+    };
+
+    /* 奶蛙的选项放在它的剧情过场之前（其余 Boss 放在剧情之后） */
+    if (showBranch && branchKey === 'nail') {
+      clearMinions();
+      PRE_BRANCHES.nail(playStory);
+      return;
+    }
+
+    /* 其余 Boss：先播 Boss 过场与台词，再进入选项分支 */
     const afterCine = function () {
       clearMinions();
       if (showBranch) talk(function () { PRE_BRANCHES[branchKey](spawn); });
@@ -7603,6 +7619,63 @@
             };
             const iv = setInterval(tick, 100);
           }, 400);
+        } else if (sc === 'nailorder') {
+          setTimeout(function () {
+            startGame();
+            const log = [];
+            let started = false, n = 0, playTicks = 0;
+            const tick = function () {
+              n++;
+              const tag = game.stage + ':' + game.state;
+              if (log[log.length - 1] !== tag) log.push(tag);
+              if (game.state === 'cine') { const c = document.getElementById('cine-skip'); if (c) c.click(); }
+              else if (game.state === 'dialog') { const b = document.getElementById('dialog-next'); if (b) b.click(); }
+              else if (game.state === 'play' && !started) {
+                playTicks++;
+                if (playTicks >= 2) {
+                  started = true;
+                  game.stage = 1;
+                  game.bossSpawned = false;
+                  game.stageClearPending = false;
+                  startBossIntro();
+                }
+              }
+              if (n < 40) setTimeout(tick, 250);
+              else {
+                const ch = document.querySelectorAll('.choice__opt');
+                document.title = 'NAILORDER ' + log.join('>') + ' opts=' + ch.length;
+              }
+            };
+            tick();
+          }, 300);
+        } else if (sc === 'nailorder2') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 1;
+            game.bossSpawned = false;
+            game.stageClearPending = false;
+            startBossIntro();
+            const log = [];
+            let n = 0;
+            const tick = function () {
+              n++;
+              const tag = game.stage + ':' + game.state;
+              if (log[log.length - 1] !== tag) log.push(tag);
+              if (game.state === 'cine') { const c = document.getElementById('cine-skip'); if (c) c.click(); }
+              else if (game.state === 'dialog') { const b = document.getElementById('dialog-next'); if (b) b.click(); }
+              if (n < 30) setTimeout(tick, 200);
+              else {
+                const ch = document.querySelectorAll('.choice__opt');
+                document.title = 'NAIL2 ' + log.join('>') + ' opts=' + ch.length + ' txt=' + (document.getElementById('choice-q') ? document.getElementById('choice-q').textContent.slice(0, 12) : '');
+              }
+            };
+            tick();
+          }, 300);
         } else if (sc === 'forceland') {
           setTimeout(function () {
             document.documentElement.classList.add('force-land');
