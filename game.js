@@ -4213,8 +4213,10 @@
     c2.shadowBlur = fs * 0.9;
     c2.fillStyle = color || '#dff8ff';
     c2.fillText(text, cx, cy);
+    if (Object.keys(bulletCache).length > 120) {
+      for (const k in bulletCache) delete bulletCache[k];
+    }
     bulletCache[key] = cv;
-    if (Object.keys(bulletCache).length > 80) { /* 控制缓存 */ }
     return cv;
   }
 
@@ -4248,6 +4250,9 @@
     c2.beginPath();
     c2.arc(cx, cx, r * 1.5, 0, Math.PI * 2);
     c2.fill();
+    if (Object.keys(ebulletCache).length > 60) {
+      for (const k in ebulletCache) delete ebulletCache[k];
+    }
     ebulletCache[key] = cv;
     return cv;
   }
