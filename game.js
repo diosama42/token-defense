@@ -3093,11 +3093,18 @@
         const src = (window.__AUDIO_DATA && window.__AUDIO_DATA.laugh) || 'assets/audio/laugh.mp3';
         laughEl = new Audio(src);
         laughEl.loop = true;
-        laughEl.volume = 0.22 * (SAVE.vol === undefined ? 1 : SAVE.vol);
       }
+      /* 每次播放都按当前音量刷新，避免被设置改动后听不到 */
+      const vol = SAVE.vol === undefined ? 1 : SAVE.vol;
+      laughEl.volume = Math.max(0.18, Math.min(0.55, 0.42 * vol));
       laughEl.currentTime = 0;
       const pr = laughEl.play();
-      if (pr && pr.catch) pr.catch(function () { /* 自动播放被拦截时静默 */ });
+      if (pr && pr.catch) {
+        pr.catch(function () {
+          /* 自动播放被拦截：等下一次交互再试 */
+          setTimeout(function () { try { laughEl.play(); } catch (e2) { /* ignore */ } }, 250);
+        });
+      }
     } catch (e) { /* ignore */ }
   }
 
