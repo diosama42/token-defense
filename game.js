@@ -2160,6 +2160,16 @@
   }
 
   function updateStage(d, dt) {
+    /* 兜底：决战里所有 Boss 都已死亡却还停在战斗，超过 0.8 秒强制进胜利收尾 */
+    if (game.siliconWar && game.state === 'play') {
+      const anyAlive = enemies.some(function (e) { return e.isBoss && !e.dead && e.hp > 0; });
+      if (!anyAlive) {
+        game.warIdleT = (game.warIdleT || 0) + dt;
+        if (game.warIdleT > 0.8) { game.warIdleT = 0; finishSiliconWar(true); }
+      } else {
+        game.warIdleT = 0;
+      }
+    }
     if (game.hiddenFight) { updateHiddenFight(dt); return; }
     const st = STAGES[game.stage];
     if (!st) return;
@@ -7773,6 +7783,59 @@
                 const ch = document.querySelectorAll('.choice__opt');
                 document.title = 'NAILORDER ' + log.join('>') + ' opts=' + ch.length;
               }
+            };
+            tick();
+          }, 300);
+        } else if (sc === 'wardies') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            startSiliconWar(6);
+            player.hp = player.maxHp = 999999;
+            game.infinite = true;
+            let n = 0, deaths = 0;
+            const tick = function () {
+              n++;
+              if (game.state === 'dialog') { const b = document.getElementById('dialog-next'); if (b) b.click(); }
+              if (game.state === 'play' && allies.length > 0 && deaths < 3 && n % 10 === 0) {
+                deaths++;
+                player.invuln = 0;
+                damagePlayer(999999, 1);
+              }
+              if (game.state === 'play' && n > 40) {
+                enemies.slice().forEach(function (e) { if (e.isBoss) killEnemy(e); });
+              }
+              if (n < 70) setTimeout(tick, 250);
+              else document.title = 'WARDLES deaths=' + deaths + ' allies=' + allies.length + ' state=' + game.state + ' over=' + (overEl && overEl.classList.contains('show')) + ' title=' + (el.overTitle ? el.overTitle.textContent : '-') + ' err=' + (window.__ERR || '');
+            };
+            tick();
+          }, 300);
+        } else if (sc === 'warclear') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            startSiliconWar(6);
+            player.hp = player.maxHp = 999999;
+            player.dmgMul = 40;
+            game.infinite = true;
+            window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyJ' }));
+            let n = 0;
+            const tick = function () {
+              n++;
+              if (game.state === 'cine') { const c = document.getElementById('cine-skip'); if (c) c.click(); }
+              if (game.state === 'dialog') { const b = document.getElementById('dialog-next'); if (b) b.click(); }
+              player.token = player.maxToken;
+              player.skillCd = 0; player.ultCd = 0;
+              if (n % 8 === 0) doUlt();
+              if (n % 5 === 0) doSkill();
+              if (n < 120) setTimeout(tick, 300);
+              else document.title = 'WARCLEAR state=' + game.state + ' bosses=' + enemies.filter(function(e){return e.isBoss && !e.dead && e.hp>0;}).length + ' hidden=' + game.hiddenFight + ' winT=' + (game.hiddenWinT||0).toFixed(2) + ' over=' + (overEl && overEl.classList.contains('show')) + ' title=' + (el.overTitle ? el.overTitle.textContent : '-');
             };
             tick();
           }, 300);
