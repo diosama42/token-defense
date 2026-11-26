@@ -4982,6 +4982,7 @@ html.force-land .rotate-btn { bottom: calc(12px + var(--safe-b)); }
 
   function damagePlayer(dmg, dir) {
     const p = player;
+    if (game.state !== 'play') return;
     if (p.dead || p.invuln > 0 || p.shield > 0) return;
     const realDmg = Math.max(1, Math.round(dmg * CONFIG.enemyDamageScale * (game.enemyDmgMul || 1) * (p.defenseMul || 1)));
     /* 硅谷决战里弹幕太密，硬直减半，避免被锁在原地动不了 */
@@ -5362,7 +5363,9 @@ html.force-land .rotate-btn { bottom: calc(12px + var(--safe-b)); }
       if (player.dead) {
         game.deathT -= dt;
         if (game.deathT <= 0 && !overShown) {
-      if (game.siliconWar || game.hiddenFight) { finishSiliconWar(false); }
+      if (game.siliconWar || game.hiddenFight) {
+        if (!warSacrificeRevive()) finishSiliconWar(false);
+      }
       else if (!game.liangBlessed && game.stage <= 1) { offerLiangPower(); }
       else { showOver(false); }
     }
@@ -10270,6 +10273,42 @@ html.force-land .rotate-btn { bottom: calc(12px + var(--safe-b)); }
     }
   }
 
+  /* 最终决战：队友依次献出 Token 与算力，玩家复活；梁圣追加 buff */
+  function warSacrificeRevive() {
+    if (!game.siliconWar && !game.hiddenFight) return false;
+    if (!allies.length) return false;
+    const ally = allies.pop();
+    const name = (ally && ally.name) || '队友';
+    game.warSacrifices = (game.warSacrifices || 0) + 1;
+    player.dead = false;
+    player.hp = player.maxHp;
+    player.invuln = 4.2;
+    player.token = player.maxToken;
+    player.dmgMul *= 1.12;
+    player.defenseMul *= 0.92;
+    game.deathT = 0;
+    game.playerDeadShown = false;
+    overShown = false;
+    ebullets = [];
+    pbullets = [];
+    game.shake = U(14);
+    game.flash = 0.6;
+    rings.push({ x: player.x, y: player.y - U(60), r0: U(20), r1: U(260), w: U(7), life: 0.7, max: 0.7, color: '150,220,255' });
+    addText(W * 0.5, H * 0.28, name + '：我的 Token，拿去。', '150,220,255', 18);
+    addText(W * 0.5, H * 0.35, '梁圣：算力，续上。', '255,209,102', 16);
+    game.state = 'dialog';
+    document.body.classList.add('is-cutscene');
+    showDialog([
+      { name: name, portrait: ally ? ally.key : null, fx: 'zoom', text: '[c=#8fe8ff]我的 Token 和算力，都给你。[/c][w=240]……替我打完。' },
+      { name: '梁圣', portrait: 'liang_sheng', text: '算力续上了。[w=220]伤害 +12%，受到的伤害 -8%。' }
+    ], function () {
+      game.state = 'play';
+      document.body.classList.remove('is-cutscene');
+      addText(player.x, player.y - U(140), '复活 · 队友剩余 ' + allies.length, '150,220,255', 16);
+    });
+    return true;
+  }
+
   function offerLiangPower() {
     game.state = 'dialog';
     document.body.classList.add('is-cutscene');
@@ -11434,6 +11473,57 @@ html.force-land .rotate-btn { bottom: calc(12px + var(--safe-b)); }
               }
             };
             tick();
+          }, 300);
+        } else if (sc === 'sac3') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            startSiliconWar(6);
+            window.__sacLog = [];
+            let n = 0, lastAllies = 9;
+            const tick = function () {
+              n++;
+              if (game.state === 'dialog') { const b = document.getElementById('dialog-next'); if (b) b.click(); }
+              if (game.state === 'play' && !player.dead && game.deathT <= 0 && allies.length !== lastAllies) {
+                lastAllies = allies.length;
+                window.__sacLog.push(lastAllies);
+              }
+              if (game.state === 'play' && !player.dead && allies.length > 0 && n % 6 === 0) {
+                player.invuln = 0;
+                damagePlayer(999999, 1);
+              } else if (game.state === 'play' && !player.dead && allies.length === 0 && n % 6 === 0) {
+                player.invuln = 0;
+                damagePlayer(999999, 1);
+              }
+              if (n < 80) setTimeout(tick, 220);
+              else document.title = 'SAC3 allies=' + allies.length + ' hp=' + player.hp + ' state=' + game.state + ' over=' + (overEl && overEl.classList.contains('show')) + ' title=' + (el.overTitle ? el.overTitle.textContent : '-') + ' log=' + window.__sacLog.join(',');
+            };
+            tick();
+          }, 300);
+        } else if (sc === 'warsacrifice') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            startSiliconWar(6);
+            setTimeout(function () {
+              const before = allies.length;
+              player.invuln = 0;
+              damagePlayer(99999, 1);
+              let n = 0;
+              const tick = function () {
+                n++;
+                if (game.state === 'dialog') { const b = document.getElementById('dialog-next'); if (b) b.click(); }
+                if (n < 16) setTimeout(tick, 250);
+                else document.title = 'SAC before=' + before + ' afterAllies=' + allies.length + ' hp=' + player.hp + ' state=' + game.state + ' dead=' + player.dead + ' dmg=' + player.dmgMul.toFixed(2);
+              };
+              tick();
+            }, 500);
           }, 300);
         } else if (sc === 'chapterstest') {
           setTimeout(function () {
