@@ -5,6 +5,10 @@
 
 ## 在线游玩
 
+- 正式地址：https://diosama42.github.io/token-defense/
+- 单文件版：https://diosama42.github.io/token-defense/play.html
+
+
 - 直接打开 `play.html`（单文件版，全部资源已内嵌）
 - 或打开 `index.html`（开发版，按文件加载 assets）
 
