@@ -3216,3 +3216,9 @@ html.force-land .rotate-btn { bottom: calc(12px + var(--safe-b)); }
   text-align: center;
   color: rgba(160, 200, 230, 0.45);
 }
+
+
+/* 纯 CSS 兜底：不管 JS 有没有跑起来，3 秒后加载页一定消失 */
+@keyframes bootForceHide {
+  to { opacity: 0; visibility: hidden; pointer-events: none; }
+}
