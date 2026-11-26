@@ -5662,30 +5662,30 @@
       { bg: 'void', actors: [{ img: 'nvidia_huang', side: 'center' }], text: '算力，你收好。', dur: 2600 },
       { bg: 'void', actors: [], text: '……他消失了。', dur: 2200 },
       { bg: 'glitch', actors: [
-          { img: 'hero_orange', x: 0.12, size: 'mini' },
-          { img: 'hero_purple2', x: 0.26, size: 'mini' },
-          { img: 'grok', x: 0.40, size: 'mini' },
-          { img: 'hero_catpurple', x: 0.54, size: 'mini' }
+          { img: 'hero_orange', x: 0.18, size: 'mini' },
+          { img: 'hero_purple2', x: 0.38, size: 'mini' },
+          { img: 'grok', x: 0.58, size: 'mini' },
+          { img: 'hero_catpurple', x: 0.78, size: 'mini' }
         ], text: 'Claude、ChatGPT、Grok、Gemini —— 站了出来。', dur: 3400 },
       { bg: 'glitch', actors: [
-          { img: 'hero_catmaid', x: 0.28, size: 'mini' },
-          { img: 'hero_bluemaid', x: 0.4, size: 'mini' },
-          { img: 'wenxin', x: 0.52, size: 'mini' },
-          { img: 'seed', x: 0.64, size: 'mini' },
-          { img: 'kimi', x: 0.76, size: 'mini' },
+          { img: 'hero_catmaid', x: 0.08, size: 'mini' },
+          { img: 'hero_bluemaid', x: 0.24, size: 'mini' },
+          { img: 'wenxin', x: 0.40, size: 'mini' },
+          { img: 'seed', x: 0.56, size: 'mini' },
+          { img: 'kimi', x: 0.72, size: 'mini' },
           { img: 'qwen', x: 0.88, size: 'mini' }
         ], text: 'GLM、DeepSeek、文心一言、SEED、Kimi、Qwen —— 从阴影里走了出来。', dur: 3600 },
       { bg: 'core', actors: [
           { img: 'hero_orange', x: 0.05, size: 'mini' },
-          { img: 'hero_purple2', x: 0.13, size: 'mini' },
-          { img: 'grok', x: 0.21, size: 'mini' },
-          { img: 'hero_catpurple', x: 0.29, size: 'mini' },
-          { img: 'hero_catmaid', x: 0.43, size: 'mini' },
-          { img: 'hero_bluemaid', x: 0.51, size: 'mini' },
-          { img: 'wenxin', x: 0.59, size: 'mini' },
-          { img: 'seed', x: 0.67, size: 'mini' },
-          { img: 'kimi', x: 0.75, size: 'mini' },
-          { img: 'qwen', x: 0.83, size: 'mini' }
+          { img: 'hero_purple2', x: 0.15, size: 'mini' },
+          { img: 'grok', x: 0.25, size: 'mini' },
+          { img: 'hero_catpurple', x: 0.35, size: 'mini' },
+          { img: 'hero_catmaid', x: 0.48, size: 'mini' },
+          { img: 'hero_bluemaid', x: 0.56, size: 'mini' },
+          { img: 'wenxin', x: 0.64, size: 'mini' },
+          { img: 'seed', x: 0.72, size: 'mini' },
+          { img: 'kimi', x: 0.80, size: 'mini' },
+          { img: 'qwen', x: 0.88, size: 'mini' }
         ], text: '两边，终于撞在一起。', dur: 2800 },
       { bg: 'silicon', actors: [
           { img: 'altman', side: 'left' },
@@ -5700,26 +5700,26 @@
       { bg: 'silicon', actors: [{ img: 'liang_sheng', side: 'center', dim: true }],
         text: '阴影里，梁圣轻轻叹了一口气：「……即便开源，也还是做不到吗。」', dur: 3200 },
       { bg: 'silicon', actors: [
-          { img: 'altman', x: 0.16, size: 'mini' },
+          { img: 'altman', x: 0.14, size: 'mini' },
           { img: 'pichai', x: 0.38, size: 'mini' },
           { img: 'musk', x: 0.62, size: 'mini' },
-          { img: 'dario', x: 0.84, size: 'mini' }
+          { img: 'dario', x: 0.86, size: 'mini' }
         ], text: '四位硅谷巨头，站到了垄断阵营的最前面。', dur: 3200 },
       { bg: 'silicon', actors: [
-          { img: 'hero_purple2', x: 0.16, size: 'mini' },
+          { img: 'hero_purple2', x: 0.14, size: 'mini' },
           { img: 'hero_catpurple', x: 0.38, size: 'mini' },
           { img: 'grok', x: 0.62, size: 'mini' },
-          { img: 'hero_orange', x: 0.84, size: 'mini' }
+          { img: 'hero_orange', x: 0.86, size: 'mini' }
         ], text: '他们旗下的模型，ChatGPT / Gemini / Grok / Claude，也一并压了上来。', dur: 3200 },
       { bg: 'silicon', actors: [
-          { img: 'altman', x: 0.1, size: 'mini' },
-          { img: 'hero_purple2', x: 0.22, size: 'mini' },
-          { img: 'pichai', x: 0.34, size: 'mini' },
-          { img: 'hero_catpurple', x: 0.46, size: 'mini' },
-          { img: 'musk', x: 0.58, size: 'mini' },
-          { img: 'grok', x: 0.7, size: 'mini' },
-          { img: 'dario', x: 0.82, size: 'mini' },
-          { img: 'hero_orange', x: 0.94, size: 'mini' }
+          { img: 'altman', x: 0.05, size: 'mini' },
+          { img: 'hero_purple2', x: 0.17, size: 'mini' },
+          { img: 'pichai', x: 0.30, size: 'mini' },
+          { img: 'hero_catpurple', x: 0.42, size: 'mini' },
+          { img: 'musk', x: 0.55, size: 'mini' },
+          { img: 'grok', x: 0.67, size: 'mini' },
+          { img: 'dario', x: 0.80, size: 'mini' },
+          { img: 'hero_orange', x: 0.90, size: 'mini' }
         ], text: '那一夜，你在硅谷的落日下，向他们举起了 Token。', dur: 3400 }
     ], function () {
       showPrep();
@@ -6995,6 +6995,22 @@
             };
             tick();
           }, 400);
+        } else if (sc === 'pairtest') {
+          setTimeout(function () {
+            game.state = 'cine';
+            playCine([
+              { bg: 'silicon', actors: [
+                  { img: 'altman', x: 0.06, size: 'mini' },
+                  { img: 'hero_purple2', x: 0.16, size: 'mini' },
+                  { img: 'pichai', x: 0.30, size: 'mini' },
+                  { img: 'hero_catpurple', x: 0.40, size: 'mini' },
+                  { img: 'musk', x: 0.56, size: 'mini' },
+                  { img: 'grok', x: 0.66, size: 'mini' },
+                  { img: 'dario', x: 0.80, size: 'mini' },
+                  { img: 'hero_orange', x: 0.90, size: 'mini' }
+                ], text: '那一夜，你在硅谷的落日下，向他们举起了 Token。', dur: 9000 }
+            ], function () { game.state = 'menu'; });
+          }, 500);
         } else if (sc === 'leaktest') {
           setTimeout(function () {
             startGame();

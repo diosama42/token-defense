@@ -2797,3 +2797,43 @@ html.layout-edit .layout-hint { display: block; }
   flex: 0 0 auto;
   margin: 0;
 }
+
+
+/* 过场自由站位 & 小尺寸演员（剧情 CG 里成对站位用） */
+.cine__actor--free {
+  transform: translateX(-50%);
+  animation: none;
+  opacity: 1;
+}
+
+.cine__actor--mini {
+  width: clamp(42px, 9.5vmin, 118px);
+  max-width: none;
+  max-height: none;
+  bottom: 10%;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.65));
+}
+
+
+/* 硅谷落日过场背景（此前缺失，导致剧情 CG 全黑） */
+.cine__bg--silicon {
+  background:
+    radial-gradient(58% 48% at 62% 68%, rgba(255, 176, 92, 0.55), transparent 62%),
+    radial-gradient(70% 60% at 30% 40%, #3a1f4e, #140a22 55%, #05040a 80%),
+    linear-gradient(180deg, #241032 0%, #4a2246 45%, #b06a4a 72%, #1a0d16 100%);
+}
+
+/* 小尺寸演员再大一点、抬高一点，成对站位更清楚 */
+.cine__actor--mini {
+  width: clamp(52px, 13vmin, 150px);
+  bottom: 21%;
+}
+
+
+/* 窄屏过场：小演员再缩一档，8 人成对站位也不重叠 */
+@media (max-width: 640px) {
+  .cine__actor--mini {
+    width: clamp(32px, 8.6vmin, 76px);
+    bottom: 24%;
+  }
+}
