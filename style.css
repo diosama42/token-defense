@@ -3222,3 +3222,7 @@ html.force-land .rotate-btn { bottom: calc(12px + var(--safe-b)); }
 @keyframes bootForceHide {
   to { opacity: 0; visibility: hidden; pointer-events: none; }
 }
+
+
+/* 战斗开始后隐藏「横过来玩」提示 */
+body.is-playing .rotate-tip { display: none !important; }

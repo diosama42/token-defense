@@ -2007,7 +2007,7 @@
         game.freezeT = 10;
         game.shake = U(26);
         game.flash = 0.55;
-        playLaugh();
+        queueLaugh(3);
         input.jumpQueued = false;
         input.held.attack = false;
         sfx(150, 0.9, 'sawtooth', 0.07);
@@ -3191,6 +3191,25 @@
 
   /* ---------- 西装奶蛙捧腹大笑：全程静止 + 大脸特写 ---------- */
   let laughEl = null;
+  let laughTimers = [];
+  function clearLaughTimers() {
+    laughTimers.forEach(function (t) { clearTimeout(t); });
+    laughTimers = [];
+  }
+  function queueLaugh(seconds) {
+    clearLaughTimers();
+    const total = Math.max(1, Math.round(seconds || 3));
+    for (let i = 0; i < total; i++) {
+      laughTimers.push(setTimeout(function () {
+        addText(W * 0.5, H * 0.26, '奶蛙深吸一口气…… ' + (total - i), '255,209,102', 24);
+        sfx(320, 0.06, 'triangle', 0.018);
+      }, i * 1000));
+    }
+    laughTimers.push(setTimeout(function () {
+      addText(W * 0.5, H * 0.26, '呱哈哈哈哈哈！', '255,120,150', 26);
+      playLaugh();
+    }, total * 1000));
+  }
   function playLaugh() {
     if (muted) return;
     ensureAudio();
@@ -3202,7 +3221,7 @@
       }
       /* 每次播放都按当前音量刷新，避免被设置改动后听不到 */
       const vol = SAVE.vol === undefined ? 1 : SAVE.vol;
-      laughEl.volume = Math.max(0.18, Math.min(0.55, 0.42 * vol));
+      laughEl.volume = Math.max(0.10, Math.min(0.30, 0.24 * vol));
       laughEl.currentTime = 0;
       const pr = laughEl.play();
       if (pr && pr.catch) {
@@ -3215,6 +3234,7 @@
   }
 
   function stopLaugh() {
+    clearLaughTimers();
     try {
       if (laughEl) { laughEl.pause(); laughEl.currentTime = 0; }
     } catch (e) { /* ignore */ }
