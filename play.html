@@ -3269,6 +3269,32 @@ body.is-playing .rotate-tip { display: none !important; }
   padding: 1px 5px;
 }
 
+
+/* 按键按下反馈：变灰 + 波纹 */
+.act, .jump {
+  transition: transform 0.08s ease, filter 0.1s ease;
+}
+.act { position: relative; overflow: hidden; }
+.act.is-down {
+  transform: scale(0.93);
+  filter: brightness(0.72) saturate(0.55);
+}
+.act::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.act.is-ripple::after {
+  animation: actRipple 0.42s ease-out;
+}
+@keyframes actRipple {
+  0% { box-shadow: inset 0 0 0 0 rgba(190, 245, 255, 0.6); }
+  100% { box-shadow: inset 0 0 0 28px rgba(190, 245, 255, 0); }
+}
+.jump.is-down { transform: scale(0.94); filter: brightness(0.75); }
+
 </style>
 </head>
 <body>
@@ -4500,6 +4526,7 @@ body.is-playing .rotate-tip { display: none !important; }
     bindHold(btn,
       function () {
         input.held[name] = true;
+        rippleAct(name);
         if (game.state === 'menu') startGame();
         if (ACTIONS[name]) ACTIONS[name]();
       },
@@ -4511,6 +4538,7 @@ body.is-playing .rotate-tip { display: none !important; }
   bindHold(jumpBtn,
     function () {
       input.jumpQueued = true;
+      flashJump();
       if (game.state === 'menu') startGame();
     },
     function () { /* 跳跃不需要持续按住 */ }
@@ -4525,7 +4553,8 @@ body.is-playing .rotate-tip { display: none !important; }
       startGame();
       return;
     }
-    if (e.code === 'KeyJ') doAttack();
+    if (e.code === 'KeyJ') { rippleAct('attack'); doAttack(); }
+    if (e.code === 'KeyW' || e.code === 'Space' || e.code === 'ArrowUp') flashJump();
     if (e.code === 'KeyK') doSkill();
     if (e.code === 'KeyL') doUlt();
     if (e.code === 'KeyU') doSupport();
@@ -4606,6 +4635,32 @@ body.is-playing .rotate-tip { display: none !important; }
     });
   }
 
+  /* 按键反馈：按下变灰 + 波纹 */
+  function actBtn(name) {
+    return (typeof el !== 'undefined' && el.acts) ? el.acts[name] : null;
+  }
+  function flashAct(name) {
+    const b = actBtn(name);
+    if (!b || !b.classList) return;
+    b.classList.add('is-down');
+    clearTimeout(b._downTimer);
+    b._downTimer = setTimeout(function () { b.classList.remove('is-down'); }, 130);
+  }
+  function flashJump() {
+    const b = document.getElementById('btn-jump');
+    if (!b || !b.classList) return;
+    b.classList.add('is-down');
+    clearTimeout(b._downTimer);
+    b._downTimer = setTimeout(function () { b.classList.remove('is-down'); }, 130);
+  }
+  function rippleAct(name) {
+    const b = actBtn(name);
+    if (!b || !b.classList) return;
+    b.classList.add('is-ripple');
+    clearTimeout(b._ripTimer);
+    b._ripTimer = setTimeout(function () { b.classList.remove('is-ripple'); }, 420);
+  }
+
   function heroDmg() {
     let m = player.dmgMul;
     if (player.astra > 0) m *= 1.2;
@@ -4624,6 +4679,7 @@ body.is-playing .rotate-tip { display: none !important; }
   }
 
   function doAttack() {
+    flashAct('attack');
     if (!canAct()) return;
     const p = player;
     if (p.attackCd > 0) {
@@ -4684,6 +4740,8 @@ body.is-playing .rotate-tip { display: none !important; }
 
   /* ---------- 技能：四选一，效果完全不同 ---------- */
   function doSkill() {
+    flashAct('skill');
+    rippleAct('skill');
     if (!canAct()) return;
     const p = player;
     if (p.skillCd > 0 || p.token < SKILL_COST) { deny(el.acts.skill); return; }
@@ -4777,6 +4835,8 @@ body.is-playing .rotate-tip { display: none !important; }
 
   /* ---------- 大招 ---------- */
   function doUlt() {
+    flashAct('ult');
+    rippleAct('ult');
     if (!canAct()) return;
     const p = player;
     if (p.ultCd > 0 || (!game.infinite && p.token < ULT_COST)) { deny(el.acts.ult); return; }
@@ -4874,6 +4934,8 @@ body.is-playing .rotate-tip { display: none !important; }
 
   /* ---------- 支援召唤 ---------- */
   function doSupport() {
+    flashAct('support');
+    rippleAct('support');
     if (!canAct()) return;
     const p = player;
     if (p.supportLock > 0) return;
@@ -11544,6 +11606,21 @@ body.is-playing .rotate-tip { display: none !important; }
               }
             };
             tick();
+          }, 300);
+        } else if (sc === 'keyfx') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            player.token = player.maxToken;
+            setTimeout(function () { window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyK' })); }, 200);
+            setTimeout(function () {
+              const b = document.querySelector('[data-act="skill"]');
+              document.title = 'KEYFX down=' + b.classList.contains('is-down') + ' ripple=' + b.classList.contains('is-ripple');
+            }, 260);
           }, 300);
         } else if (sc === 'wardies') {
           setTimeout(function () {

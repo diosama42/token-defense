@@ -741,6 +741,7 @@
     bindHold(btn,
       function () {
         input.held[name] = true;
+        rippleAct(name);
         if (game.state === 'menu') startGame();
         if (ACTIONS[name]) ACTIONS[name]();
       },
@@ -752,6 +753,7 @@
   bindHold(jumpBtn,
     function () {
       input.jumpQueued = true;
+      flashJump();
       if (game.state === 'menu') startGame();
     },
     function () { /* 跳跃不需要持续按住 */ }
@@ -766,7 +768,8 @@
       startGame();
       return;
     }
-    if (e.code === 'KeyJ') doAttack();
+    if (e.code === 'KeyJ') { rippleAct('attack'); doAttack(); }
+    if (e.code === 'KeyW' || e.code === 'Space' || e.code === 'ArrowUp') flashJump();
     if (e.code === 'KeyK') doSkill();
     if (e.code === 'KeyL') doUlt();
     if (e.code === 'KeyU') doSupport();
@@ -847,6 +850,32 @@
     });
   }
 
+  /* 按键反馈：按下变灰 + 波纹 */
+  function actBtn(name) {
+    return (typeof el !== 'undefined' && el.acts) ? el.acts[name] : null;
+  }
+  function flashAct(name) {
+    const b = actBtn(name);
+    if (!b || !b.classList) return;
+    b.classList.add('is-down');
+    clearTimeout(b._downTimer);
+    b._downTimer = setTimeout(function () { b.classList.remove('is-down'); }, 130);
+  }
+  function flashJump() {
+    const b = document.getElementById('btn-jump');
+    if (!b || !b.classList) return;
+    b.classList.add('is-down');
+    clearTimeout(b._downTimer);
+    b._downTimer = setTimeout(function () { b.classList.remove('is-down'); }, 130);
+  }
+  function rippleAct(name) {
+    const b = actBtn(name);
+    if (!b || !b.classList) return;
+    b.classList.add('is-ripple');
+    clearTimeout(b._ripTimer);
+    b._ripTimer = setTimeout(function () { b.classList.remove('is-ripple'); }, 420);
+  }
+
   function heroDmg() {
     let m = player.dmgMul;
     if (player.astra > 0) m *= 1.2;
@@ -865,6 +894,7 @@
   }
 
   function doAttack() {
+    flashAct('attack');
     if (!canAct()) return;
     const p = player;
     if (p.attackCd > 0) {
@@ -925,6 +955,8 @@
 
   /* ---------- 技能：四选一，效果完全不同 ---------- */
   function doSkill() {
+    flashAct('skill');
+    rippleAct('skill');
     if (!canAct()) return;
     const p = player;
     if (p.skillCd > 0 || p.token < SKILL_COST) { deny(el.acts.skill); return; }
@@ -1018,6 +1050,8 @@
 
   /* ---------- 大招 ---------- */
   function doUlt() {
+    flashAct('ult');
+    rippleAct('ult');
     if (!canAct()) return;
     const p = player;
     if (p.ultCd > 0 || (!game.infinite && p.token < ULT_COST)) { deny(el.acts.ult); return; }
@@ -1115,6 +1149,8 @@
 
   /* ---------- 支援召唤 ---------- */
   function doSupport() {
+    flashAct('support');
+    rippleAct('support');
     if (!canAct()) return;
     const p = player;
     if (p.supportLock > 0) return;
@@ -7785,6 +7821,21 @@
               }
             };
             tick();
+          }, 300);
+        } else if (sc === 'keyfx') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            player.token = player.maxToken;
+            setTimeout(function () { window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyK' })); }, 200);
+            setTimeout(function () {
+              const b = document.querySelector('[data-act="skill"]');
+              document.title = 'KEYFX down=' + b.classList.contains('is-down') + ' ripple=' + b.classList.contains('is-ripple');
+            }, 260);
           }, 300);
         } else if (sc === 'wardies') {
           setTimeout(function () {
