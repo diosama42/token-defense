@@ -2906,3 +2906,74 @@ body:not(.is-playing) .pad {
   visibility: hidden !important;
   pointer-events: none !important;
 }
+
+
+/* 竖屏提示：只在竖屏且触摸设备出现 */
+.rotate-tip {
+  display: none;
+  position: fixed;
+  left: 50%;
+  bottom: calc(12px + var(--safe-b));
+  transform: translateX(-50%);
+  z-index: 8800;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(8, 16, 28, 0.82);
+  border: 1px solid rgba(94, 231, 255, 0.28);
+  color: rgba(200, 240, 255, 0.8);
+  font: 600 11px/1 "PingFang SC", system-ui;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+  animation: tipFloat 3.2s ease-in-out infinite;
+}
+html.is-portrait .rotate-tip { display: block; }
+@media (pointer: fine) { .rotate-tip { display: none !important; } }
+@keyframes tipFloat {
+  0%, 100% { transform: translate(-50%, 0); opacity: 0.65; }
+  50% { transform: translate(-50%, -4px); opacity: 1; }
+}
+
+/* 微信内提示条 */
+.wx-tip {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  top: calc(8px + var(--safe-t));
+  z-index: 9500;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: rgba(20, 30, 12, 0.92);
+  border: 1px solid rgba(255, 209, 102, 0.5);
+  color: #ffe6a8;
+  font: 600 11px/1.5 "PingFang SC", system-ui;
+  text-align: center;
+  transition: opacity 0.4s, transform 0.4s;
+}
+.wx-tip.is-off { opacity: 0; transform: translateY(-8px); pointer-events: none; }
+.wx-tip b { color: #fff3cf; }
+
+
+/* LANDSCAPE-COMPACT：手机横屏（矮视口）压缩开始页，一屏放下 */
+@media (orientation: landscape) and (max-height: 580px) {
+  .start { padding: 8px 14px 12px; }
+  .start__kicker { font-size: 8px; margin: 0 0 2px; }
+  .start__title { font-size: clamp(22px, 7vh, 40px); margin: 2px 0 0; }
+  .start__title span { font-size: 0.42em; }
+  .start__desc { font-size: 10.5px; line-height: 1.5; margin: 6px auto 8px; max-width: 94%; }
+
+  .mode-pick { margin: 6px 0; gap: 8px; }
+  .mode-pick__item { padding: 7px 12px; }
+  .mode-pick__item strong { font-size: 13px; }
+  .mode-pick__item span { font-size: 9.5px; }
+
+  .hero-pick { margin: 6px 0 8px; gap: 6px; }
+  .hero-pick__item { width: clamp(46px, 8.4vh, 66px); padding: 3px; border-radius: 10px; }
+  .hero-pick__item img { height: clamp(42px, 8vh, 62px); }
+  .hero-pick__item span { font-size: 8.5px; }
+
+  .start__btn { min-width: 170px; }
+  .start__btn--main { padding: 8px 22px; margin: 2px auto 6px; font-size: 15px; }
+  .start__btn--ghost { padding: 6px 16px; font-size: 12.5px; }
+  .start__set { margin-top: 4px; padding: 5px 12px; font-size: 11px; }
+  .start__keys, .start__tip { display: none; }
+}

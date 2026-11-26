@@ -6859,12 +6859,45 @@
     resize();
     window.addEventListener('resize', resize);
     window.addEventListener('orientationchange', function () {
-      setTimeout(resize, 120);
-      setTimeout(resize, 420);
+      setTimeout(resize, 60);
+      setTimeout(resize, 220);
+      setTimeout(resize, 600);
     });
+    /* 更可靠的方向监听：部分安卓浏览器不触发 orientationchange */
+    try {
+      if (screen.orientation && screen.orientation.addEventListener) {
+        screen.orientation.addEventListener('change', function () {
+          setTimeout(resize, 80);
+          setTimeout(resize, 320);
+        });
+      }
+    } catch (e) { /* ignore */ }
+    try {
+      const mq = window.matchMedia('(orientation: landscape)');
+      const onMq = function () { setTimeout(resize, 80); setTimeout(resize, 320); };
+      if (mq.addEventListener) mq.addEventListener('change', onMq);
+      else if (mq.addListener) mq.addListener(onMq);
+    } catch (e2) { /* ignore */ }
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', resize);
     }
+
+    /* 竖屏提示 + 微信内提示（微信 WebView 会锁竖屏，需要跳浏览器） */
+    try {
+      const tip = document.createElement('div');
+      tip.className = 'rotate-tip';
+      tip.textContent = '↻ 横过来玩，视野更宽';
+      document.body.appendChild(tip);
+      const ua = navigator.userAgent || '';
+      if (/MicroMessenger|QQ\//i.test(ua)) {
+        const wx = document.createElement('div');
+        wx.className = 'wx-tip';
+        wx.innerHTML = '<b>在微信里无法横屏</b>　点右上角「···」→ 在浏览器打开';
+        document.body.appendChild(wx);
+        wx.addEventListener('click', function () { wx.classList.add('is-off'); });
+        setTimeout(function () { wx.classList.add('is-off'); }, 15000);
+      }
+    } catch (e3) { /* ignore */ }
     if (window.ResizeObserver) {
       new ResizeObserver(function () { resize(); }).observe(canvas);
     }
