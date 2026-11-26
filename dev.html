@@ -12,6 +12,28 @@
 <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
+<div id="notice" class="notice" aria-hidden="true">
+  <div class="notice__box">
+    <p class="notice__k">BEFORE YOU START</p>
+    <h2 class="notice__title">开始之前，三件小事</h2>
+    <ul class="notice__list">
+      <li>
+        <b>素材版权</b>
+        <span>游戏内图片素材均取自网络二传作品（同人二创），版权归原作者所有；本作品仅用于校内学习实践，不作商业用途。如原作者认为不宜使用，请联系删除，我们会立即移除。</span>
+      </li>
+      <li>
+        <b>横屏体验</b>
+        <span>建议把手机横过来玩，视野更宽。微信内置浏览器会锁竖屏，请点右上角「···」→ 在浏览器打开；竖屏同样可以玩。</span>
+      </li>
+      <li>
+        <b>关于卡顿</b>
+        <span>手机首次打开需要解码立绘，若出现卡顿，可在「设置」里打开「低配模式」，会减少粒子与弹幕数量，更流畅。</span>
+      </li>
+    </ul>
+    <button class="notice__ok" id="notice-ok" type="button">我知道了，开始</button>
+    <p class="notice__hint">之后可在开始页底部点「声明」再次查看</p>
+  </div>
+</div>
 <div id="boot" class="boot">
   <div class="boot__k">TOKEN DEFENSE</div>
   <div class="boot__title">词元保卫战</div>
@@ -173,6 +195,7 @@
       <p class="start__tip">触屏：左摇杆移动 / 上推跳跃，右下四键出手</p>
       <p class="author">本作品为校内学习实践使用 · 素材取自网络二传作品 · 无盈利</p>
       <button class="start__set" id="set-open2" type="button">设置</button>
+        <button class="start__set" id="notice-open" type="button">声明</button>
     </div>
   </section>
 

@@ -62,6 +62,39 @@
   });
 
   /* 启动加载层：等所有立绘解码完再进开始页，避免手机上半张图 */
+  function bindNotice() {
+    const notice = document.getElementById('notice');
+    if (!notice) return;
+    const KEY = 'tb_notice_v1';
+    const show = function () {
+      notice.classList.add('show');
+      if (typeof notice.setAttribute === 'function') notice.setAttribute('aria-hidden', 'false');
+    };
+    const hide = function () {
+      notice.classList.remove('show');
+      if (typeof notice.setAttribute === 'function') notice.setAttribute('aria-hidden', 'true');
+    };
+    let seen = false;
+    try { seen = localStorage.getItem(KEY) === '1'; } catch (e) { /* ignore */ }
+    if (!seen) show();
+    const ok = document.getElementById('notice-ok');
+    if (ok) {
+      ok.addEventListener('click', function (e) {
+        e.stopPropagation();
+        hide();
+        try { localStorage.setItem(KEY, '1'); } catch (e2) { /* ignore */ }
+      });
+    }
+    const open = document.getElementById('notice-open');
+    if (open) {
+      open.addEventListener('click', function (e) {
+        e.stopPropagation();
+        show();
+      });
+    }
+  }
+  bindNotice();
+
   function bootGate() {
     const boot = document.getElementById('boot');
     if (!boot) return;

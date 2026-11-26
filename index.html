@@ -2990,9 +2990,123 @@ html.is-portrait .rotate-tip { display: block; }
   .start__keys, .start__tip { display: none; }
 }
 
+
+/* 开场声明弹窗 */
+.notice {
+  position: fixed;
+  inset: 0;
+  z-index: 9800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(2, 4, 10, 0.78);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+.notice.show { opacity: 1; visibility: visible; pointer-events: auto; }
+.notice__box {
+  width: min(560px, 94vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 22px 22px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(94, 231, 255, 0.28);
+  background: linear-gradient(180deg, rgba(14, 24, 40, 0.98), rgba(6, 10, 18, 0.98));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+}
+.notice__k {
+  margin: 0 0 6px;
+  font: 700 9px/1 ui-monospace, monospace;
+  letter-spacing: 0.34em;
+  color: rgba(94, 231, 255, 0.55);
+  text-align: center;
+}
+.notice__title {
+  margin: 0 0 14px;
+  font-size: 20px;
+  text-align: center;
+  color: #eaf8ff;
+}
+.notice__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.notice__list li {
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: rgba(94, 231, 255, 0.05);
+  border: 1px solid rgba(94, 231, 255, 0.14);
+}
+.notice__list b {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12.5px;
+  color: #8fe8ff;
+}
+.notice__list span {
+  display: block;
+  font-size: 12px;
+  line-height: 1.7;
+  color: rgba(225, 242, 255, 0.78);
+}
+.notice__ok {
+  display: block;
+  width: 100%;
+  margin: 16px 0 8px;
+  padding: 11px 0;
+  border-radius: 12px;
+  border: 1px solid rgba(110, 247, 180, 0.5);
+  background: linear-gradient(180deg, rgba(30, 80, 70, 0.9), rgba(8, 30, 26, 0.9));
+  color: #d8ffe9;
+  font: 700 14px/1 "PingFang SC", system-ui;
+  cursor: pointer;
+}
+.notice__ok:active { transform: translateY(1px); }
+.notice__hint {
+  margin: 0;
+  text-align: center;
+  font-size: 10.5px;
+  color: rgba(160, 200, 230, 0.42);
+}
+@media (max-width: 520px) {
+  .notice__box { padding: 18px 15px 14px; }
+  .notice__title { font-size: 18px; }
+  .notice__list span { font-size: 11.5px; }
+}
+
 </style>
 </head>
 <body>
+<div id="notice" class="notice" aria-hidden="true">
+  <div class="notice__box">
+    <p class="notice__k">BEFORE YOU START</p>
+    <h2 class="notice__title">开始之前，三件小事</h2>
+    <ul class="notice__list">
+      <li>
+        <b>素材版权</b>
+        <span>游戏内图片素材均取自网络二传作品（同人二创），版权归原作者所有；本作品仅用于校内学习实践，不作商业用途。如原作者认为不宜使用，请联系删除，我们会立即移除。</span>
+      </li>
+      <li>
+        <b>横屏体验</b>
+        <span>建议把手机横过来玩，视野更宽。微信内置浏览器会锁竖屏，请点右上角「···」→ 在浏览器打开；竖屏同样可以玩。</span>
+      </li>
+      <li>
+        <b>关于卡顿</b>
+        <span>手机首次打开需要解码立绘，若出现卡顿，可在「设置」里打开「低配模式」，会减少粒子与弹幕数量，更流畅。</span>
+      </li>
+    </ul>
+    <button class="notice__ok" id="notice-ok" type="button">我知道了，开始</button>
+    <p class="notice__hint">之后可在开始页底部点「声明」再次查看</p>
+  </div>
+</div>
 <div id="boot" class="boot">
   <div class="boot__k">TOKEN DEFENSE</div>
   <div class="boot__title">词元保卫战</div>
@@ -3154,6 +3268,7 @@ html.is-portrait .rotate-tip { display: block; }
       <p class="start__tip">触屏：左摇杆移动 / 上推跳跃，右下四键出手</p>
       <p class="author">本作品为校内学习实践使用 · 素材取自网络二传作品 · 无盈利</p>
       <button class="start__set" id="set-open2" type="button">设置</button>
+        <button class="start__set" id="notice-open" type="button">声明</button>
     </div>
   </section>
 
@@ -3501,6 +3616,39 @@ html.is-portrait .rotate-tip { display: block; }
   });
 
   /* 启动加载层：等所有立绘解码完再进开始页，避免手机上半张图 */
+  function bindNotice() {
+    const notice = document.getElementById('notice');
+    if (!notice) return;
+    const KEY = 'tb_notice_v1';
+    const show = function () {
+      notice.classList.add('show');
+      if (typeof notice.setAttribute === 'function') notice.setAttribute('aria-hidden', 'false');
+    };
+    const hide = function () {
+      notice.classList.remove('show');
+      if (typeof notice.setAttribute === 'function') notice.setAttribute('aria-hidden', 'true');
+    };
+    let seen = false;
+    try { seen = localStorage.getItem(KEY) === '1'; } catch (e) { /* ignore */ }
+    if (!seen) show();
+    const ok = document.getElementById('notice-ok');
+    if (ok) {
+      ok.addEventListener('click', function (e) {
+        e.stopPropagation();
+        hide();
+        try { localStorage.setItem(KEY, '1'); } catch (e2) { /* ignore */ }
+      });
+    }
+    const open = document.getElementById('notice-open');
+    if (open) {
+      open.addEventListener('click', function (e) {
+        e.stopPropagation();
+        show();
+      });
+    }
+  }
+  bindNotice();
+
   function bootGate() {
     const boot = document.getElementById('boot');
     if (!boot) return;
