@@ -7457,6 +7457,7 @@ html.layout-edit .layout-hint { display: block; }
       if (game.lowFx || (game.fps && game.fps < 50)) {
         ctx.fillStyle = b.color || '#dff8ff';
         ctx.fillText(b.text, 0, 0);
+        ctx.restore();
         continue;
       }
 
@@ -10245,6 +10246,24 @@ html.layout-edit .layout-hint { display: block; }
                 ' eb=' + ebullets.length + ' errs=' + errs.length + ' err=' + (window.__ERR || '').slice(0, 50);
             };
             tick();
+          }, 400);
+        } else if (sc === 'leaktest') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            if (cineEl) cineEl.classList.remove('show');
+            if (dialogEl) dialogEl.classList.remove('show');
+            dialogQueue = [];
+            game.state = 'play';
+            game.lowFx = true;
+            player.hp = player.maxHp = 9999;
+            for (let i = 0; i < 40; i++) {
+              tokenBullet(player.x + (i - 20) * 8, player.y - 70 - (i % 5) * 6, 200, 0, 10, false);
+            }
+            setTimeout(function () {
+              document.title = 'LEAK bullets=' + pbullets.length + ' transform=' + ctx.getTransform().e.toFixed(1) + ',' + ctx.getTransform().f.toFixed(1);
+            }, 800);
           }, 400);
         } else if (sc === 'grokorder2') {
           setTimeout(function () {
