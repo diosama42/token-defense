@@ -6932,6 +6932,55 @@
       window.visualViewport.addEventListener('resize', resize);
     }
 
+    /* 手动横屏按钮：系统自动旋转关掉时也能横过来 */
+    try {
+      const rb = document.createElement('button');
+      rb.type = 'button';
+      rb.className = 'rotate-btn';
+      rb.textContent = '横屏';
+      document.body.appendChild(rb);
+      const toast = function (msg) {
+        try {
+          let t = document.getElementById('rot-toast');
+          if (!t) {
+            t = document.createElement('div');
+            t.id = 'rot-toast';
+            t.className = 'rot-toast';
+            document.body.appendChild(t);
+          }
+          t.textContent = msg;
+          t.classList.add('show');
+          setTimeout(function () { t.classList.remove('show'); }, 5200);
+        } catch (e3) { /* ignore */ }
+      };
+      rb.addEventListener('click', function (e) {
+        e.stopPropagation();
+        /* 先请求全屏 + 锁定横屏（安卓 Chrome/Edge 支持） */
+        try {
+          const root = document.documentElement;
+          const req = root.requestFullscreen || root.webkitRequestFullscreen;
+          if (req && !document.fullscreenElement) {
+            const pr = req.call(root);
+            if (pr && pr.catch) pr.catch(function () {});
+          }
+        } catch (e2) { /* ignore */ }
+        try {
+          if (screen.orientation && screen.orientation.lock) {
+            const lp = screen.orientation.lock('landscape');
+            if (lp && lp.catch) lp.catch(function () {});
+          }
+        } catch (e4) { /* ignore */ }
+        setTimeout(function () {
+          const stillPortrait = window.innerHeight > window.innerWidth * 1.02;
+          if (stillPortrait) {
+            toast('横屏没有生效：请打开手机控制中心的「自动旋转」，或点浏览器菜单里的旋转/横屏按钮');
+          } else {
+            toast('已横屏');
+          }
+        }, 1000);
+      });
+    } catch (e0) { /* ignore */ }
+
     /* 竖屏提示 + 微信内提示（微信 WebView 会锁竖屏，需要跳浏览器） */
     try {
       const tip = document.createElement('div');
@@ -7554,6 +7603,15 @@
             };
             const iv = setInterval(tick, 100);
           }, 400);
+        } else if (sc === 'forceland') {
+          setTimeout(function () {
+            document.documentElement.classList.add('force-land');
+            const rb = document.querySelector('.rotate-btn');
+            if (rb) rb.textContent = '竖屏';
+            resize();
+            setTimeout(resize, 200);
+            setTimeout(function () { document.title = 'FORCELAND W=' + W + ' H=' + H + ' portrait=' + document.documentElement.classList.contains('is-portrait'); }, 600);
+          }, 500);
         } else if (sc === 'winalive') {
           setTimeout(function () {
             startGame();

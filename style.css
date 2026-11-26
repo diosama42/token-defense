@@ -3069,3 +3069,64 @@ html.is-portrait .rotate-tip { display: block; }
   .notice__title { font-size: 18px; }
   .notice__list span { font-size: 11.5px; }
 }
+
+
+/* 手动横屏：系统自动旋转被关掉时，用 CSS 把整个页面转 90° */
+html.force-land,
+html.force-land body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+html.force-land body {
+  position: fixed;
+  top: 0;
+  left: 100vw;
+  width: 100vh;
+  height: 100vw;
+  transform: rotate(90deg);
+  transform-origin: top left;
+}
+
+.rotate-btn {
+  display: none;
+  position: fixed;
+  left: 50%;
+  bottom: calc(78px + var(--safe-b));
+  transform: translateX(-50%);
+  z-index: 8900;
+  padding: 7px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(94, 231, 255, 0.42);
+  background: rgba(8, 18, 30, 0.86);
+  color: #bfeeff;
+  font: 700 11px/1 "PingFang SC", system-ui;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+@media (pointer: coarse) {
+  html.is-portrait .rotate-btn, html.force-land .rotate-btn { display: block; }
+}
+html.force-land .rotate-btn { bottom: calc(12px + var(--safe-b)); }
+
+
+.rot-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(120px + var(--safe-b));
+  transform: translateX(-50%) translateY(8px);
+  z-index: 9700;
+  max-width: 86vw;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: rgba(8, 16, 28, 0.94);
+  border: 1px solid rgba(255, 209, 102, 0.45);
+  color: #ffe6a8;
+  font: 600 11.5px/1.6 "PingFang SC", system-ui;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.rot-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
