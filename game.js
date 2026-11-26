@@ -848,7 +848,7 @@
       dmg: dmg,
       text: big ? 'TOKEN' : pick(TOKEN_TEXTS),
       color: color || pick(HEROES[heroIndex].textColors),
-      size: big ? U(22) : U(15),
+      size: big ? U(game.siliconWar ? 28 : 22) : U(game.siliconWar ? 19 : 15),
       rot: rand(-0.14, 0.14),
       life: 1.6,
       r: big ? U(18) : U(12),
@@ -902,7 +902,8 @@
 
   function doAttack() {
     flashAct('attack');
-    if (!canAct()) return;
+    const warAttack = game.siliconWar && game.state === 'play' && !player.dead;
+    if (!canAct() && !warAttack) return;
     const p = player;
     if (p.attackCd > 0) {
       /* 输入缓冲：冷却中按下去，结束瞬间自动接上 */
@@ -922,6 +923,8 @@
     const dmg = heroDmg() * (p.chain === 3 ? 18 : p.chain === 2 ? 11 : 7);
     const bx = p.x + p.face * U(42);
     const by = p.y - U(74);
+    rings.push({ x: bx, y: by, r0: U(4), r1: U(42), w: U(3), life: 0.18, max: 0.18, color: HEROES[heroIndex].color });
+    spawnSparks(bx, by, HEROES[heroIndex].color, 3);
 
     /* 空中攻击：斜下方双发斩击，落地前可以蹭伤害 */
     if (!p.onGround) {
@@ -1311,7 +1314,7 @@
     if (p.dead || p.invuln > 0 || p.shield > 0) return;
     const realDmg = Math.max(1, Math.round(dmg * CONFIG.enemyDamageScale * (game.enemyDmgMul || 1) * (p.defenseMul || 1)));
     /* 硅谷决战里弹幕太密，硬直减半，避免被锁在原地动不了 */
-    const hurtStun = game.siliconWar ? 0.14 : 0.3;
+    const hurtStun = game.siliconWar ? 0.05 : 0.3;
     buzz(45);
     game.hitStop = Math.max(game.hitStop, 0.07);
     game.stageHits = (game.stageHits || 0) + 1;
@@ -1778,10 +1781,13 @@
       p.dodgeFxT = 0.6;
       addText(p.x, p.y - U(120), '闪避反击', '150,220,255', 15);
       p.vx = p.face * U(1250);
-      for (let i = 0; i < 6; i++) {
-        spawnSparks(p.x - p.face * U(10) * i, p.y - U(56), '150,220,255', 2);
+      rings.push({ x: p.x, y: p.y - U(56), r0: U(16), r1: U(150), w: U(5), life: 0.32, max: 0.32, color: '150,220,255' });
+      slashes.push({ x: p.x + p.face * U(20), y: p.y - U(60), r: U(120), face: p.face, life: 0.24, max: 0.24, color: '150,220,255' });
+      for (let i = 0; i < 12; i++) {
+        spawnSparks(p.x - p.face * U(10) * i, p.y - U(56) + rand(-U(20), U(20)), '150,220,255', 2);
       }
-      sfx(520, 0.08, 'sine', 0.03);
+      sfx(880, 0.07, 'sine', 0.035);
+      setTimeout(function () { sfx(420, 0.1, 'triangle', 0.03); }, 30);
     } else {
       p.dashReq = false;
     }
@@ -4153,6 +4159,30 @@
     const ratio = img && img.width ? img.width / img.height : 0.52;
     const sprW = sprH * ratio;
 
+    /* 闪避残影 + 速度线 */
+    if (img && (p.dashT > 0 || p.dodgeFxT > 0)) {
+      const k = p.dashT > 0 ? 1 : clamp(p.dodgeFxT / 0.6, 0, 1);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 4; i >= 1; i--) {
+        const gx = p.x - p.face * U(18) * i;
+        ctx.globalAlpha = 0.22 * k / i;
+        ctx.drawImage(img, gx - sprW / 2, p.y - sprH + Math.sin(game.time * 20 + i) * U(1), sprW, sprH);
+      }
+      ctx.globalAlpha = 0.55 * k;
+      ctx.strokeStyle = 'rgba(150,220,255,0.75)';
+      ctx.lineWidth = U(2);
+      for (let i = 0; i < 5; i++) {
+        const ly = p.y - U(36) - i * U(20);
+        const len = U(40 + i * 18) * k;
+        ctx.beginPath();
+        ctx.moveTo(p.x - p.face * U(26), ly);
+        ctx.lineTo(p.x - p.face * (U(26) + len), ly + rand(-2, 2));
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     /* 投影 */
     const air = clamp(1 - (groundY - p.y) / U(320), 0.2, 1);
     ctx.save();
@@ -4402,6 +4432,16 @@
   function drawPBullets() {
     for (const b of pbullets) {
       if (!isFinite(b.x) || !isFinite(b.y) || !isFinite(b.size) || b.size <= 0) continue;
+      /* 拖尾：让弹幕飞行轨迹看得见 */
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(170,240,255,0.35)';
+      ctx.lineWidth = Math.max(1.5, U(2.5));
+      ctx.beginPath();
+      ctx.moveTo(b.x - (b.vx || 0) * 0.035, b.y - (b.vy || 0) * 0.035);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+      ctx.restore();
       ctx.save();
       ctx.translate(b.x, b.y);
       ctx.rotate(b.rot + game.time * 2.2);
@@ -8441,7 +8481,7 @@
             setTimeout(function () {
               try {
                 const b0 = enemies[0];
-                document.title = 'ATK pb=' + pbullets.length + ' eb=' + ebullets.length + ' boss0hp=' + (b0 ? Math.round(b0.hp) + '/' + Math.round(b0.maxHp) : 'none') + ' px=' + Math.round(player.x) + ' bx=' + (b0 ? Math.round(b0.x) : 0) + ' state=' + game.state;
+                document.title = 'ATK pb=' + pbullets.length + ' b0hp=' + (b0 ? Math.round(b0.hp) : '-') + ' py=' + Math.round(player.y) + ' gy=' + Math.round(groundY) + ' b0pos=' + (b0 ? Math.round(b0.x) + ',' + Math.round(b0.y) + ' wh=' + Math.round(b0.w) + 'x' + Math.round(b0.h) : '-') + ' bul=' + (pbullets[0] ? Math.round(pbullets[0].x) + ',' + Math.round(pbullets[0].y) + ' v=' + Math.round(pbullets[0].vx) + ',' + Math.round(pbullets[0].vy) + ' tgt=' + (pbullets[0].target ? Math.round(pbullets[0].target.x) + ',' + Math.round(pbullets[0].target.y) : 'none') : '-');
               } catch (e) { document.title = 'ATK ERR ' + e.message; }
             }, 2500);
           }, 150);
