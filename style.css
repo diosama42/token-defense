@@ -3402,3 +3402,35 @@ html.layout-edit .layout-hint,
 }
 html.layout-edit .layout-hint strong { font-size: 16px; font-weight: 800; white-space: nowrap; }
 html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0.62); white-space: nowrap; }
+
+
+/* key-badge-fix：按键字母徽标不要被圆形按钮的 overflow 裁掉 */
+.act {
+  overflow: visible !important;
+}
+.act::after {
+  border-radius: 50%;
+}
+.act__key {
+  z-index: 6;
+  transform: translate(2px, -2px);
+}
+
+
+/* key-badge-strong：放大并加底，保证字母完整可见 */
+.act__key {
+  top: 6% !important;
+  right: 8% !important;
+  z-index: 7 !important;
+  min-width: 20px;
+  padding: 2px 6px !important;
+  border-radius: 7px !important;
+  border: 1px solid rgba(190, 235, 255, 0.55) !important;
+  background: rgba(4, 10, 20, 0.78) !important;
+  color: #eaf8ff !important;
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+  text-align: center;
+  transform: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
