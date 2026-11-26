@@ -9567,9 +9567,11 @@ html.is-portrait .rotate-tip { display: block; }
       addText(W * 0.5, H * 0.3, 'Token 自由。', '255,209,102', 28);
     }
     game.warResult = win ? 'win' : 'lose';
+    overShown = false;
     ebullets = [];
     pbullets = [];
     game.state = 'cine';
+    document.body.classList.remove('is-cutscene');
     const finish = function () {
       game.state = 'over';
       overShown = false;
@@ -9621,7 +9623,7 @@ html.is-portrait .rotate-tip { display: block; }
   }
 
   function updateSiliconAllies(dt) {
-    const targets = enemies.filter(function (e) { return e.isBoss; });
+    const targets = enemies.filter(function (e) { return e.isBoss && !e.dead && e.hp > 0; });
     for (const a of allies) {
       a.t += dt;
       const homeX = clamp(a.homeX + Math.sin(a.t * 0.5) * U(26), U(60), W - U(60));
@@ -9704,6 +9706,9 @@ html.is-portrait .rotate-tip { display: block; }
 
   function updateHiddenFight(dt) {
     game.stageClearPending = false;
+    if (enemies.some(function (e) { return e.isBoss && e.dead; })) {
+      enemies = enemies.filter(function (e) { return !(e.isBoss && e.dead); });
+    }
     if (game.siliconWar) updateSiliconAllies(dt);
     if (game.wenxinToken) {
       game.wenxinT += dt;
@@ -9712,10 +9717,13 @@ html.is-portrait .rotate-tip { display: block; }
         player.token = Math.min(player.maxToken, player.token + 4);
       }
     }
-    const bosses = enemies.filter(function (e) { return e.isBoss; });
+    const bosses = enemies.filter(function (e) { return e.isBoss && !e.dead && e.hp > 0; });
     if (!bosses.length) {
+      /* 胜利判定期间保护玩家，避免被最后一发残留弹打死变成失败结局 */
+      player.invuln = Math.max(player.invuln, 2.5);
+      ebullets = [];
       game.hiddenWinT += dt;
-      if (game.hiddenWinT > 1.2) finishSiliconWar(true);
+      if (game.hiddenWinT > 0.7) finishSiliconWar(true);
       return;
     }
     const bulletCap = game.lowFx ? 64 : (game.fps && game.fps < 56 ? 90 : 110);
@@ -11100,6 +11108,29 @@ html.is-portrait .rotate-tip { display: block; }
               }
             };
             const iv = setInterval(tick, 100);
+          }, 400);
+        } else if (sc === 'winalive') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            if (cineEl) cineEl.classList.remove('show');
+            if (dialogEl) dialogEl.classList.remove('show');
+            dialogQueue = [];
+            startSiliconWar(6);
+            player.hp = player.maxHp = 999999;
+            game.infinite = true;
+            enemies.slice().forEach(function (e) { if (e.isBoss) { e.hp = 1; killEnemy(e); } });
+            let n = 0;
+            const tick = function () {
+              n++;
+              if (game.state === 'cine') { const c = document.getElementById('cine-skip'); if (c) c.click(); }
+              if (game.state === 'dialog') { const b = document.getElementById('dialog-next'); if (b) b.click(); }
+              if (n < 24) setTimeout(tick, 300);
+              else document.title = 'WINALIVE state=' + game.state + ' alive=' + enemies.filter(function(e){return e.isBoss && !e.dead && e.hp>0;}).length + ' total=' + enemies.length + ' winT=' + (game.hiddenWinT||0).toFixed(2) + ' hidden=' + game.hiddenFight + ' over=' + (overEl && overEl.classList.contains('show')) +
+                ' title=' + (el.overTitle ? el.overTitle.textContent : '-') + ' war=' + game.warResult;
+            };
+            tick();
           }, 400);
         } else if (sc === 'warwin' || sc === 'warlose') {
           setTimeout(function () {
