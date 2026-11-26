@@ -3359,6 +3359,62 @@ body.is-playing .pad {
 .pause__btn:active { transform: translateY(1px); }
 body.is-paused .controls, body.is-paused .hud { pointer-events: none; }
 
+
+/* 按键位置调整：醒目的「完成」按钮 */
+.layout-hint {
+  position: fixed;
+  left: 50%;
+  bottom: calc(22px + env(safe-area-inset-bottom));
+  transform: translateX(-50%) scale(0.96);
+  z-index: 9300;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 13px 30px 12px;
+  border-radius: 999px;
+  border: 2px solid rgba(220, 255, 240, 0.9);
+  background: linear-gradient(180deg, #8ef0c0, #4fd99a);
+  color: #04120c;
+  font-family: "PingFang SC", system-ui;
+  cursor: pointer;
+  box-shadow: 0 12px 34px rgba(110, 247, 180, 0.45), 0 0 0 6px rgba(110, 247, 180, 0.12);
+  animation: hintPulse 1.4s ease-in-out infinite;
+  touch-action: manipulation;
+}
+.layout-hint.show { display: flex; }
+.layout-hint strong { font-size: 16px; font-weight: 800; letter-spacing: 0.04em; }
+.layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0.62); }
+@keyframes hintPulse {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.045); }
+}
+
+
+/* layout-hint-fix：覆盖旧规则，避免 top/bottom 同时存在把按钮撑满屏幕 */
+html.layout-edit .layout-hint,
+.layout-hint.show {
+  display: flex;
+  top: auto;
+  left: 50%;
+  bottom: calc(22px + env(safe-area-inset-bottom));
+  transform: translateX(-50%) scale(1);
+  width: auto;
+  max-width: 92vw;
+  max-height: none;
+  height: auto;
+  white-space: normal;
+  overflow: visible;
+  padding: 13px 30px 12px;
+  border-radius: 999px;
+  border: 2px solid rgba(220, 255, 240, 0.9);
+  background: linear-gradient(180deg, #8ef0c0, #4fd99a);
+  color: #04120c;
+  animation: hintPulse 1.4s ease-in-out infinite;
+}
+html.layout-edit .layout-hint strong { font-size: 16px; font-weight: 800; white-space: nowrap; }
+html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0.62); white-space: nowrap; }
+
 </style>
 </head>
 <body>
@@ -10817,7 +10873,21 @@ body.is-paused .controls, body.is-paused .hud { pointer-events: none; }
     });
   }
 
+  function exitLayoutEdit() {
+    document.documentElement.classList.remove('layout-edit');
+    saveWrite();
+    const hint = document.getElementById('layout-hint');
+    if (hint) hint.classList.remove('show');
+    if (game.state === 'play') setPaused(false);
+  }
+
   function enterLayoutEdit() {
+    /* 调整按键时暂停游戏，避免边打边调 */
+    if (game.state === 'play') {
+      game.paused = true;
+      document.body.classList.add('is-paused');
+      if (pauseEl) pauseEl.classList.remove('show');
+    }
     document.documentElement.classList.add('layout-edit');
     let hint = document.getElementById('layout-hint');
     if (!hint) {
@@ -10825,14 +10895,14 @@ body.is-paused .controls, body.is-paused .hud { pointer-events: none; }
       hint.id = 'layout-hint';
       hint.className = 'layout-hint';
       hint.type = 'button';
-      hint.textContent = '拖动摇杆 / 跳跃 / 技能键调整位置 · 点这里完成';
       hint.addEventListener('click', function (ev) {
         ev.stopPropagation();
-        document.documentElement.classList.remove('layout-edit');
-        saveWrite();
+        exitLayoutEdit();
       });
       document.body.appendChild(hint);
     }
+    hint.innerHTML = '<strong>✓ 完成调整，继续游戏</strong><span>拖动摇杆 / 跳跃 / 技能键调整位置</span>';
+    hint.classList.add('show');
     let target = null, startX = 0, startY = 0, startL = 0, startB = 0;
     const wrap = document.querySelector('.controls');
     const onDown = function (ev) {
@@ -11752,6 +11822,32 @@ body.is-paused .controls, body.is-paused .hud { pointer-events: none; }
             };
             tick();
           }, 300);
+        } else if (sc === 'layoutshot') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            document.getElementById('btn-edit-layout').click();
+          }, 700);
+        } else if (sc === 'layouttest') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            document.getElementById('btn-edit-layout').click();
+            const paused = game.paused;
+            const shown = document.getElementById('layout-hint').classList.contains('show');
+            document.getElementById('layout-hint').click();
+            setTimeout(function () {
+              document.title = 'LAYOUT paused=' + paused + ' shown=' + shown + ' afterPaused=' + game.paused + ' edit=' + document.documentElement.classList.contains('layout-edit');
+            }, 400);
+          }, 600);
         } else if (sc === 'revbtn') {
           setTimeout(function () {
             startGame();

@@ -6949,7 +6949,21 @@
     });
   }
 
+  function exitLayoutEdit() {
+    document.documentElement.classList.remove('layout-edit');
+    saveWrite();
+    const hint = document.getElementById('layout-hint');
+    if (hint) hint.classList.remove('show');
+    if (game.state === 'play') setPaused(false);
+  }
+
   function enterLayoutEdit() {
+    /* 调整按键时暂停游戏，避免边打边调 */
+    if (game.state === 'play') {
+      game.paused = true;
+      document.body.classList.add('is-paused');
+      if (pauseEl) pauseEl.classList.remove('show');
+    }
     document.documentElement.classList.add('layout-edit');
     let hint = document.getElementById('layout-hint');
     if (!hint) {
@@ -6957,14 +6971,14 @@
       hint.id = 'layout-hint';
       hint.className = 'layout-hint';
       hint.type = 'button';
-      hint.textContent = '拖动摇杆 / 跳跃 / 技能键调整位置 · 点这里完成';
       hint.addEventListener('click', function (ev) {
         ev.stopPropagation();
-        document.documentElement.classList.remove('layout-edit');
-        saveWrite();
+        exitLayoutEdit();
       });
       document.body.appendChild(hint);
     }
+    hint.innerHTML = '<strong>✓ 完成调整，继续游戏</strong><span>拖动摇杆 / 跳跃 / 技能键调整位置</span>';
+    hint.classList.add('show');
     let target = null, startX = 0, startY = 0, startL = 0, startB = 0;
     const wrap = document.querySelector('.controls');
     const onDown = function (ev) {
@@ -7884,6 +7898,32 @@
             };
             tick();
           }, 300);
+        } else if (sc === 'layoutshot') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            document.getElementById('btn-edit-layout').click();
+          }, 700);
+        } else if (sc === 'layouttest') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            document.getElementById('btn-edit-layout').click();
+            const paused = game.paused;
+            const shown = document.getElementById('layout-hint').classList.contains('show');
+            document.getElementById('layout-hint').click();
+            setTimeout(function () {
+              document.title = 'LAYOUT paused=' + paused + ' shown=' + shown + ' afterPaused=' + game.paused + ' edit=' + document.documentElement.classList.contains('layout-edit');
+            }, 400);
+          }, 600);
         } else if (sc === 'revbtn') {
           setTimeout(function () {
             startGame();
