@@ -3239,6 +3239,36 @@ html.force-land .rotate-btn { bottom: calc(12px + var(--safe-b)); }
 /* 战斗开始后隐藏「横过来玩」提示 */
 body.is-playing .rotate-tip { display: none !important; }
 
+
+/* KEYS-READABLE：桌面端按键提示放大，保证一眼看清 */
+.start__keys {
+  gap: 9px 18px;
+  margin-top: 18px;
+  font-size: clamp(12px, 1.6vmin, 15px);
+  color: rgba(210, 236, 255, 0.82);
+}
+.start__keys kbd {
+  min-width: 26px;
+  padding: 3px 8px;
+  margin-right: 4px;
+  border-radius: 6px;
+  border-color: rgba(150, 220, 255, 0.55);
+  background: rgba(120, 200, 255, 0.12);
+  font-size: 13px;
+  font-weight: 700;
+  color: #eaf8ff;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+.start__tip {
+  margin-top: 10px;
+  font-size: clamp(11px, 1.4vmin, 13px);
+  color: rgba(185, 220, 245, 0.6);
+}
+.act__key {
+  font-size: clamp(10px, 1.4vmin, 13px);
+  padding: 1px 5px;
+}
+
 </style>
 </head>
 <body>
