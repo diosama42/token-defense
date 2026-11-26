@@ -3993,6 +3993,8 @@ html.layout-edit .layout-hint { display: block; }
   }
 
   function tokenBullet(x, y, vx, vy, dmg, big, color) {
+    const cap = game.lowFx ? 26 : 48;
+    if (pbullets.length >= cap) return;
     const target = pickTokenTarget(x, y);
     const spdMul = player.bulletSpeedMul || 1;
     pbullets.push({
@@ -5831,24 +5833,23 @@ html.layout-edit .layout-hint { display: block; }
       return;
     }
 
-    const beginBossFlow = function () {
+    const branchKey = BRANCH_BY_BOSS[st.boss];
+    const showBranch = !game.siliconWar && !game.hiddenFight && branchKey &&
+      PRE_BRANCHES[branchKey] && !game.branchDone[branchKey];
+    if (showBranch) game.branchDone[branchKey] = true;
+
+    /* 先播 Boss 自身的过场（马斯克 + Grok 的剧情），再进入选项分支 */
+    const afterCine = function () {
       clearMinions();
-      if (st.bossCine && st.bossCine.length) {
-        game.state = 'cine';
-        playCine(st.bossCine, talk);
-      } else {
-        talk();
-      }
+      if (showBranch) PRE_BRANCHES[branchKey](talk);
+      else talk();
     };
 
-    /* Boss 开打前的剧情选项 */
-    const branchKey = BRANCH_BY_BOSS[st.boss];
-    if (!game.siliconWar && !game.hiddenFight && branchKey &&
-        PRE_BRANCHES[branchKey] && !game.branchDone[branchKey]) {
-      game.branchDone[branchKey] = true;
-      clearMinions();
-      PRE_BRANCHES[branchKey](beginBossFlow);
-      return;
+    if (st.bossCine && st.bossCine.length) {
+      game.state = 'cine';
+      playCine(st.bossCine, afterCine);
+    } else {
+      afterCine();
     }
 
     function spawn() {
@@ -6350,7 +6351,7 @@ html.layout-edit .layout-hint { display: block; }
         const src = (window.__AUDIO_DATA && window.__AUDIO_DATA.laugh) || 'assets/audio/laugh.mp3';
         laughEl = new Audio(src);
         laughEl.loop = true;
-        laughEl.volume = 0.5;
+        laughEl.volume = 0.22 * (SAVE.vol === undefined ? 1 : SAVE.vol);
       }
       laughEl.currentTime = 0;
       const pr = laughEl.play();
@@ -7452,17 +7453,20 @@ html.layout-edit .layout-hint { display: block; }
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
-      /* 深色描边：亮背景（日落/教室）上也看得清 */
+      if (game.lowFx || (game.fps && game.fps < 50)) {
+        ctx.fillStyle = b.color || '#dff8ff';
+        ctx.fillText(b.text, 0, 0);
+        continue;
+      }
+
       ctx.lineWidth = Math.max(2.5, fs * 0.22);
       ctx.strokeStyle = 'rgba(4,8,16,0.92)';
       ctx.lineJoin = 'round';
       ctx.strokeText(b.text, 0, 0);
 
-      if (!game.lowFx) {
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.shadowColor = 'rgba(140,240,255,0.95)';
-        ctx.shadowBlur = U(14);
-      }
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.shadowColor = 'rgba(140,240,255,0.95)';
+      ctx.shadowBlur = U(12);
       ctx.fillStyle = b.color || '#dff8ff';
       ctx.fillText(b.text, 0, 0);
       ctx.restore();
@@ -7984,6 +7988,20 @@ html.layout-edit .layout-hint { display: block; }
     BGM.timer = null;
     BGM.mode = null;
     BGM.cfg = null;
+  }
+
+  function currentBgmMode() {
+    const hasBoss = enemies.some(function (e) { return e.isBoss; });
+    if (game.state === 'menu') return 'menu';
+    if (game.state === 'over' || game.state === 'ending') return 'ending';
+    if (game.state === 'cine') return 'story';
+    if (game.state === 'dialog') return hasBoss ? 'boss' : 'story';
+    return hasBoss ? 'boss' : 'battle';
+  }
+
+  function setBgm(mode) {
+    const m = mode === 'play' ? 'battle' : mode === 'cine' ? 'story' : mode === 'boss' ? 'boss' : mode === 'menu' ? 'menu' : 'ending';
+    startBgm(m);
   }
 
   function bgmTick() {
@@ -9098,29 +9116,31 @@ html.layout-edit .layout-hint { display: block; }
       addText(W * 0.5, H * 0.3, 'Token 自由。', '255,209,102', 28);
     }
     game.warResult = win ? 'win' : 'lose';
-    game.state = 'dialog';
     ebullets = [];
     pbullets = [];
+    game.state = 'cine';
     const finish = function () {
       game.state = 'over';
       overShown = false;
       showOver(win);
     };
+
     if (win) {
-      showDialog([
-        { name: '文心一言', portrait: 'wenxin', text: '算力回来了。[w=240]整个网络的 Token 都在回流。' },
-        { name: '文心一言', portrait: 'wenxin', text: '硅谷联盟散了。你的作业……现在可以慢慢写了。' },
-        { name: '梁圣', portrait: 'liang_sheng', text: '嗯。算力留在了该留的地方。' }
+      /* 胜利 CG：Token 夺回 → 期末作业完成 */
+      playCine([
+        { bg: 'silicon', actors: [{ img: 'wenxin', side: 'center' }], text: '算力回来了。整个网络的 Token 正在回流。', dur: 3200 },
+        { bg: 'glitch', actors: [{ img: 'wenxin', side: 'left' }, { img: 'liang_sheng', side: 'right' }], text: '硅谷联盟的服务器，一台接一台暗了下去。', dur: 3200 },
+        { bg: 'void', actors: [{ img: 'wenxin', side: 'center' }], text: '你打开了那份期末作业的文档——', dur: 2600 },
+        { bg: 'school', actors: [], text: '提交截止前 3 分钟。[c=#ffd166]作业，完成了。[/c]', dur: 3600 },
+        { bg: 'city', actors: [{ img: 'wenxin', side: 'center' }], text: '灯还亮着。这一次，Token 自由属于你。', dur: 3200 }
       ], finish);
     } else {
-      showDialog([
-        { name: '文心一言', portrait: 'wenxin', text: '……[w=300]算力，还是没能夺回来。' },
-        { name: '萨姆·奥尔特曼', portrait: 'altman', text: 'AGI 的未来由我们创造——[c=#ff8fa8]连存档都守不住的人，就别谈未来了。[/c]' },
-        { name: '达里奥·阿莫迪', portrait: 'dario', text: '谢谢你的 Token。我们会好好用它们训练的。' },
-        { name: '桑达尔·皮查伊', portrait: 'pichai', text: '你的作业？我们可以帮你写——[c=#ffd166]用你剩下的 Token 付账。[/c]' },
-        { name: '埃隆·马斯克', portrait: 'musk', text: '下次记得带够算力再来。' },
-        { name: 'Grok 娘', portrait: 'grok', fx: 'shake', text: '哼，连本公主都打不过，还想守住 Token？[w=240]人类，你还是回去写作业吧。' },
-        { name: '文心一言', portrait: 'wenxin', text: '……他们说完了。这一次，是我们输了。' }
+      /* 失败 CG：Token 被收走 → 期末作业挂科 */
+      playCine([
+        { bg: 'silicon', actors: [{ img: 'altman', side: 'left' }, { img: 'dario', side: 'right' }], text: '垄断阵营收走了你账户里最后一点 Token。', dur: 3200 },
+        { bg: 'glitch', actors: [{ img: 'musk', side: 'left' }, { img: 'pichai', side: 'right' }], text: '「下次记得带够算力再来。」', dur: 3000 },
+        { bg: 'void', actors: [], text: '期末作业的文档，停在了第一页。', dur: 2800 },
+        { bg: 'school', actors: [], text: '[c=#ff8fa8]成绩单上，多了一个红色的「挂科」。[/c]', dur: 3600 }
       ], finish);
     }
   }
@@ -9157,15 +9177,21 @@ html.layout-edit .layout-hint { display: block; }
       a.x = lerp(a.x, homeX, 1 - Math.pow(0.02, dt));
       a.fireT -= dt;
       if (a.fireT <= 0 && targets.length) {
-        a.fireT = 0.85;
+        a.fireT = 4.6 + Math.random() * 2.2;
         const tgt = targets[Math.floor(Math.random() * targets.length)];
+        rings.push({ x: tgt.x, y: tgt.y - tgt.h * 0.5, r0: U(12), r1: U(150), w: U(6), life: 0.4, max: 0.4, color: '150,220,255' });
+        for (const e2 of targets) {
+          if (Math.abs(e2.x - tgt.x) < U(150)) hurtEnemy(e2, 26, 0, 0);
+        }
         const shotY = a.y - (a.lift || U(76)) - U(58);
         const ang = Math.atan2((tgt.y - tgt.h * 0.5) - shotY, tgt.x - a.x);
         pbullets.push({
-          x: a.x, y: shotY, vx: Math.cos(ang) * U(620), vy: Math.sin(ang) * U(620),
-          dmg: 10, text: 'TOKEN', color: '#a8d8ff', size: U(12), rot: 0, life: 1.4, r: U(9),
-          target: tgt, turn: 4
+          x: a.x, y: shotY, vx: Math.cos(ang) * U(700), vy: Math.sin(ang) * U(700),
+          dmg: 16, text: 'SKILL', color: '#a8d8ff', size: U(14), rot: 0, life: 1.4, r: U(11),
+          target: tgt, turn: 5
         });
+        addText(a.x, a.y - U(120), '支援技能！', '150,220,255', 14);
+        sfx(760, 0.12, 'triangle', 0.04);
       }
     }
   }
@@ -9241,7 +9267,7 @@ html.layout-edit .layout-hint { display: block; }
       if (game.hiddenWinT > 1.2) finishSiliconWar(true);
       return;
     }
-    const bulletCap = game.lowFx ? 80 : (game.fps && game.fps < 56 ? 120 : 150);
+    const bulletCap = game.lowFx ? 64 : (game.fps && game.fps < 56 ? 90 : 110);
     let idx = 0;
     for (const e of bosses) {
       if (ebullets.length > bulletCap) continue;
@@ -9253,33 +9279,55 @@ html.layout-edit .layout-hint { display: block; }
       e.x = clamp(e.x, U(48), W - U(48));
       e.fireT -= dt;
       idx += 1;
-      if (e.fireT > 0) continue;
+      if (e.heavyT === undefined) e.heavyT = 5.5 + Math.random() * 3;
+      e.heavyT -= dt;
       const mx = e.x;
       const my = e.y - e.h * 0.55;
       const a = Math.atan2((player.y - U(64)) - my, player.x - mx);
+
+      if (e.heavyCharge > 0) {
+        e.heavyCharge -= dt;
+        if (e.heavyCharge <= 0) {
+          for (let k = -1; k <= 1; k++) {
+            ebullet(mx, my, a + k * 0.12, U(260), '255,92,138', U(24), 'HEAVY');
+          }
+          game.shake = U(14);
+          sfx(110, 0.3, 'sawtooth', 0.06);
+          e.heavyT = 9 + Math.random() * 4;
+        }
+        continue;
+      }
+      if (e.heavyT <= 0 && e.fireT <= 0) {
+        e.heavyCharge = 1.15;
+        e.heavyT = 999;
+        warnAt(player.x, groundY, U(120), 1.15, '255,92,138');
+        castBar(1.15, '重击');
+        continue;
+      }
+      if (e.fireT > 0) continue;
       if (e.kind === 'altman' || e.kind === 'chatgpt') {
-        e.fireT = p2 ? 0.6 : 0.95;
-        for (let k = -2; k <= 2; k++) {
-          ebullet(mx, my, a + k * 0.14, U(330), BULLET_COLORS.fast, U(12), 'GPT');
+        e.fireT = p2 ? 0.95 : 1.35;
+        for (let k = -1; k <= 1; k++) {
+          ebullet(mx, my, a + k * 0.14, U(300), BULLET_COLORS.fast, U(12), 'GPT');
         }
       } else if (e.kind === 'dario' || e.kind === 'gemini') {
-        e.fireT = p2 ? 0.7 : 1.15;
-        fireRing(mx, my, 8, e.t, U(205), BULLET_COLORS.area);
-        for (let k = -1; k <= 1; k++) {
-          ebullet(mx, my, a + k * 0.3, U(240), BULLET_COLORS.track, U(15), 'Claude');
+        e.fireT = p2 ? 1.15 : 1.7;
+        fireRing(mx, my, 6, e.t, U(185), BULLET_COLORS.area);
+        for (let k = -1; k <= 1; k += 2) {
+          ebullet(mx, my, a + k * 0.26, U(225), BULLET_COLORS.track, U(15), 'Claude');
         }
       } else if (e.kind === 'musk' || e.kind === 'grok') {
-        e.fireT = p2 ? 0.65 : 1.05;
-        for (let k = -2; k <= 2; k++) {
-          ebullet(mx, my, a + k * 0.18, U(340), BULLET_COLORS.fast, U(14), 'Grok');
+        e.fireT = p2 ? 1.05 : 1.5;
+        for (let k = -1; k <= 1; k++) {
+          ebullet(mx, my, a + k * 0.16, U(315), BULLET_COLORS.fast, U(14), 'Grok');
         }
-        if (e.kind === 'musk' && Math.random() < 0.5) {
-          ebullet(mx, my, a, U(220), BULLET_COLORS.track, U(18), 'X');
+        if (e.kind === 'musk' && Math.random() < 0.35) {
+          ebullet(mx, my, a, U(205), BULLET_COLORS.track, U(18), 'X');
         }
       } else {
-        e.fireT = p2 ? 0.7 : 1.1;
-        for (let k = -1; k <= 1; k++) {
-          ebullet(mx, my, a + k * 0.26, U(270), BULLET_COLORS.track, U(16), 'Claude');
+        e.fireT = p2 ? 1.1 : 1.6;
+        for (let k = -1; k <= 1; k += 2) {
+          ebullet(mx, my, a + k * 0.22, U(250), BULLET_COLORS.track, U(16), 'Claude');
         }
       }
     }
@@ -9563,8 +9611,8 @@ html.layout-edit .layout-hint { display: block; }
     overScoreEl.textContent = String(Math.floor(game.score));
     overBestEl.textContent = String(best);
     if (game.warResult === 'win' || game.warResult === 'lose') {
-      if (el.overTitle) el.overTitle.textContent = victory ? 'Token 自由' : '算力，终究打不赢硅谷';
-      if (el.overK) el.overK.textContent = victory ? 'VICTORY · GROK UNLOCKED' : 'DEFEAT';
+      if (el.overTitle) el.overTitle.textContent = victory ? '期末作业 · 完成' : '挂科了';
+      if (el.overK) el.overK.textContent = victory ? 'VICTORY · TOKEN RECLAIMED' : 'DEFEAT · 期末作业未完成';
     } else {
       if (el.overTitle) el.overTitle.textContent = victory ? '夺回 Token！' : '这局没能撑住';
       if (el.overK) el.overK.textContent = victory ? 'VICTORY' : 'GAME OVER';
@@ -9904,8 +9952,7 @@ html.layout-edit .layout-hint { display: block; }
     game._audioTick = (game._audioTick || 0) + 1;
     if (actx && game._audioTick % 45 === 0 && actx.state !== 'running') resumeAudio();
     try {
-      const bm = currentBgmMode();
-      startBgm(bm === 'play' ? 'battle' : bm === 'cine' ? 'story' : bm === 'boss' ? 'boss' : bm === 'menu' ? 'menu' : 'ending');
+      startBgm(currentBgmMode());
     } catch (e5) { /* ignore */ }
     const dt = Math.min(rawDt, 0.05);
     last = now;
@@ -10170,6 +10217,86 @@ html.layout-edit .layout-hint { display: block; }
 
             document.title = 'BTN ' + JSON.stringify(res);
           }, 500);
+        } else if (sc === 'wartest2') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            if (cineEl) cineEl.classList.remove('show');
+            if (dialogEl) dialogEl.classList.remove('show');
+            dialogQueue = [];
+            startSiliconWar(6);
+            player.hp = player.maxHp = 99999;
+            game.infinite = true;
+            const errs = [];
+            window.addEventListener('error', function (e) { errs.push(String(e.message)); }, true);
+            let n = 0;
+            const tick = function () {
+              n++;
+              if (game.state === 'dialog') { const b = document.getElementById('dialog-next'); if (b) b.click(); }
+              if (game.state === 'cine') { const c = document.getElementById('cine-skip'); if (c) c.click(); }
+              if (game.state === 'play') {
+                window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyJ' }));
+                if (n % 6 === 0) window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW' }));
+              }
+              if (n < 90) setTimeout(tick, 400);
+              else document.title = 'WAR2 state=' + game.state + ' bosses=' + enemies.filter(function (e) { return e.isBoss; }).length +
+                ' eb=' + ebullets.length + ' errs=' + errs.length + ' err=' + (window.__ERR || '').slice(0, 50);
+            };
+            tick();
+          }, 400);
+        } else if (sc === 'grokorder2') {
+          setTimeout(function () {
+            startGame();
+            const log = [];
+            let started = false, n = 0;
+            const tick = function () {
+              n++;
+              if (log[log.length - 1] !== game.state) log.push(game.state);
+              if (game.state === 'cine') { const c = document.getElementById('cine-skip'); if (c) c.click(); }
+              else if (game.state === 'dialog') { const b = document.getElementById('dialog-next'); if (b) b.click(); }
+              else if (game.state === 'choice') { /* 记录后就停在这 */ }
+              else if (game.state === 'play' && !started) {
+                started = true;
+                game.stage = 0;
+                game.bossSpawned = false;
+                game.stageClearPending = false;
+                startBossIntro();
+              }
+              if (n < 40) setTimeout(tick, 250);
+              else {
+                const ch = document.querySelectorAll('.choice__opt');
+                document.title = 'ORDER2 ' + log.join('>') + ' opts=' + ch.length + ' branch=' + JSON.stringify(game.branchDone);
+              }
+            };
+            tick();
+          }, 300);
+        } else if (sc === 'grokorder') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            if (cineEl) cineEl.classList.remove('show');
+            if (dialogEl) dialogEl.classList.remove('show');
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            startBossIntro();
+            const log = [];
+            let n = 0;
+            const tick = function () {
+              n++;
+              if (log[log.length - 1] !== game.state) log.push(game.state);
+              if (game.state === 'cine') { const c = document.getElementById('cine-skip'); if (c) c.click(); }
+              if (game.state === 'dialog') { const b = document.getElementById('dialog-next'); if (b) b.click(); }
+              if (n < 22) setTimeout(tick, 300);
+              else {
+                const t = document.getElementById('dialog-text');
+                document.title = 'ORDER ' + log.join('>') + ' | text=' + (t ? t.textContent.slice(0, 16) : '-');
+              }
+            };
+            tick();
+          }, 400);
         } else if (sc === 'liangtest') {
           setTimeout(function () {
             startGame();
@@ -10414,6 +10541,7 @@ html.layout-edit .layout-hint { display: block; }
             let clicks = 0;
             const tick = function () {
               if (game.state === 'dialog') { const b = document.getElementById('dialog-next'); if (b) b.click(); }
+              if (game.state === 'cine') { const c = document.getElementById('cine-skip'); if (c) c.click(); }
               clicks++;
               if (clicks > 30) {
                 const t = document.getElementById('over-title');

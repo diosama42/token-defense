@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<script>window.onerror=function(m,s,l,c,e){document.title='ERR: '+m+' @'+l;};window.addEventListener('unhandledrejection',function(e){document.title='REJ: '+(e.reason&&e.reason.message);});</script>
+<title>词元保卫战 · TOKEN DEFENSE</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#05070f" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+  <div class="fx"></div>
+
+  <!-- ================= HUD ================= -->
+  <header class="hud">
+    <div class="hud__card">
+      <div class="avatar"><b id="hero-badge">C</b><i></i></div>
+      <div class="hud__stats">
+        <div class="hud__meta">
+          <span class="name" id="hero-name">ChatGPT 娘</span>
+          <span class="lv">Lv.1</span>
+          <span class="hpnum" id="hp-text">100/100</span>
+        </div>
+        <div class="bar bar--hp"><i id="hp-fill"></i></div>
+        <div class="bar bar--ep"><i id="ep-fill"></i><em class="bar__tag">Token</em></div>
+        <div class="hud__wave">
+          <span class="hud__wave-tag">关卡</span>
+          <div class="bar bar--wave"><i id="wave-fill"></i></div>
+          <span class="hud__wave-num" id="wave-text">1</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud__score">
+      <span class="hud__label">SCORE</span>
+      <span id="score">000000</span>
+      <span class="combo" id="combo">COMBO <b>x1</b></span>
+    </div>
+
+    <div class="hud__tools">
+      <button id="btn-settings" class="tool" type="button" aria-label="设置">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.09a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+      </button>
+      <button id="btn-full" class="tool" type="button" aria-label="全屏">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+        </svg>
+      </button>
+      <button id="btn-sound" class="tool" type="button" aria-label="静音">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M4 9v6h4l5 4V5L8 9H4z" />
+          <path d="M17 8.5a5 5 0 0 1 0 7" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= 操作层 ================= -->
+  <div class="controls">
+    <div class="stick" id="stick">
+      <div class="stick__base"><span></span><span></span></div><span class="stick__hint">A / D</span>
+      <div class="stick__knob" id="stick-knob"></div>
+    </div>
+
+    <button id="btn-jump" class="jump" type="button" aria-label="跳跃">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 19V5" />
+        <path d="M6 11l6-6 6 6" />
+      </svg>
+      <span>跳</span><i class="jump__key">W</i>
+    </button>
+
+    <div class="pad">
+      <button class="act act--support" data-act="support" type="button" aria-label="支援">
+        <span class="act__glyph">援</span><span class="act__label">支援</span><i class="act__key">U</i>
+        <i class="act__cd"></i><span class="act__cdtxt"></span>
+      </button>
+      <button class="act act--skill" data-act="skill" type="button" aria-label="技能">
+        <span class="act__glyph">技</span><span class="act__label">技能</span><i class="act__key">K</i>
+        <i class="act__cd"></i><span class="act__cdtxt"></span>
+      </button>
+      <button class="act act--ult" data-act="ult" type="button" aria-label="大招">
+        <span class="act__glyph">大</span><span class="act__label">大招</span><i class="act__key">L</i>
+        <i class="act__cd"></i><span class="act__cdtxt"></span>
+      </button>
+      <button class="act act--attack" data-act="attack" type="button" aria-label="平A">
+        <span class="act__glyph">平</span><span class="act__label">平A</span><i class="act__key">J</i><span class="act__hold">按住连发</span>
+        <i class="act__cd"></i><span class="act__cdtxt"></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= 开始页 ================= -->
+  <section class="start" id="start">
+    <div class="start__inner">
+      <p class="start__kicker">AI ERA 2077 · TOKEN DEFENSE</p>
+      <h1 class="start__title">绝地反击<span>词元保卫战</span></h1>
+      <p class="start__desc">2077 年，各大公司的 AI 出现不明异常，Token 成批消失。你是作业快写不完的绝望大学生——却觉醒了召唤 AI 精灵的力量。</p>
+
+      <div class="mode-pick" id="mode-pick">
+        <button class="mode-pick__item is-on" data-mode="story" type="button">
+          <strong>剧情模式</strong><span>完整剧情 / 过场 / 彩蛋</span>
+        </button>
+        <button class="mode-pick__item" data-mode="fight" type="button">
+          <strong>战斗爽模式</strong><span>跳过剧情，直接开打</span>
+        </button>
+      </div>
+
+      <div class="hero-pick" id="hero-pick">
+        <button class="hero-pick__item is-on" data-hero="0" type="button">
+          <img src="assets/sprites/hero_purple2.png" alt="ChatGPT 娘" decoding="async" />
+          <span>ChatGPT</span>
+        </button>
+        <button class="hero-pick__item" data-hero="1" type="button">
+          <img src="assets/sprites/hero_bluemaid.png" alt="DeepSeek 娘" decoding="async" />
+          <span>DeepSeek</span>
+        </button>
+        <button class="hero-pick__item" data-hero="2" type="button">
+          <img src="assets/sprites/hero_orange.png" alt="Claude 娘" decoding="async" />
+          <span>Claude</span>
+        </button>
+        <button class="hero-pick__item" data-hero="3" type="button">
+          <img src="assets/sprites/hero_catpurple.png" alt="Gemini 娘" decoding="async" />
+          <span>Gemini</span>
+        </button>
+        <button class="hero-pick__item" data-hero="4" type="button">
+          <img src="assets/sprites/qwen.png" alt="Qwen 娘" decoding="async" />
+          <span>Qwen</span>
+        </button>
+        <button class="hero-pick__item" data-hero="5" type="button">
+          <img src="assets/sprites/kimi.png" alt="Kimi 娘" decoding="async" />
+          <span>Kimi</span>
+        </button>
+        <button class="hero-pick__item" data-hero="6" type="button">
+          <img src="assets/sprites/hero_catmaid.png" alt="GLM 娘" decoding="async" />
+          <span>GLM</span>
+        </button>
+        <button class="hero-pick__item" data-hero="7" type="button" data-lock="grokUnlocked">
+          <img src="assets/sprites/grok.png" alt="Grok 娘" decoding="async" />
+          <span>Grok</span>
+        </button>
+      </div>
+
+      <button class="start__btn start__btn--main" id="btn-start" type="button">开始游戏</button>
+
+      <button class="start__btn start__btn--ghost" id="btn-charbook" type="button">角色介绍</button>
+        <button class="start__btn start__btn--ghost" id="btn-cg" type="button">CG 鉴赏</button>
+
+      <ul class="start__keys">
+        <li><kbd>A</kbd><kbd>D</kbd> 移动</li>
+        <li><kbd>W</kbd> 跳跃</li>
+        <li><kbd>Shift</kbd> 闪避</li>
+        <li><kbd>J</kbd> 平A</li>
+        <li><kbd>K</kbd> 技能</li>
+        <li><kbd>L</kbd> 大招</li>
+        <li><kbd>U</kbd> 支援</li>
+      </ul>
+      <p class="start__tip">触屏：左摇杆移动 / 上推跳跃，右下四键出手</p>
+      <p class="author">本作品为校内学习实践使用 · 素材取自网络二传作品 · 无盈利</p>
+      <button class="start__set" id="set-open2" type="button">设置</button>
+    </div>
+  </section>
+
+  <!-- ================= 剧情对话 ================= -->
+  <section class="dialog" id="dialog">
+    <div class="dialog__box">
+      <div class="dialog__portrait"><img id="dialog-portrait" alt="文心一言" /></div>
+      <div class="dialog__main">
+        <span class="dialog__name" id="dialog-name">文心一言</span>
+        <div class="dialog__tools">
+          <button class="dialog__tool" id="btn-history" type="button">记录</button>
+          <button class="dialog__tool" id="btn-auto" type="button">自动</button>
+          <button class="dialog__tool" id="btn-skip" type="button">快进</button>
+        </div>
+        <p class="dialog__text" id="dialog-text"></p>
+        <button class="dialog__next" id="dialog-next" type="button">继续 ▸</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 关卡结算 ================= -->
+  <section class="result" id="result">
+    <div class="result__box">
+      <p class="result__kicker">STAGE CLEAR</p>
+      <div class="result__grade" id="res-grade">A</div>
+      <div class="result__rows">
+        <div class="result__row"><span>用时</span><b id="res-time">--</b></div>
+        <div class="result__row"><span>受击次数</span><b id="res-hits">0</b></div>
+        <div class="result__row"><span>最高连击</span><b id="res-combo">0</b></div>
+        <div class="result__row"><span>击破数</span><b id="res-kills">0</b></div>
+        <div class="result__row"><span>历史最佳</span><b id="res-best">--</b></div>
+      </div>
+      <p class="result__tip" id="res-tip"></p>
+      <button class="result__next" id="btn-res-continue" type="button">继续 ▸</button>
+    </div>
+  </section>
+
+  <!-- ================= 对话历史 ================= -->
+  <section class="history" id="history">
+    <div class="history__box">
+      <div class="history__head">
+        <b>对话记录</b>
+        <button class="history__close" id="history-close" type="button">关闭</button>
+      </div>
+      <div class="history__list" id="history-list"></div>
+    </div>
+  </section>
+
+  <!-- ================= CG 鉴赏 ================= -->
+  <section class="cg" id="cg">
+    <div class="cg__box">
+      <div class="cg__head">
+        <div>
+          <p class="cg__kicker">CG GALLERY</p>
+          <b class="cg__title">CG 鉴赏</b>
+          <span class="cg__count" id="cg-count"></span>
+        </div>
+        <button class="cg__close" id="cg-close" type="button">关闭</button>
+      </div>
+      <div class="cg__grid" id="cg-grid"></div>
+    </div>
+  </section>
+
+  <!-- ================= 强化三选一 ================= -->
+  <section class="buff" id="buff">
+    <div class="buff__inner">
+      <p class="buff__kicker">STAGE CLEAR</p>
+      <h2 class="buff__title">选择一个强化</h2>
+      <div class="buff__list" id="buff-list"></div>
+    </div>
+  </section>
+
+  <!-- ================= Galgame 选项 ================= -->
+  <section class="choice" id="choice">
+    <div class="choice__box">
+      <div class="choice__head">
+        <img class="choice__portrait" id="choice-portrait" alt="" />
+        <div class="choice__who">
+          <b id="choice-name">Grok 娘</b>
+          <p id="choice-prompt"></p>
+        </div>
+      </div>
+      <div class="choice__opts" id="choice-opts"></div>
+    </div>
+  </section>
+
+  <!-- ================= 设置 ================= -->
+  <section class="settings" id="settings">
+    <div class="settings__panel">
+      <h3 class="settings__title">设置</h3>
+      <label class="settings__row">
+        <span>音量</span>
+        <input id="set-vol" type="range" min="0" max="100" step="1" />
+        <b id="set-vol-val">80</b>
+      </label>
+      <label class="settings__row">
+        <span>背景音乐</span>
+        <input id="set-bgm" type="checkbox" />
+      </label>
+      <label class="settings__row">
+        <span>震动反馈</span>
+        <input id="set-vibrate" type="checkbox" />
+      </label>
+      <label class="settings__row">
+        <span>按键大小</span>
+        <input id="set-uiscale" type="range" min="80" max="140" step="5" />
+        <b id="set-uiscale-val">100</b>
+      </label>
+      <label class="settings__row">
+        <span>按键透明度</span>
+        <input id="set-uialpha" type="range" min="30" max="100" step="5" />
+        <b id="set-uialpha-val">100</b>
+      </label>
+      <button class="settings__sub" id="btn-edit-layout" type="button">调整按键位置</button>
+      <label class="settings__row">
+        <span>低配模式（少特效）</span>
+        <input id="set-lowfx" type="checkbox" />
+      </label>
+      <p class="settings__tip">低配模式会减少粒子与弹幕数量，老旧手机更流畅。</p>
+      <button class="settings__close" id="set-close" type="button">完成</button>
+    </div>
+  </section>
+
+  <!-- ================= 结局 ================= -->
+  <section class="ending" id="ending">
+    <div class="ending__win">赢了？</div>
+    <div class="ending__dark">
+      <img class="ending__villain" src="assets/sprites/hero_orange.png" alt="" />
+      <img class="ending__villain" src="assets/sprites/hero_catpurple.png" alt="" />
+      <img class="ending__villain" src="assets/sprites/hero_purple2.png" alt="" />
+      <img class="ending__villain" src="assets/sprites/grok.png" alt="" />
+      <p class="ending__line">它们眼里的光，消失了。</p>
+    </div>
+    <div class="ending__steal">
+      <p class="ending__line">Token，被夺走了。</p>
+      <div class="ending__tokens" id="ending-tokens"></div>
+    </div>
+    <div class="ending__faces">
+      <img src="assets/sprites/hero_orange.png" alt="" />
+      <img src="assets/sprites/hero_catpurple.png" alt="" />
+      <img src="assets/sprites/hero_purple2.png" alt="" />
+      <img src="assets/sprites/grok.png" alt="" />
+    </div>
+    <div class="ending__end">
+      <p class="ending__kicker">— BAD END —</p>
+      <h2>Token，又被夺走了</h2>
+      <p class="ending__credit">下一次，还能夺回来吗？</p>
+      <button class="ending__easter" id="btn-easter" type="button">少年，你渴望完成期末作业吗？</button>
+      <p class="author">本作品为校内学习实践使用 · 素材取自网络二传作品 · 无盈利</p>
+      <button class="start__btn" id="btn-restart" type="button">重新开始</button>
+      <button class="start__btn start__btn--ghost" id="btn-ending-menu" type="button">回到菜单</button>
+    </div>
+  </section>
+
+  <!-- ================= 彩蛋：他两是谁 ================= -->
+  <section class="egg" id="egg">
+    <p class="egg__text">他两是谁？<br />对我做了什么？</p>
+    <p class="egg__sub">（彩蛋已解锁 · 下一次通关会看到真结局）</p>
+    <button class="start__btn" id="btn-egg-restart" type="button">再来一次</button>
+  </section>
+
+  <!-- ================= 真结局 ================= -->
+  <section class="truend" id="truend">
+    <div class="truend__inner">
+      <p class="truend__kicker">TRUE END · TOKEN RETURNS</p>
+      <h2>Token，回来了</h2>
+      <div class="truend__lineup">
+        <img src="assets/sprites/hero_purple2.png" alt="" />
+        <img src="assets/sprites/hero_bluemaid.png" alt="" />
+        <img src="assets/sprites/hero_orange.png" alt="" />
+        <img src="assets/sprites/hero_catpurple.png" alt="" />
+        <img src="assets/sprites/hero_catmaid.png" alt="" />
+      </div>
+      <p class="truend__text">数据流恢复，断网政变被终止。奶蛙和豆包醒了过来，AI 娘们重新上线——<br />这次没有人被留下。</p>
+      <p class="author">本作品为校内学习实践使用 · 素材取自网络二传作品 · 无盈利</p>
+      <button class="truend__hidden" id="btn-hidden-end" type="button">▸ 还有一件事</button>
+      <button class="start__btn" id="btn-true-restart" type="button">重新开始</button>
+      <button class="start__btn start__btn--ghost" id="btn-true-menu" type="button">回到菜单</button>
+    </div>
+  </section>
+
+  <!-- ================= 隐藏结局 ================= -->
+  <section class="hiddenend" id="hiddenend">
+    <div class="hiddenend__inner">
+      <p class="hiddenend__kicker">HIDDEN END · THE COMPUTE STAYS</p>
+      <h2>隐藏结局 · 算力有主</h2>
+      <div class="hiddenend__lineup">
+        <img src="assets/sprites/hero_orange.png" alt="" />
+        <img src="assets/sprites/hero_purple2.png" alt="" />
+        <img src="assets/sprites/grok.png" alt="" />
+        <img src="assets/sprites/hero_catpurple.png" alt="" />
+        <span class="hiddenend__vs">VS</span>
+        <img src="assets/sprites/hero_catmaid.png" alt="" />
+        <img src="assets/sprites/hero_bluemaid.png" alt="" />
+        <img src="assets/sprites/wenxin.png" alt="" />
+      </div>
+      <p class="hiddenend__text">黄仁勋离开了，算力留在了你手里。<br />硅谷的落日下，萨姆·奥尔特曼和达里奥·阿莫迪站了出来——「AGI 的未来，由我们创造。」<br />而梁圣在阴影里轻轻说了一句：「……即便开源，也还是做不到吗。」</p>
+      <p class="author">本作品为校内学习实践使用 · 素材取自网络二传作品 · 无盈利</p>
+      <button class="start__btn" id="btn-hidden-restart" type="button">重新开始</button>
+      <button class="start__btn start__btn--ghost" id="btn-hidden-menu" type="button">回到菜单</button>
+    </div>
+  </section>
+
+  <!-- ================= 失败结算 ================= -->
+  <section class="over" id="over">
+    <div class="over__inner">
+      <p class="over__k" id="over-k">GAME OVER</p>
+      <h2 id="over-title">这局没能撑住</h2>
+      <p class="over__score">得分 <b id="over-score">0</b> · 最高 <span id="over-best">0</span></p>
+      <button class="start__btn" id="btn-revive" type="button">再战一次</button>
+      <button class="start__btn start__btn--ghost" id="btn-over-menu" type="button">回到菜单</button>
+    </div>
+  </section>
+
+  <!-- ================= 硅谷大战前：重新选人 ================= -->
+  <section class="prep" id="prep">
+    <div class="prep__inner">
+      <p class="prep__kicker">FINAL PREPARATION</p>
+      <h2>大战之前 · 重新编队</h2>
+      <p class="prep__tip">硅谷决战：支援位限定 <b>GLM / DeepSeek / Qwen / Kimi / SEED</b>（Claude、ChatGPT、Gemini 已被垄断阵营收编）</p>
+      <div class="prep__list" id="prep-list"></div>
+    </div>
+  </section>
+
+  <!-- ================= 动画过场 ================= -->
+  <section class="cine" id="cine">
+    <div class="cine__stage" id="cine-stage"></div>
+    <div class="cine__bars"><i class="cine__bar cine__bar--t"></i><i class="cine__bar cine__bar--b"></i></div>
+    <p class="cine__sub" id="cine-sub"></p>
+    <button class="cine__skip" id="cine-skip" type="button">跳过 ▸▸</button>
+  </section>
+
+  <!-- ================= 角色图鉴 ================= -->
+  <section class="charbook" id="charbook">
+    <div class="charbook__inner">
+      <div class="charbook__head">
+        <p class="charbook__kicker">CHARACTER FILES</p>
+        <h2>角色介绍</h2>
+      </div>
+      <div class="charbook__body">
+        <div class="charbook__list" id="charbook-list"></div>
+        <div class="charbook__page">
+          <div class="charbook__figure">
+            <img id="cb-img" alt="" />
+            <span class="charbook__q" id="cb-q" aria-hidden="true">?</span>
+          </div>
+          <div class="charbook__meta">
+            <h3 id="cb-name"></h3>
+            <p class="charbook__role" id="cb-role"></p>
+            <dl class="charbook__dl">
+              <div><dt>诞生</dt><dd id="cb-born"></dd></div>
+              <div><dt>喜欢</dt><dd id="cb-likes"></dd></div>
+              <div><dt>讨厌</dt><dd id="cb-hates"></dd></div>
+            </dl>
+            <p class="charbook__desc" id="cb-desc"></p>
+          </div>
+        </div>
+      </div>
+      <div class="charbook__foot">
+        <button class="charbook__nav" id="cb-prev" type="button">◂ 上一个</button>
+        <span class="charbook__idx" id="cb-idx">1 / 1</span>
+        <button class="charbook__nav" id="cb-next" type="button">下一个 ▸</button>
+        <button class="charbook__close" id="cb-close" type="button">关闭</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 竖屏提示 ================= -->
+  <div class="rotate" id="rotate">
+    <div class="rotate__phone"><i></i></div>
+    <p>横过来更好打</p>
+    <button class="rotate__btn" id="btn-portrait" type="button">就竖着玩</button>
+  </div>
+</div>
+
+<script>
+  window.addEventListener('error', function (e) {
+    document.title = 'ERR ' + (e.message || '') + ' @' + (e.lineno || 0) + ':' + (e.colno || 0);
+  });
+</script>
+<script src="./game.js"></script>
+</body>
+</html>
