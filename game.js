@@ -2589,7 +2589,7 @@
     /* 先播 Boss 自身的过场（马斯克 + Grok 的剧情），再进入选项分支 */
     const afterCine = function () {
       clearMinions();
-      if (showBranch) PRE_BRANCHES[branchKey](talk);
+      if (showBranch) talk(function () { PRE_BRANCHES[branchKey](spawn); });
       else talk();
     };
 
@@ -2630,21 +2630,15 @@
       document.body.classList.remove('is-cutscene');
     }
 
-    function talk() {
-      if (!st.bossIntro || !st.bossIntro.length) { spawn(); return; }
+    function talk(cb) {
+      const done = cb || spawn;
+      if (!st.bossIntro || !st.bossIntro.length) { done(); return; }
       showDialog(
         st.bossIntro.map(function (t) { return { name: '文心一言', portrait: 'wenxin', text: t }; }),
-        spawn
+        done
       );
     }
 
-    clearMinions();
-    if (st.bossCine && st.bossCine.length) {
-      game.state = 'cine';
-      playCine(st.bossCine, talk);
-    } else {
-      talk();
-    }
   }
 
   /* 进剧情/过场时把场上的小怪与弹幕清掉，只留 Boss */
