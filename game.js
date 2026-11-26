@@ -5806,14 +5806,14 @@
     pbullets = [];
     enemies = [];
     const conf = [
-      { kind: 'altman', x: 0.2, hp: 960, w: 54, h: 100 },
-      { kind: 'chatgpt', x: 0.3, hp: 940, w: 60, h: 126 },
-      { kind: 'pichai', x: 0.4, hp: 960, w: 54, h: 100 },
-      { kind: 'gemini', x: 0.5, hp: 940, w: 60, h: 124 },
-      { kind: 'musk', x: 0.61, hp: 960, w: 54, h: 100 },
-      { kind: 'grok', x: 0.72, hp: 940, w: 62, h: 128 },
-      { kind: 'dario', x: 0.83, hp: 940, w: 54, h: 98 },
-      { kind: 'claude', x: 0.94, hp: 940, w: 60, h: 124 }
+      { kind: 'altman', x: 0.16, hp: 960, w: 54, h: 100 },
+      { kind: 'chatgpt', x: 0.255, hp: 940, w: 60, h: 126 },
+      { kind: 'pichai', x: 0.35, hp: 960, w: 54, h: 100 },
+      { kind: 'gemini', x: 0.445, hp: 940, w: 60, h: 124 },
+      { kind: 'musk', x: 0.54, hp: 960, w: 54, h: 100 },
+      { kind: 'grok', x: 0.635, hp: 940, w: 62, h: 128 },
+      { kind: 'dario', x: 0.73, hp: 940, w: 54, h: 98 },
+      { kind: 'claude', x: 0.825, hp: 940, w: 60, h: 124 }
     ];
     conf.forEach(function (c) {
       spawnSpecialBoss(c.kind, W * c.x, c.hp, U(c.w), U(c.h));
@@ -5823,9 +5823,9 @@
     /* 队友：没选的三位出场帮忙 */
     allies = [];
     const allySlots = [
-      { x: 0.22, lift: 74 },
-      { x: 0.5, lift: 74 },
-      { x: 0.78, lift: 74 }
+      { x: 0.12, lift: 74 },
+      { x: 0.36, lift: 74 },
+      { x: 0.6, lift: 74 }
     ];
     let slotIdx = 0;
     let allyCount = 0;
@@ -6026,7 +6026,7 @@
       e.face = player.x < e.x ? -1 : 1;
       const speed = e.kind === 'musk' ? 1.3 : (e.kind === 'grok' ? 0.9 : 0.55 + idx * 0.06);
       e.x = lerp(e.x, e.homeX + Math.sin(e.t * speed + idx) * U(26), 1 - Math.pow(0.02, dt));
-      e.x = clamp(e.x, U(48), W - U(48));
+      e.x = clamp(e.x, U(64), W - U(96));
       e.fireT -= dt;
       idx += 1;
       if (e.heavyT === undefined) e.heavyT = 5.5 + Math.random() * 3;
