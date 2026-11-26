@@ -2850,6 +2850,20 @@ html.layout-edit .layout-hint { display: block; }
   }
 }
 
+
+/* 角色图鉴分组标题 */
+.charbook__group {
+  grid-column: 1 / -1;
+  margin: 10px 0 2px;
+  padding: 4px 2px 6px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  font-weight: 800;
+  color: rgba(150, 220, 255, 0.75);
+  border-bottom: 1px solid rgba(94, 231, 255, 0.18);
+}
+.charbook__group:first-child { margin-top: 0; }
+
 </style>
 </head>
 <body>
@@ -3744,7 +3758,8 @@ html.layout-edit .layout-hint { display: block; }
     const rect = canvas.getBoundingClientRect();
     W = Math.max(1, Math.round(rect.width));
     H = Math.max(1, Math.round(rect.height));
-    DPR = clamp(window.devicePixelRatio || 1, 1, 2);
+    const isTouch = (typeof navigator !== 'undefined') && ((navigator.maxTouchPoints || 0) > 1);
+    DPR = clamp(window.devicePixelRatio || 1, 1, isTouch ? 1.6 : 2);
     canvas.width = Math.round(W * DPR);
     canvas.height = Math.round(H * DPR);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -4611,7 +4626,7 @@ html.layout-edit .layout-hint { display: block; }
   function freePart(p) { if (partPool.length < 900) partPool.push(p); }
 
   function spawnSparks(x, y, color, n) {
-    if (parts.length > 220) return;
+    if (parts.length > 160) return;
     if (game.lowFx) n = Math.max(1, Math.round(n * 0.4));
     for (let i = 0; i < n; i++) {
       const a = rand(0, TAU);
@@ -7483,6 +7498,32 @@ html.layout-edit .layout-hint { display: block; }
   }
 
   /* ---------------- 文字弹幕 ---------------- */
+  const bulletCache = {};
+  function bulletSprite(text, fs, color) {
+    const key = text + '|' + Math.round(fs) + '|' + (color || '#dff8ff');
+    if (bulletCache[key]) return bulletCache[key];
+    const pad = Math.ceil(fs);
+    const cv = document.createElement('canvas');
+    cv.width = Math.ceil(fs * 3 + pad * 2);
+    cv.height = Math.ceil(fs * 2 + pad * 2);
+    const c2 = cv.getContext('2d');
+    c2.font = '800 ' + fs.toFixed(1) + 'px ui-monospace, "PingFang SC", monospace';
+    c2.textAlign = 'center';
+    c2.textBaseline = 'middle';
+    const cx = cv.width / 2, cy = cv.height / 2;
+    c2.lineWidth = Math.max(2.5, fs * 0.22);
+    c2.strokeStyle = 'rgba(4,8,16,0.92)';
+    c2.lineJoin = 'round';
+    c2.strokeText(text, cx, cy);
+    c2.shadowColor = 'rgba(140,240,255,0.95)';
+    c2.shadowBlur = fs * 0.9;
+    c2.fillStyle = color || '#dff8ff';
+    c2.fillText(text, cx, cy);
+    bulletCache[key] = cv;
+    if (Object.keys(bulletCache).length > 80) { /* 控制缓存 */ }
+    return cv;
+  }
+
   function drawPBullets() {
     for (const b of pbullets) {
       if (!isFinite(b.x) || !isFinite(b.y) || !isFinite(b.size) || b.size <= 0) continue;
@@ -7490,29 +7531,31 @@ html.layout-edit .layout-hint { display: block; }
       ctx.translate(b.x, b.y);
       ctx.rotate(b.rot + game.time * 2.2);
       const fs = Math.max(10, b.size * S);
-      ctx.font = '800 ' + fs.toFixed(1) + 'px ui-monospace, "PingFang SC", monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-
-      if (game.lowFx || (game.fps && game.fps < 50)) {
-        ctx.fillStyle = b.color || '#dff8ff';
-        ctx.fillText(b.text, 0, 0);
-        ctx.restore();
-        continue;
-      }
-
-      ctx.lineWidth = Math.max(2.5, fs * 0.22);
-      ctx.strokeStyle = 'rgba(4,8,16,0.92)';
-      ctx.lineJoin = 'round';
-      ctx.strokeText(b.text, 0, 0);
-
+      const spr = bulletSprite(b.text, fs, b.color);
       ctx.globalCompositeOperation = 'lighter';
-      ctx.shadowColor = 'rgba(140,240,255,0.95)';
-      ctx.shadowBlur = U(12);
-      ctx.fillStyle = b.color || '#dff8ff';
-      ctx.fillText(b.text, 0, 0);
+      ctx.drawImage(spr, -spr.width / 2, -spr.height / 2);
       ctx.restore();
     }
+  }
+
+  const ebulletCache = {};
+  function enemyBulletSprite(color, r) {
+    const key = color + '|' + Math.round(r);
+    if (ebulletCache[key]) return ebulletCache[key];
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = Math.ceil(r * 4);
+    const c2 = cv.getContext('2d');
+    const cx = cv.width / 2;
+    const g = c2.createRadialGradient(cx, cx, 0, cx, cx, r * 1.5);
+    g.addColorStop(0, 'rgba(255,255,255,0.95)');
+    g.addColorStop(0.5, 'rgba(' + color + ',0.9)');
+    g.addColorStop(1, 'rgba(' + color + ',0)');
+    c2.fillStyle = g;
+    c2.beginPath();
+    c2.arc(cx, cx, r * 1.5, 0, Math.PI * 2);
+    c2.fill();
+    ebulletCache[key] = cv;
+    return cv;
   }
 
   function drawEBullets() {
@@ -7535,15 +7578,9 @@ html.layout-edit .layout-hint { display: block; }
         ctx.restore();
         continue;
       }
+      const spr2 = enemyBulletSprite(b.color, bR);
       ctx.globalCompositeOperation = 'lighter';
-      const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, bR * 1.5);
-      g.addColorStop(0, 'rgba(255,255,255,0.95)');
-      g.addColorStop(0.5, 'rgba(' + b.color + ',0.9)');
-      g.addColorStop(1, 'rgba(' + b.color + ',0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(b.x, b.y, bR * 1.5, 0, TAU);
-      ctx.fill();
+      ctx.drawImage(spr2, b.x - spr2.width / 2, b.y - spr2.height / 2);
       ctx.restore();
 
       if (b.text) {
@@ -8362,24 +8399,57 @@ html.layout-edit .layout-hint { display: block; }
   let cbIndex = 0;
   let cbBuilt = false;
 
+  const CHAR_GROUPS = [
+    { key: 'cn', label: '国产 AI' },
+    { key: 'intl', label: '国外 AI' },
+    { key: 'human', label: '硅谷真人 / 神秘人' },
+    { key: 'other', label: '其他角色' }
+  ];
+  const CHAR_GROUP_OF = {
+    hero_bluemaid: 'cn', hero_catmaid: 'cn', wenxin: 'cn', qwen: 'cn', kimi: 'cn',
+    enemy_doubao: 'cn', doubao_winter: 'cn', seed: 'cn',
+    hero_purple2: 'intl', hero_orange: 'intl', hero_catpurple: 'intl', grok: 'intl',
+    musk: 'human', altman: 'human', pichai: 'human', dario: 'human',
+    nvidia_huang: 'human', liang_sheng: 'human',
+    enemy_blob: 'other', enemy_elite: 'other'
+  };
+  const cbButtons = [];
+
+  function charGroup(c) {
+    return CHAR_GROUP_OF[c.img] || 'other';
+  }
+
   function buildCharList() {
     if (!charbookListEl || cbBuilt) return;
     cbBuilt = true;
     charbookListEl.innerHTML = '';
-    CHARACTERS.forEach(function (c, i) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'charbook__thumb';
-      const locked = isCharLocked(c);
-      const thumbSrc = locked && c.sil ? c.sil : c.img;
-      b.innerHTML = '<img src="' + spriteSrc(thumbSrc) + '" alt=""><span>' +
-        (locked ? '？？？' : c.name) + '</span>';
-      b.addEventListener('click', function (e) {
-        e.stopPropagation();
-        cbIndex = i;
-        renderCharPage();
+    cbButtons.length = 0;
+    CHAR_GROUPS.forEach(function (g) {
+      const members = [];
+      CHARACTERS.forEach(function (c, i) { if (charGroup(c) === g.key) members.push(i); });
+      if (!members.length) return;
+      const head = document.createElement('div');
+      head.className = 'charbook__group';
+      head.textContent = g.label;
+      charbookListEl.appendChild(head);
+      members.forEach(function (i) {
+        const c = CHARACTERS[i];
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'charbook__thumb';
+        b.dataset.idx = String(i);
+        const locked = isCharLocked(c);
+        const thumbSrc = locked && c.sil ? c.sil : c.img;
+        b.innerHTML = '<img src="' + spriteSrc(thumbSrc) + '" alt=""><span>' +
+          (locked ? '？？？' : c.name) + '</span>';
+        b.addEventListener('click', function (e) {
+          e.stopPropagation();
+          cbIndex = i;
+          renderCharPage();
+        });
+        cbButtons.push(b);
+        charbookListEl.appendChild(b);
       });
-      charbookListEl.appendChild(b);
     });
   }
 
@@ -8402,8 +8472,8 @@ html.layout-edit .layout-hint { display: block; }
     if (cbDescEl) cbDescEl.textContent = (!locked && c.descUnlocked) ? c.descUnlocked : c.desc;
     if (cbIdxEl) cbIdxEl.textContent = (cbIndex + 1) + ' / ' + CHARACTERS.length;
     if (charbookListEl) {
-      Array.prototype.forEach.call(charbookListEl.children, function (el, i) {
-        el.classList.toggle('is-on', i === cbIndex);
+      cbButtons.forEach(function (el) {
+        el.classList.toggle('is-on', Number(el.dataset.idx) === cbIndex);
       });
     }
   }
@@ -10002,7 +10072,8 @@ html.layout-edit .layout-hint { display: block; }
     try {
       for (let i = 0; i < reps; i++) step(dt);
       draw();
-      syncHud();
+      game._hudTick = (game._hudTick || 0) + 1;
+      if (game._hudTick % 3 === 0) syncHud();
     } catch (err) {
       /* 出错不再整局冻结：清掉可疑弹幕/粒子，正常继续渲染，只弹一条轻提示 */
       window.__ERR = (err && err.message ? err.message : String(err)) + '\n' + ((err && err.stack) || '');
@@ -10284,6 +10355,61 @@ html.layout-edit .layout-hint { display: block; }
               if (n < 90) setTimeout(tick, 400);
               else document.title = 'WAR2 state=' + game.state + ' bosses=' + enemies.filter(function (e) { return e.isBoss; }).length +
                 ' eb=' + ebullets.length + ' errs=' + errs.length + ' err=' + (window.__ERR || '').slice(0, 50);
+            };
+            tick();
+          }, 400);
+        } else if (sc === 'drawbench') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            if (cineEl) cineEl.classList.remove('show');
+            if (dialogEl) dialogEl.classList.remove('show');
+            dialogQueue = [];
+            game.state = 'play';
+            game.lowFx = false;
+            player.hp = player.maxHp = 9999;
+            pbullets = [];
+            for (let i = 0; i < 48; i++) {
+              pbullets.push({ x: U(80) + (i % 12) * U(80), y: groundY - U(80) - Math.floor(i / 12) * U(50),
+                vx: 0, vy: 0, dmg: 1, text: 'TOKEN', color: '#dff8ff', size: U(15), rot: i * 0.1, life: 9, r: U(12), target: null, turn: 0 });
+            }
+            ebullets = [];
+            for (let i = 0; i < 80; i++) {
+              ebullets.push({ x: U(60) + (i % 16) * U(70), y: U(120) + Math.floor(i / 16) * U(80), vx: 0, vy: 0,
+                color: BULLET_COLORS.track, r: U(10), life: 9, dmg: 1, text: '' });
+            }
+            const t0 = performance.now();
+            for (let i = 0; i < 200; i++) { draw(); }
+            const ms = (performance.now() - t0) / 200;
+            document.title = 'BENCH avg=' + ms.toFixed(2) + 'ms pb=' + pbullets.length + ' eb=' + ebullets.length;
+          }, 500);
+        } else if (sc === 'perftest') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            if (cineEl) cineEl.classList.remove('show');
+            if (dialogEl) dialogEl.classList.remove('show');
+            dialogQueue = [];
+            game.state = 'play';
+            game.lowFx = false;
+            player.hp = player.maxHp = 9999;
+            player.dmgMul = 1;
+            window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyJ' }));
+            let n = 0;
+            const tick = function () {
+              n++;
+              player.token = player.maxToken;
+              player.skillCd = 0;
+              player.ultCd = 0;
+              if (n % 5 === 0) { window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyJ' })); window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyJ' })); }
+              if (n % 9 === 0) doUlt();
+              if (n % 7 === 0) doSkill();
+              if (n < 60) setTimeout(tick, 100);
+              else document.title = 'PERF fps=' + (game.fps || 0).toFixed(1) + ' pb=' + pbullets.length + ' eb=' + ebullets.length +
+                ' parts=' + parts.length + ' cache=' + Object.keys(bulletCache).length + '/' + Object.keys(ebulletCache).length +
+                ' err=' + (window.__ERR || '');
             };
             tick();
           }, 400);

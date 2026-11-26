@@ -2837,3 +2837,17 @@ html.layout-edit .layout-hint { display: block; }
     bottom: 24%;
   }
 }
+
+
+/* 角色图鉴分组标题 */
+.charbook__group {
+  grid-column: 1 / -1;
+  margin: 10px 0 2px;
+  padding: 4px 2px 6px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  font-weight: 800;
+  color: rgba(150, 220, 255, 0.75);
+  border-bottom: 1px solid rgba(94, 231, 255, 0.18);
+}
+.charbook__group:first-child { margin-top: 0; }
