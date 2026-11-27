@@ -474,6 +474,108 @@
     }
   };
 
+  /* ---------- 成就系统 ---------- */
+  const ACHIEVEMENTS = [
+    { id: 'kill1', name: '初战告捷', desc: '击败第一个敌人', icon: '1', cond: function (s) { return s.kills >= 1; } },
+    { id: 'kill100', name: '百人斩', desc: '累计击败 100 个敌人', icon: '100', cond: function (s) { return s.kills >= 100; } },
+    { id: 'kill1000', name: '千人斩', desc: '累计击败 1000 个敌人', icon: '1k', cond: function (s) { return s.kills >= 1000; } },
+    { id: 'score1w', name: '万元户', desc: '单局分数达到 10,000', icon: '¥', cond: function (s) { return s.maxScore >= 10000; } },
+    { id: 'score5w', name: '算力富翁', desc: '单局分数达到 50,000', icon: '¥¥', cond: function (s) { return s.maxScore >= 50000; } },
+    { id: 'combo30', name: '连击新星', desc: '单局最高连击达到 30', icon: 'C', cond: function (s) { return s.maxCombo >= 30; } },
+    { id: 'combo60', name: '连击大师', desc: '单局最高连击达到 60', icon: 'C+', cond: function (s) { return s.maxCombo >= 60; } },
+    { id: 'clear1', name: '第一关通过', desc: '通关任意一关', icon: '✓', cond: function (s) { return s.clears >= 1; } },
+    { id: 'clear4', name: '四关全通', desc: '通关全部四个关卡', icon: '★', cond: function (s) { return s.clears >= 4; } },
+    { id: 'nohit', name: '无伤通关', desc: '一关内不受到任何伤害', icon: '无', cond: function (s) { return !!s.noHit; } },
+    { id: 'endbad', name: '「赢了？」', desc: '第一次看到坏结局', icon: '?', cond: function (s) { return !!s.endBad; } },
+    { id: 'endtrue', name: 'Token，回来了', desc: '达成真结局', icon: 'T', cond: function (s) { return !!s.endTrue; } },
+    { id: 'endhidden', name: '隐藏结局', desc: '解锁隐藏结局', icon: 'H', cond: function (s) { return !!s.endHidden; } },
+    { id: 'easter', name: '算力，你收好', desc: '触发黄仁勋彩蛋', icon: '黄', cond: function (s) { return !!s.easter; } },
+    { id: 'frog', name: '奶蛙之友', desc: '选择相信奶蛙', icon: '呱', cond: function (s) { return !!s.frog; } },
+    { id: 'heroes', name: '全员体验', desc: '使用过全部 10 位可操作角色', icon: '10', cond: function (s) { return Object.keys(s.heroes || {}).length >= 10; } },
+    { id: 'war', name: '车轮战胜利', desc: '在隐藏决战中获胜', icon: 'W', cond: function (s) { return s.warWins >= 1; } },
+    { id: 'sacrifice', name: '不要磨蹭了', desc: '触发一次队友献祭复活', icon: '†', cond: function (s) { return s.sacrifices >= 1; } }
+  ];
+
+  function achvStats() {
+    if (!SAVE.stats) {
+      SAVE.stats = { kills: 0, maxScore: 0, maxCombo: 0, clears: 0, noHit: false,
+        endBad: false, endTrue: false, endHidden: false, easter: false,
+        frog: false, heroes: {}, warWins: 0, sacrifices: 0 };
+    }
+    const st = SAVE.stats;
+    if (!st.heroes) st.heroes = {};
+    return st;
+  }
+
+  function showAchvToast(name, desc) {
+    try {
+      let el = document.getElementById('achv-toast');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'achv-toast';
+        el.className = 'achv-toast';
+        document.body.appendChild(el);
+      }
+      el.innerHTML = '🏆 成就解锁：' + name + '<span>' + desc + '</span>';
+      el.classList.add('show');
+      clearTimeout(el._timer);
+      el._timer = setTimeout(function () { el.classList.remove('show'); }, 3600);
+    } catch (e) { /* ignore */ }
+  }
+
+  function unlockAchv(a) {
+    if (!a || SAVE.achv && SAVE.achv[a.id]) return;
+    if (!SAVE.achv) SAVE.achv = {};
+    SAVE.achv[a.id] = true;
+    saveWrite();
+    showAchvToast(a.name, a.desc);
+    sfx(880, 0.18, 'triangle', 0.05);
+    setTimeout(function () { sfx(1180, 0.16, 'sine', 0.04); }, 90);
+  }
+
+  function checkAchv() {
+    const st = achvStats();
+    ACHIEVEMENTS.forEach(function (a) {
+      if (!SAVE.achv || !SAVE.achv[a.id]) {
+        if (a.cond(st)) unlockAchv(a);
+      }
+    });
+    saveWrite();
+  }
+
+  function renderAchv() {
+    const list = document.getElementById('achv-list');
+    if (!list) return;
+    list.innerHTML = '';
+    let got = 0;
+    ACHIEVEMENTS.forEach(function (a) {
+      const un = !!(SAVE.achv && SAVE.achv[a.id]);
+      if (un) got += 1;
+      const row = document.createElement('div');
+      row.className = 'achv__row' + (un ? '' : ' is-locked');
+      row.innerHTML = '<div class="achv__icon">' + (un ? a.icon : '?') + '</div>' +
+        '<div class="achv__info"><b>' + (un ? a.name : '？？？') + '</b><span>' + a.desc + '</span></div>';
+      list.appendChild(row);
+    });
+    const cnt = document.getElementById('achv-count');
+    if (cnt) cnt.textContent = got + ' / ' + ACHIEVEMENTS.length;
+  }
+
+  function bindAchv() {
+    const panel = document.getElementById('achv');
+    if (!panel) return;
+    const open = document.getElementById('btn-achv');
+    if (open) open.addEventListener('click', function (e) {
+      e.stopPropagation();
+      renderAchv();
+      panel.classList.add('show');
+    });
+    const close = document.getElementById('achv-close');
+    if (close) close.addEventListener('click', function (e) { e.stopPropagation(); panel.classList.remove('show'); });
+    panel.addEventListener('click', function (e) { if (e.target === panel) panel.classList.remove('show'); });
+    checkAchv();
+  }
+
   /* ---------- 存档（版本化 + 旧键迁移） ---------- */
   const SAVE_KEY = 'tb_save_v2';
   const SAVE = (function () {
@@ -1046,6 +1148,7 @@
     p.attackCd = fireRate();
     p.attackT = ATK_DUR;
     game.combo += 1;
+    { const st0 = achvStats(); if (game.combo > st0.maxCombo) st0.maxCombo = game.combo; }
     game.comboT = 2.2;
 
     const dmg = heroDmg() * (p.chain === 3 ? 18 : p.chain === 2 ? 11 : 7);
@@ -1450,6 +1553,8 @@
     spawnExplosion(e.x, e.y - e.h * 0.5, boss ? '255,209,102' : e.kind === 'doubao' ? '150,220,255' : '255,140,170');
     game.score += boss ? 3000 : e.kind === 'laugh' ? 500 : 160;
     game.kills += 1;
+    achvStats().kills += 1;
+    checkAchv();
     game.stageKills = (game.stageKills || 0) + 1;
     player.token = Math.min(player.maxToken, player.token + (boss ? 40 : 6) * player.tokenMul);
     game.shake = Math.max(game.shake, boss ? U(24) : U(8));
@@ -3220,6 +3325,8 @@
             { name: '文心一言', portrait: 'wenxin', text: '它决定跟着你了——这一层不用打了。' }
           ], function () {
             addAlly('frog');
+            achvStats().frog = true;
+            checkAchv();
             game.flags.frogFriend = true;
             game.affection += 1;
             stopLaugh();
@@ -3328,6 +3435,7 @@
     ebullets = [];
     pbullets = [];
     game.angryBoss = false;
+    { const stc = achvStats(); stc.clears += 1; if (game.stageHits === 0) stc.noHit = true; checkAchv(); }
     const st = STAGES[game.stage];
     const isLast = game.stage >= STAGES.length - 1;
     const fight = game.mode === 'fight';
@@ -6195,6 +6303,8 @@
     pbullets = [];
     enemies = [];
     /* 彩蛋解锁过 → 真结局 */
+    achvStats().endBad = true;
+    checkAchv();
     if (trueUnlocked()) { playTrueEnding(); return; }
     /* galgame 收尾：好感度不同，最后一句不同 */
     const allyNames = game.allyKeys.map(function (k) {
@@ -6218,6 +6328,8 @@
   }
 
   function playTrueEnding() {
+    achvStats().endTrue = true;
+    checkAchv();
     const affLine2 = game.affection >= 1
       ? '（' + (game.affectionTag || '你') + '的你，最后也没有丢下任何人。）'
       : '（你一路只顾自己。可到最后，还是把 Token 分了出去。）';
@@ -6241,6 +6353,8 @@
 
   /* ------- 隐藏结局：真结局之后 ------- */
   function playHiddenEnding() {
+    achvStats().endHidden = true;
+    checkAchv();
     if (truendEl) truendEl.classList.remove('show');
     game.state = 'cine';
     playCine([
@@ -6420,6 +6534,7 @@
   function startSiliconWar(heroIdx) {
     heroIndex = clamp(heroIdx | 0, 0, HEROES.length - 1);
     const hero = HEROES[heroIndex] || HEROES[0];
+    achvStats().heroes[hero.key] = true;
     if (el.heroName) el.heroName.textContent = hero.name;
     if (el.heroBadge) el.heroBadge.textContent = hero.badge;
     resetWorld();
@@ -6487,6 +6602,8 @@
     ebullets = [];
     pbullets = [];
     if (win) {
+      achvStats().warWins += 1;
+      checkAchv();
       saveSet('grokUnlocked', true);
       addText(W * 0.5, H * 0.3, 'Token 自由。', '255,209,102', 28);
     }
@@ -6846,6 +6963,8 @@
       e.stopPropagation();
       if (endingEl) endingEl.className = 'ending';
       saveSet('easter', true);
+      achvStats().easter = true;
+      checkAchv();
       game.state = 'cine';
       playCine([
         { bg: 'void', actors: [{ img: 'nvidia_huang', side: 'center' }], text: '少年，你渴望完成期末作业吗？', dur: 3200 },
@@ -7106,6 +7225,7 @@
     const ally = allies.pop();
     const name = (ally && ally.name) || '队友';
     game.warSacrifices = (game.warSacrifices || 0) + 1;
+    { const st2 = achvStats(); st2.sacrifices = (st2.sacrifices || 0) + 1; checkAchv(); }
     player.dead = false;
     player.hp = player.maxHp;
     player.invuln = 4.2;
@@ -7190,6 +7310,8 @@
       best = Math.floor(game.score);
       saveSet('best', best);
     }
+    { const st1 = achvStats(); if (game.score > st1.maxScore) st1.maxScore = Math.floor(game.score); }
+    checkAchv();
     overScoreEl.textContent = String(Math.floor(game.score));
     overBestEl.textContent = String(best);
     if (game.warResult === 'win' || game.warResult === 'lose') {
@@ -8536,6 +8658,16 @@
             game.paused = true;
             setTimeout(function () { document.title = 'WBS pb=' + pbullets.length + ' p0=' + (pbullets[0] ? Math.round(pbullets[0].x) + ',' + Math.round(pbullets[0].y) : '-'); }, 400);
           }, 400);
+        } else if (sc === 'achvtest') {
+          setTimeout(function () {
+            const st = achvStats();
+            st.kills = 120; st.maxScore = 15000; st.maxCombo = 35; st.clears = 2; st.endBad = true;
+            checkAchv();
+            document.getElementById('btn-achv').click();
+            const rows = document.querySelectorAll('.achv__row');
+            const unlocked = document.querySelectorAll('.achv__row:not(.is-locked)').length;
+            document.title = 'ACHV rows=' + rows.length + ' unlocked=' + unlocked + ' toast=' + (document.getElementById('achv-toast') ? document.getElementById('achv-toast').classList.contains('show') : 'none');
+          }, 700);
         } else if (sc === 'cinetext') {
           setTimeout(function () {
             startGame();
@@ -9443,6 +9575,7 @@
   };
   /* 注意：loop 里调用的是被 hook 后的 step */
 
+  bindAchv();
   boot();
 
   window.TOKEN_DEFENSE = {
