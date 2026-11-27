@@ -8739,24 +8739,44 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
     player.vx = 0;
     player.vy = 0;
     player.onGround = true;
-    /* 三个传送门：至少一个战斗房 + 一个功能房 */
-    const pool = PORTAL_DEFS.slice();
+    /* 加权门池：普通防守最多，事件/商店压低 */
+    const waveA = PORTAL_DEFS.filter(function (d) { return d.type === 'wave'; })[0];
+    const rewardA = PORTAL_DEFS.filter(function (d) { return d.type === 'reward'; })[0];
+    const shopA = PORTAL_DEFS.filter(function (d) { return d.type === 'shop'; })[0];
+    const eventA = PORTAL_DEFS.filter(function (d) { return d.type === 'event'; })[0];
+    const pool2 = [
+      { def: waveA, weight: 34, title: '波次防守' },
+      { def: waveA, weight: 26, title: '清剿行动' },
+      { def: rewardA, weight: 20, title: '奖励关卡' },
+      { def: shopA, weight: 12, title: '商店' },
+      { def: eventA, weight: 8, title: '事件' }
+    ];
     const picks = [];
-    const arena = pool.filter(function (d) { return d.type === 'wave' || d.type === 'reward'; });
-    picks.push(arena[Math.floor(Math.random() * arena.length)]);
-    const utility = pool.filter(function (d) { return d.type === 'shop' || d.type === 'event'; });
-    picks.push(utility[Math.floor(Math.random() * utility.length)]);
-    while (picks.length < 3) {
-      const remain = pool.filter(function (d) { return picks.indexOf(d) < 0; });
-      if (!remain.length) break;
-      picks.push(remain[Math.floor(Math.random() * remain.length)]);
+    while (picks.length < 3 && pool2.length) {
+      let total = 0;
+      pool2.forEach(function (x) { total += x.weight; });
+      let roll = Math.random() * total;
+      let idx = 0;
+      for (let i = 0; i < pool2.length; i++) { roll -= pool2[i].weight; if (roll <= 0) { idx = i; break; } }
+      picks.push(pool2.splice(idx, 1)[0]);
     }
-    game.portals = picks.map(function (d, i) {
-      return { type: d.type, title: d.title, glyph: d.glyph, sprite: d.sprite, color: d.color, x: W * (0.3 + i * 0.24), t: rand(0, 6) };
+    if (!picks.some(function (x) { return x.def.type === 'wave'; })) {
+      picks[0] = { def: waveA, weight: 1, title: '波次防守' };
+    }
+    game.portals = picks.map(function (x, i) {
+      const d = x.def;
+      return { type: d.type, title: x.title || d.title, glyph: d.glyph, sprite: d.sprite, color: d.color, x: W * (0.3 + i * 0.24), t: rand(0, 6) };
     });
-    addText(W * 0.5, H * 0.36, '走到传送门前，按 ' + keyName(keyOf('enter')) + ' 进入', '150,220,255', 18);
+    addText(W * 0.5, H * 0.32, '房间 ' + (game.nodeCount + 1) + ' / 3', '255,209,102', 16);
+    addText(W * 0.5, H * 0.38, '走到传送门前，按 ' + keyName(keyOf('enter')) + ' 进入', '150,220,255', 18);
     updateEnterBtn();
     sfx(620, 0.12, 'triangle', 0.04);
+  }
+
+  function advanceRoomStep() {
+    game.nodeCount += 1;
+    if (game.nodeCount >= 3) showEliteGate();
+    else showNodeSelect();
   }
 
   function enterPortal() {
@@ -9233,7 +9253,7 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
       e.stopPropagation();
       panel.classList.remove('show');
       document.body.classList.remove('is-room');
-      showNodeSelect();
+      advanceRoomStep();
     });
     grid.appendChild(leave);
     panel.classList.add('show');
@@ -9271,7 +9291,7 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
         fn();
         panel.classList.remove('show');
         document.body.classList.remove('is-room');
-        showNodeSelect();
+        advanceRoomStep();
       });
       grid.appendChild(b);
     };
@@ -16101,6 +16121,31 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
             setTimeout(function () {
               document.title = 'NEWBOSS stages=' + STAGES.length + ' boss=' + (enemies[0] || {}).kind + ' hp=' + Math.round((enemies[0] || {}).hp || 0) + ' eb=' + ebullets.length + ' boss2=' + STAGES[2].boss;
             }, 3000);
+          }, 700);
+        } else if (sc === 'roomflow') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room', 'is-cutscene');
+            beginStage(true);
+            game.nodeCount = 0;
+            advanceRoomStep();
+            const after1 = game.nodeCount;
+            advanceRoomStep();
+            advanceRoomStep();
+            const eliteGate = game.portalPick && game.portals.length === 1 && game.portals[0].eliteGate;
+            const counts = { wave: 0, reward: 0, shop: 0, event: 0 };
+            for (let k = 0; k < 200; k++) {
+              game.nodeCount = 0;
+              showNodeSelect();
+              game.portals.forEach(function (p) { counts[p.type] = (counts[p.type] || 0) + 1; });
+            }
+            document.title = 'ROOMFLOW after1=' + after1 + ' node=' + game.nodeCount + ' elite=' + eliteGate + ' dist=' + JSON.stringify(counts);
           }, 700);
         } else if (sc === 'warfinal') {
           setTimeout(function () {
