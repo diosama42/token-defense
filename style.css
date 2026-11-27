@@ -3661,3 +3661,32 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
 }
 .achv__list--codex .achv__row { align-items: flex-start; }
 .achv__list--codex .achv__info span { line-height: 1.6; }
+
+
+/* MOBILE-START-FIX：390 宽下角色卡不再被裁切 */
+@media (max-width: 560px) {
+  html, body { overflow-x: hidden; }
+  .start { padding-left: 10px; padding-right: 10px; overflow-x: hidden; }
+  .start__inner { max-width: 100%; }
+  .hero-pick {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    gap: 6px;
+  }
+  .hero-pick__item {
+    flex: 0 0 calc(25% - 6px);
+    max-width: calc(25% - 6px);
+    min-width: 0;
+    width: auto;
+    padding: 4px 2px 5px;
+  }
+  .hero-pick__item span {
+    max-width: 100%;
+    font-size: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .start__keys { flex-wrap: wrap; justify-content: center; row-gap: 4px; }
+}

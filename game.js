@@ -546,6 +546,13 @@
     return { dmg: 1, hp: 1, label: '普通' };
   }
 
+  const BOSS_VARIANTS = {
+    grok: ['检索型', '突进型'],
+    nail_boss: ['弹幕型', '砸地型'],
+    doubao_boss: ['视频型', '霜冻型'],
+    seed: ['数据型', '分镜型']
+  };
+
   const CONFIG = {
     playerHp: 120,
     enemyDamageScale: 0.62,
@@ -1814,7 +1821,9 @@
       w: conf.w, h: conf.h,
       hp: conf.hp * (game.enemyHpMul || 1) * diffCfg().hp, maxHp: conf.hp * (game.enemyHpMul || 1) * diffCfg().hp,
       hurt: 0, t: 0, fireT: 1.2, face: -1, stun: 0, dead: false,
-      homeX: conf.x, phase: 'idle', phaseT: 1.2
+      homeX: conf.x, phase: 'idle', phaseT: 1.2,
+      variant: game.bossVariant || 0,
+      variantName: (BOSS_VARIANTS[kind] || ['', ''])[game.bossVariant || 0] || ''
     });
     game.shake = U(14);
     sfx(130, 0.4, 'sawtooth', 0.06);
@@ -2457,7 +2466,7 @@
           sfx(220, 0.2, 'sawtooth', 0.05);
         }
       } else {
-        e.x += (e.dashVX || e.dashDir * U(900)) * d;
+        e.x += (e.dashVX || e.dashDir * U(900)) * d * (e.variant === 1 ? 1.18 : 1);
         e.y = clamp(e.y + (e.dashVY || 0) * d, groundY - U(220), groundY);
         if (!e.dashHit) {
           const hdx = Math.abs(e.x - p.x);
@@ -2472,7 +2481,7 @@
           e.y = groundY;
           e.dashVY = 0;
           const enraged = e.hp < e.maxHp * 0.5;
-          e.phaseT = enraged ? 1.0 : 1.5;
+          e.phaseT = (enraged ? 1.0 : 1.5) * (e.variant === 1 ? 0.72 : 1);
           fireRing(e.x + e.face * U(14), e.y - e.h * 0.55, 10, e.t, U(150), BULLET_COLORS.fast);
           if (enraged) {
             fireRing(e.x + e.face * U(14), e.y - e.h * 0.5, 8, e.t + 0.5, U(130), BULLET_COLORS.area);
@@ -2527,6 +2536,7 @@
 
     if (e.kind === 'nail_boss') {
       /* 强化版西装奶蛙：一阶段高密度黄色弹幕 → 半血捧腹大笑控场 → 弹幕变密 */
+      if (e.variant === 1) e.fireT -= d * 0.35;
       if (e.hp < e.maxHp * 0.5 && !e.laughed) {
         e.laughed = true;
         e.laughWarn = 3;
@@ -2642,6 +2652,7 @@
     }
 
     if (e.kind === 'doubao_boss') {
+      if (e.variant === 1) e.fireT -= d * 0.25;
       /* 冬装豆包：seedance 光球 + 视频弹窗 → 半血开始疯狂道歉 */
       const p2 = e.hp < e.maxHp * 0.5;
       if (p2 && !e.apology) {
@@ -2679,6 +2690,7 @@
     }
 
     if (e.kind === 'seed') {
+      if (e.variant === 1) e.fireT -= d * 0.25;
       /* SEED 娘：环形脉冲 + seed 弹 + 数据倾倒 */
       e.x = lerp(e.x, e.homeX + Math.sin(e.t * 0.45) * U(40), 1 - Math.pow(0.02, d));
       e.fireT -= d;
@@ -3360,6 +3372,7 @@
       game.stageClearPending = false;
       ebullets = [];
       pbullets = [];
+      game.bossVariant = Math.floor(Math.random() * 2);
       spawnBoss(st.boss);
       startBgm('boss');
       if (game.pendingAngry) {
@@ -5692,7 +5705,7 @@
       const boss = enemies.filter(function (e) { return e.isBoss; })[0];
       ctx.fillStyle = 'rgba(220,245,255,0.9)';
       ctx.font = '700 ' + (13 * S).toFixed(0) + 'px "PingFang SC", system-ui';
-      ctx.fillText(st.name + ' · ' + st.bossName + (boss ? ' ' + Math.ceil(boss.hp) : ' 已击破'), W * 0.5, by + U(15));
+      ctx.fillText(st.name + ' · ' + st.bossName + (boss && boss.variantName ? ' · ' + boss.variantName : '') + (boss ? ' ' + Math.ceil(boss.hp) : ' 已击破'), W * 0.5, by + U(15));
     } else if (danger) {
       const label = '⚠ Boss 还有 ' + Math.ceil(remaining) + ' 秒！';
       const sc = 1 + pulse * 0.1;
@@ -7033,7 +7046,7 @@
       e2.skillT = 4 + Math.random() * 2;
     });
     player.invuln = Math.max(player.invuln, 1.6);
-    addText(W * 0.5, H * 0.22, '车轮战 · 第 ' + (idx + 1) + ' / 4 轮 · ' + r.name + ' & ' + r.ai, '255,209,102', 22);
+    addText(W * 0.5, H * 0.31, '车轮战 · 第 ' + (idx + 1) + ' / 4 轮 · ' + r.name + ' & ' + r.ai, '255,209,102', 18);
   }
 
   function startWarFinalPhase() {
@@ -9263,6 +9276,17 @@
               }, 400);
             }, 400);
           }, 700);
+        } else if (sc === 'measure') {
+          setTimeout(function () {
+            const inner = document.querySelector('.start__inner');
+            const pick = document.querySelector('.hero-pick');
+            const item = document.querySelector('.hero-pick__item');
+            document.title = 'MEASURE iw=' + window.innerWidth + ' body=' + document.body.clientWidth +
+              ' inner=' + (inner ? Math.round(inner.getBoundingClientRect().width) : '-') +
+              ' pick=' + (pick ? Math.round(pick.getBoundingClientRect().width) : '-') +
+              ' item=' + (item ? Math.round(item.getBoundingClientRect().width) : '-') +
+              ' mq=' + window.matchMedia('(max-width: 560px)').matches;
+          }, 600);
         } else if (sc === 'roomui') {
           setTimeout(function () {
             startGame();
