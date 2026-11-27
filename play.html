@@ -6643,6 +6643,11 @@ html .pad .act.is-down {
     }
 
     p.attackCd = Math.max(0, p.attackCd - d);
+    game.heartT = Math.max(0, (game.heartT || 0) - dt);
+    if (p.hp > 0 && p.hp / p.maxHp <= 0.3 && game.heartT <= 0) {
+      game.heartT = 0.9;
+      sfx(58, 0.12, 'sine', 0.05);
+    }
     if (SAVE.assist && game.state === 'play' && !p.dead && p.stun <= 0 && p.attackCd <= 0) {
       doAttack();
     }
@@ -6817,6 +6822,7 @@ html .pad .act.is-down {
     if (p.onGround) {
       if (!p.wasGround && p.vy >= 0) {
         p.landT = 0.18;
+        sfx(72, 0.1, 'sine', 0.04);
         for (let i = 0; i < 5; i++) {
           spawnSparks(p.x + rand(-U(18), U(18)), groundY - U(4), '180,220,245', 2);
         }
@@ -6830,6 +6836,7 @@ html .pad .act.is-down {
     if (p.onGround && Math.abs(p.vx) > U(250) && p.dustT <= 0) {
       p.dustT = 0.11;
       spawnSparks(p.x - p.face * U(16), groundY - U(4), '150,200,230', 1);
+      sfx(rand(120, 160), 0.035, 'triangle', 0.012);
     }
     p.wasGround = p.onGround;
 
@@ -8529,11 +8536,86 @@ html .pad .act.is-down {
     panel.classList.add('show');
   }
 
+  function shopRollStock() {
+    const pool = BUFFS.filter(function (b) { return !b.core && game.buffs.indexOf(b.name) < 0; });
+    const stock = [];
+    for (let i = 0; i < 3 && pool.length; i++) {
+      const idx = Math.floor(Math.random() * pool.length);
+      const b = pool.splice(idx, 1)[0];
+      const tier = BUFF_TIER[b.name] || 'common';
+      stock.push({ name: b.name, desc: b.desc, price: tier === 'legend' ? 110 : tier === 'rare' ? 70 : 40, sold: false });
+    }
+    game.shopStock = stock;
+  }
+
+  function renderShopPanel() {
+    const panel = document.getElementById('rest');
+    const grid = document.getElementById('rest-grid');
+    const coinsEl = document.getElementById('rest-coins');
+    const title = panel ? panel.querySelector('.rooms__title') : null;
+    const kicker = panel ? panel.querySelector('.rooms__k') : null;
+    if (!panel || !grid) return;
+    if (!game.shopStock) shopRollStock();
+    if (title) title.textContent = '商店';
+    if (kicker) kicker.textContent = 'SHOP';
+    if (coinsEl) coinsEl.textContent = '当前金币：' + game.coins + ' · 每次刷新商品不同';
+    grid.innerHTML = '';
+    game.shopStock.forEach(function (it, idx) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'rooms__card' + (it.sold ? '' : ' rooms__card--main');
+      b.disabled = !!it.sold;
+      b.innerHTML = '<b>' + it.name + (it.sold ? '（已售）' : '') + '</b><span>' + it.desc + '</span>' +
+        (it.sold ? '' : '<i class="rooms__price">' + it.price + ' 金币</i>');
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (it.sold) return;
+        if (game.coins < it.price) { roomWarn(panel, '金币不足，还差 ' + (it.price - game.coins) + ' 金币'); sfx(180, 0.12, 'square', 0.05); return; }
+        const buff = BUFFS.filter(function (x) { return x.name === it.name; })[0];
+        if (!buff) return;
+        game.coins -= it.price;
+        buff.apply();
+        game.buffs.push(buff.name);
+        applySetBonuses();
+        it.sold = true;
+        sfx(820, 0.12, 'triangle', 0.04);
+        renderShopPanel();
+      });
+      grid.appendChild(b);
+    });
+    const refresh = document.createElement('button');
+    refresh.type = 'button';
+    refresh.className = 'rooms__card';
+    refresh.innerHTML = '<b>刷新商品</b><span>换一批随机词条</span><i class="rooms__price">25 金币</i>';
+    refresh.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (game.coins < 25) { roomWarn(panel, '金币不足，还差 ' + (25 - game.coins) + ' 金币'); sfx(180, 0.12, 'square', 0.05); return; }
+      game.coins -= 25;
+      shopRollStock();
+      sfx(700, 0.1, 'sine', 0.04);
+      renderShopPanel();
+    });
+    grid.appendChild(refresh);
+    const leave = document.createElement('button');
+    leave.type = 'button';
+    leave.className = 'rooms__card';
+    leave.innerHTML = '<b>离开商店</b><span>返回房间选择</span>';
+    leave.addEventListener('click', function (e) {
+      e.stopPropagation();
+      panel.classList.remove('show');
+      document.body.classList.remove('is-room');
+      showNodeSelect();
+    });
+    grid.appendChild(leave);
+    panel.classList.add('show');
+  }
+
   function openRoomShop() {
     game.state = 'node';
     roomHideAll();
     document.body.classList.add('is-room');
-    renderRestPanel(true);
+    shopRollStock();
+    renderShopPanel();
   }
 
   function showEventRoom() {
@@ -10614,6 +10696,10 @@ html .pad .act.is-down {
       bgmPlay(bgmOsc1, bgmGain1, semi(cfg.bass[step] + shift), sec * 0.75, cfg.vol * 1.1);
       /* 方波琶音（高八度） */
       bgmPlay(bgmOsc2, bgmGain2, semi(cfg.arp[step] + shift + 12), sec * 0.5, cfg.vol * 0.55);
+      /* Boss / 精英层：加一层高频重音 */
+      if ((BGM.mode === 'boss' || (game.tower && game.towerFloor % 5 === 0)) && step % 4 === 2) {
+        bgmPlay(bgmOsc2, bgmGain2, semi(cfg.arp[step] + shift + 24), sec * 0.4, cfg.vol * 0.35);
+      }
       /* 每小节一次长音铺底 */
       if (step === 0) {
         bgmOsc3.frequency.setValueAtTime(semi(shift), t);
@@ -10688,8 +10774,9 @@ html .pad .act.is-down {
       sfx(900, 0.06, 'square', 0.03);
       sfx(60, 0.3, 'sine', 0.05);
     } else {
-      sfx(680, 0.03, 'square', 0.022);
-      sfx(320, 0.05, 'sine', 0.02);
+      const pitch = 1 + Math.min(0.55, (game.combo || 0) * 0.012);
+      sfx(680 * pitch, 0.03, 'square', 0.022);
+      sfx(320 * pitch, 0.05, 'sine', 0.02);
     }
   }
 
@@ -14850,6 +14937,30 @@ html .pad .act.is-down {
             startMode = 'fight';
             startGame();
           }, 120);
+        } else if (sc === 'shopui') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room');
+            beginStage(true);
+            game.coins = 200;
+            openRoomShop();
+            setTimeout(function () {
+              const cards = document.querySelectorAll('#rest-grid .rooms__card');
+              const first = cards[0];
+              const before = game.coins;
+              if (first) first.click();
+              setTimeout(function () {
+                document.title = 'SHOP cards=' + cards.length + ' coins=' + before + '->' + game.coins + ' buffs=' + game.buffs.length;
+              }, 300);
+            }, 500);
+          }, 700);
         } else if (sc === 'towertest') {
           setTimeout(function () {
             startMode = 'fight';
