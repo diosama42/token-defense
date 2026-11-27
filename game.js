@@ -2176,12 +2176,14 @@
         updateStage(d, dt);
       }
 
-      /* 最后 10 秒：每秒报警 */
-      if (!game.bossSpawned && STAGES[game.stage]) {
-        const rem = Math.ceil(STAGES[game.stage].defense - game.stageT);
-        if (rem <= 10 && rem > 0 && rem !== game.lastTick) {
+      /* 最后 10 秒：按当前阶段真实剩余时间报警 */
+      if (!game.portalPick) {
+        let rem = null;
+        if (game.roomActive) rem = Math.ceil((game.roomTarget || 0) - (game.roomT || 0));
+        else if (!game.bossSpawned && STAGES[game.stage]) rem = Math.ceil(STAGES[game.stage].defense - game.stageT);
+        if (rem !== null && rem <= 10 && rem > 0 && rem !== game.lastTick) {
           game.lastTick = rem;
-          game.shake = Math.max(game.shake, U(3));
+          game.shake = Math.max(game.shake, SAVE.reduceFx ? 0 : U(3));
           sfx(700 + (10 - rem) * 50, 0.07, 'square', 0.05);
         }
       }
@@ -3951,7 +3953,6 @@
     game.scoreMul = type === 'reward' ? 2 : 1;
     game.roomActive = true;
     beginStage(true);
-    addText(W * 0.5, H * 0.3, type === 'reward' ? '奖励关卡 · 分数翻倍！' : type === 'elite' ? '精英战 · 敌人强化！' : '波次防守 · 撑住！', '255,209,102', 20);
     sfx(700, 0.14, 'triangle', 0.05);
   }
 
@@ -4379,9 +4380,9 @@
       game.state = 'play';
       document.body.classList.remove('is-cutscene', 'is-paused');
       document.body.classList.add('is-playing');
-      addText(W * 0.5, H * 0.24, '第 ' + (game.stage + 1) + ' 关 · ' + st.name, '255,209,102', 26);
+      addText(W * 0.5, H * 0.32, '第 ' + (game.stage + 1) + ' 关 · ' + st.name, '255,209,102', 24);
       if (game.stage === 0) {
-        addText(W * 0.5, H * 0.3, 'A/D 移动 · W 跳 · J 连发 · K 技能 · L 大招 · U 支援', '150,220,255', 13);
+        addText(W * 0.5, H * 0.4, 'A/D 移动 · W 跳 · J 连发 · K 技能 · L 大招 · U 支援', '150,220,255', 13);
       }
       sfx(660, 0.2, 'triangle', 0.05);
     };
@@ -6084,9 +6085,24 @@
     if (game.state !== 'play' && game.state !== 'buff') return;
     const st = STAGES[game.stage];
     if (!st) return;
-    const by = H < 520 ? H * 0.2 : U(66);
-    const remaining = game.bossSpawned ? 0 : Math.max(0, st.defense - game.stageT);
-    const danger = !game.bossSpawned && remaining <= 10;
+    const by = H < 520 ? H * 0.2 : U(96);
+    const ROOM_LABEL = { wave: '波次防守', reward: '奖励关卡', elite: '精英战' };
+    let remaining = 0;
+    let phaseLabel = '';
+    let danger = false;
+    if (game.bossSpawned) {
+      remaining = 0;
+    } else if (game.portalPick) {
+      remaining = 0;
+    } else if (game.roomActive) {
+      remaining = Math.max(0, (game.roomTarget || 0) - (game.roomT || 0));
+      phaseLabel = ROOM_LABEL[game.roomType] || '房间';
+      danger = remaining <= 10;
+    } else {
+      remaining = Math.max(0, st.defense - game.stageT);
+      phaseLabel = '防守';
+      danger = remaining <= 10;
+    }
     const pulse = 0.5 + 0.5 * Math.sin(game.time * (danger ? 12 : 3));
 
     ctx.save();
@@ -6131,7 +6147,7 @@
       ctx.font = '700 ' + (13 * S).toFixed(0) + 'px "PingFang SC", system-ui';
       ctx.fillText(st.name + ' · ' + st.bossName + (boss && boss.variantName ? ' · ' + boss.variantName : '') + (boss ? ' ' + Math.ceil(boss.hp) : ' 已击破'), W * 0.5, by + U(38));
     } else if (danger) {
-      const label = '⚠ Boss 还有 ' + Math.ceil(remaining) + ' 秒！';
+      const label = '⚠ 还剩 ' + Math.ceil(remaining) + ' 秒！';
       const sc = 1 + pulse * 0.1;
       ctx.save();
       ctx.translate(W * 0.5, by + U(15));
@@ -6142,10 +6158,14 @@
       ctx.font = '800 ' + Math.max(14, 15 * S).toFixed(0) + 'px "PingFang SC", system-ui';
       ctx.fillText(label, 0, 0);
       ctx.restore();
+    } else if (game.portalPick) {
+      ctx.fillStyle = 'rgba(220,245,255,0.9)';
+      ctx.font = '700 ' + (13 * S).toFixed(0) + 'px "PingFang SC", system-ui';
+      ctx.fillText('选择房间', W * 0.5, by + U(38));
     } else {
       ctx.fillStyle = 'rgba(220,245,255,0.9)';
       ctx.font = '700 ' + (13 * S).toFixed(0) + 'px "PingFang SC", system-ui';
-      ctx.fillText(st.name + ' · 防守 ' + Math.ceil(remaining) + 's', W * 0.5, by + U(38));
+      ctx.fillText(st.name + ' · ' + phaseLabel + ' ' + Math.ceil(remaining) + 's', W * 0.5, by + U(38));
     }
 
     if (game.buffs.length) {
@@ -6215,6 +6235,10 @@
     if (game.bossSpawned) {
       const boss = enemies.filter(function (e) { return e.isBoss; })[0];
       prog = boss ? clamp(boss.hp / boss.maxHp, 0, 1) : 0;
+    } else if (game.portalPick) {
+      prog = 1;
+    } else if (game.roomActive) {
+      prog = clamp((game.roomT || 0) / Math.max(1, game.roomTarget || 1), 0, 1);
     } else {
       prog = clamp(game.stageT / st.defense, 0, 1);
     }
@@ -8274,7 +8298,7 @@
       b.className = 'chapter-card' + (locked ? ' is-locked' : '');
       b.innerHTML = '<i class="chapter-card__no">CHAPTER ' + (i + 1) + '</i>' +
         '<b>第 ' + (i + 1) + ' 章 · ' + st.name + '</b>' +
-        '<span>' + (st.bossName ? '关底：' + st.bossName : '') + (st.defense ? ' · 防守 ' + st.defense + 's' : '') + '</span>' +
+        '<span>' + (st.bossName ? '关底：' + st.bossName : '') + ' · 2 个房间后 Boss' + '</span>' +
         '<i class="chapter-card__tag">' + (locked ? '未解锁' : cleared ? '已通关' : '可挑战') + '</i>';
       if (!locked) {
         b.addEventListener('click', function (e) {
@@ -10897,6 +10921,21 @@
             spawnTowerFloor();
             player.invuln = 99;
             document.title = 'TOWERSHOT floor=5 enemies=' + enemies.length + ' skins=' + enemies.map(function (e) { return e.towerSkin || '-'; }).join(',');
+          }, 700);
+        } else if (sc === 'timershot') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room', 'is-cutscene');
+            beginStage(true);
+            startRoom('wave');
+            game.roomT = game.roomTarget - 3;
+            document.title = 'TIMERSHOT target=' + game.roomTarget + ' roomT=' + game.roomT;
           }, 700);
         } else if (sc === 'commonbuff') {
           setTimeout(function () {
