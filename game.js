@@ -435,14 +435,14 @@
 
   /* 每关通关后的三选一强化 */
   const WAVE_CFG = {
-    burstBase: 2,
+    burstBase: 3,
     burstPerStage: 1,
-    burstPerWave: 0.5,
-    burstMax: 6,
-    gapBase: 5.6,
-    gapPerStage: 0.5,
-    gapPerWave: 0.07,
-    gapMin: 2.4
+    burstPerWave: 0.6,
+    burstMax: 8,
+    gapBase: 3.6,
+    gapPerStage: 0.3,
+    gapPerWave: 0.05,
+    gapMin: 1.3
   };
 
   const BUFFS = [
@@ -569,9 +569,9 @@
   /* ---------- 数值配置（想调平衡改这里） ---------- */
   function diffCfg() {
     const d = SAVE.diff || 'normal';
-    if (d === 'easy') return { dmg: 0.72, hp: 0.85, label: '简单' };
-    if (d === 'hard') return { dmg: 1.25, hp: 1.15, label: '困难' };
-    return { dmg: 1, hp: 1, label: '普通' };
+    if (d === 'easy') return { dmg: 0.8, def: 1.2, label: '简单' };
+    if (d === 'hard') return { dmg: 1.3, def: 0.85, label: '困难' };
+    return { dmg: 1, def: 1, label: '普通' };
   }
 
   const BOSS_VARIANTS = {
@@ -1795,7 +1795,7 @@
     const p = player;
     if (game.state !== 'play') return;
     if (p.dead || p.invuln > 0 || p.shield > 0) return;
-    const realDmg = Math.max(1, Math.round(dmg * CONFIG.enemyDamageScale * (game.enemyDmgMul || 1) * (game.eliteDmgMul || 1) * (p.defenseMul || 1) * diffCfg().dmg));
+    const realDmg = Math.max(1, Math.round(dmg * CONFIG.enemyDamageScale * (game.enemyDmgMul || 1) * (game.eliteDmgMul || 1) * (p.defenseMul || 1) * diffCfg().dmg / diffCfg().def));
     /* 硅谷决战里弹幕太密，硬直减半，避免被锁在原地动不了 */
     const hurtStun = game.siliconWar ? 0.05 : 0.3;
     buzz(45);
@@ -1847,7 +1847,7 @@
       x: x, y: groundY,
       vx: -side * speed, vy: 0, kx: 0,
       w: w, h: h,
-      hp: hp * (game.enemyHpMul || 1) * diffCfg().hp * (game.roomElite ? 3.6 : 1), maxHp: hp * (game.enemyHpMul || 1) * diffCfg().hp * (game.roomElite ? 3.6 : 1),
+      hp: hp * (game.enemyHpMul || 1) * (game.roomElite ? 3.6 : 1), maxHp: hp * (game.enemyHpMul || 1) * (game.roomElite ? 3.6 : 1),
       hurt: 0, t: rand(0, 6), fireT: rand(0.8, 1.8), face: -side,
       stun: 0, dead: false, isBoss: false,
       homeX: side > 0 ? W * rand(0.62, 0.88) : W * rand(0.12, 0.38)
@@ -1863,7 +1863,7 @@
       x: conf.x, y: groundY,
       vx: 0, vy: 0, kx: 0,
       w: conf.w, h: conf.h,
-      hp: conf.hp * (game.enemyHpMul || 1) * diffCfg().hp, maxHp: conf.hp * (game.enemyHpMul || 1) * diffCfg().hp,
+      hp: conf.hp * (game.enemyHpMul || 1) * 1.35, maxHp: conf.hp * (game.enemyHpMul || 1) * 1.35,
       hurt: 0, t: 0, fireT: 1.2, face: -1, stun: 0, dead: false,
       homeX: conf.x, phase: 'idle', phaseT: 1.2,
       variant: game.bossVariant || 0,
@@ -2586,9 +2586,9 @@
         const my = e.y - e.h * 0.6;
         const a = Math.atan2((p.y - U(72)) - my, p.x - mx);
         if (!enraged) {
-          e.fireT = 1.5;
-          for (let i = -1; i <= 1; i++) {
-            ebullet(mx, my, a + i * 0.2, U(250), BULLET_COLORS.fast, U(12), 'Grok');
+          e.fireT = 1.0;
+          for (let i = -2; i <= 2; i++) {
+            ebullet(mx, my, a + i * 0.18, U(270), BULLET_COLORS.fast, U(12), 'Grok');
           }
         } else {
           /* 二阶段：检索 / 图像 / 视频 轮着来 */
@@ -2596,21 +2596,21 @@
           const mode = e.p2Mode % 3;
           e.p2Mode += 1;
           if (mode === 0) {
-            e.fireT = 1.05;
+            e.fireT = 0.78;
             addText(mx, my - U(26), '检索中…', '150,220,255', 13);
             for (let i = -2; i <= 2; i++) {
               ebullet(mx, my, a + i * 0.16, U(240), BULLET_COLORS.track, U(15), '检索');
             }
             sfx(520, 0.1, 'square', 0.03);
           } else if (mode === 1) {
-            e.fireT = 1.2;
+            e.fireT = 0.9;
             addText(mx, my - U(26), '生成图像…', '255,209,102', 13);
             for (let i = 0; i < 4; i++) {
               ebullet(rand(W * 0.16, W * 0.84), -U(24) - i * U(60), Math.PI / 2 + rand(-0.16, 0.16), U(230), BULLET_COLORS.normal, U(20), '图像');
             }
             sfx(300, 0.14, 'triangle', 0.03);
           } else {
-            e.fireT = 1.25;
+            e.fireT = 0.92;
             addText(mx, my - U(26), '视频加载中…', '255,92,138', 13);
             for (let i = -1; i <= 1; i++) {
               ebullet(mx, my, a + i * 0.3, U(300), BULLET_COLORS.fast, U(18), '视频');
@@ -2707,14 +2707,14 @@
         const my = e.y - e.h * 0.58;
         if (mode === 0) {
           /* 扇形三连 */
-          e.fireT = e.dense ? 0.55 : 0.9;
+          e.fireT = e.dense ? 0.42 : 0.68;
           const n = e.dense ? 4 : 3;
           for (let i = -n; i <= n; i++) {
             ebullet(mx, my, base + i * 0.13, U(340), BULLET_COLORS.normal, U(9), '奶', 8);
           }
         } else if (mode === 1) {
           /* 大号瞄准弹 */
-          e.fireT = e.dense ? 0.8 : 1.25;
+          e.fireT = e.dense ? 0.62 : 0.95;
           ebullet(mx, my, base, U(230), BULLET_COLORS.track, U(22), '呱', 14);
           for (let i = -1; i <= 1; i += 2) {
             ebullet(mx, my, base + i * 0.22, U(300), BULLET_COLORS.normal, U(9), '奶', 8);
@@ -2722,7 +2722,7 @@
           sfx(240, 0.12, 'sawtooth', 0.04);
         } else if (mode === 2) {
           /* 跳跃砸地：全屏地面冲击，必须跳起来 */
-          e.fireT = e.dense ? 1.2 : 1.7;
+          e.fireT = e.dense ? 0.95 : 1.3;
           e.slamT = 0.5;
           e.vy = -U(520);
           warnAt(p.x, groundY, U(160), 0.9, '255,120,150');
@@ -2735,7 +2735,7 @@
           }, 500);
         } else if (mode === 3) {
           /* 追踪泡泡 */
-          e.fireT = e.dense ? 0.9 : 1.35;
+          e.fireT = e.dense ? 0.72 : 1.05;
           for (let i = 0; i < 3; i++) {
             const ang = base + (i - 1) * 0.5;
             const b = { x: mx, y: my, vx: Math.cos(ang) * U(190), vy: Math.sin(ang) * U(190),
@@ -2745,7 +2745,7 @@
           addText(mx, my - U(30), '追踪泡泡！', '150,220,255', 14);
         } else {
           /* 高密度环形 */
-          e.fireT = e.dense ? 1.0 : 1.5;
+          e.fireT = e.dense ? 0.8 : 1.15;
           fireRing(mx, my, e.dense ? 14 : 10, e.t * 0.9, U(240), BULLET_COLORS.normal);
           for (let i = -2; i <= 2; i++) {
             ebullet(mx, my, base + i * 0.14, U(360), BULLET_COLORS.fast, U(8), '奶', 8);
@@ -2761,7 +2761,7 @@
         e.fireT -= d * 0.25;
         e.frostT = (e.frostT === undefined ? 6 : e.frostT) - d;
         if (e.frostT <= 0) {
-          e.frostT = 6.5;
+          e.frostT = 4.6;
           addText(e.x, e.y - e.h - U(20), '霜冻新星！', '150,220,255', 16);
           fireRing(e.x, e.y - e.h * 0.5, 12, e.t * 0.8, U(150), '150,220,255', 9);
           for (let k = -2; k <= 2; k++) {
@@ -2782,7 +2782,7 @@
       e.fireT -= d;
       if (e.fireT <= 0) {
         if (p2) {
-          e.fireT = 0.36;
+          e.fireT = 0.28;
           const a = Math.atan2((p.y - U(56)) - (e.y - U(90)), p.x - e.x);
           const words = ['对不起', '我错了', '抱歉', '原谅我', '别生气'];
           for (let i = -1; i <= 1; i++) {
@@ -2792,7 +2792,7 @@
             ebullet(e.x, e.y - e.h * 0.58, a, U(200), BULLET_COLORS.track, U(18), 'seedance');
           }
         } else {
-          e.fireT = 1.3;
+          e.fireT = 0.95;
           const a = Math.atan2((p.y - U(56)) - (e.y - U(90)), p.x - e.x);
           for (let i = -1; i <= 1; i++) {
             ebullet(e.x, e.y - e.h * 0.58, a + i * 0.22, U(260), BULLET_COLORS.track, U(20), 'seedance');
@@ -2829,8 +2829,8 @@
       e.x = lerp(e.x, e.homeX + Math.sin(e.t * 0.45) * U(40), 1 - Math.pow(0.02, d));
       e.fireT -= d;
       if (e.fireT <= 0) {
-        e.fireT = 1.15;
-        fireRing(e.x, e.y - e.h * 0.55, 12, e.t * 0.7, U(180), BULLET_COLORS.area);
+        e.fireT = 0.82;
+        fireRing(e.x, e.y - e.h * 0.55, 14, e.t * 0.7, U(190), BULLET_COLORS.area);
         const a = Math.atan2((p.y - U(56)) - (e.y - U(80)), p.x - e.x);
         for (let i = -1; i <= 1; i++) {
           ebullet(e.x, e.y - e.h * 0.58, a + i * 0.16, U(330), BULLET_COLORS.fast, U(16), 'seed');
@@ -2840,7 +2840,7 @@
       e.dataT = (e.dataT === undefined ? 5 : e.dataT) - d;
       if (e.dataT <= 0) {
         const p2 = e.hp < e.maxHp * 0.5;
-        e.dataT = p2 ? 7 : 9;
+        e.dataT = p2 ? 5.2 : 7;
         const safeX = rand(W * 0.16, W * 0.84);
         game.safeZone = { x: safeX, w: Math.max(U(130), W * 0.17), t: 2.6 };
         game.pendingRain = { t: 1.2, count: p2 ? 7 : 5 };
@@ -2876,7 +2876,7 @@
         }
         e.drawT = (e.drawT || 0) - d;
         if (e.drawT <= 0) {
-          e.drawT = 4.2;
+          e.drawT = 3.2;
           addText(e.x, e.y - e.h - U(20), '画……', '255,120,150', 14);
           const a = Math.atan2((p.y - U(56)) - (e.y - U(80)), p.x - e.x);
           for (let i = -3; i <= 3; i++) {
@@ -7668,7 +7668,7 @@
     game.warRound = idx;
     game.warPhase = 'pair';
     game.warTransition = false;
-    game.warDmgMul = 0.9 + idx * 0.1;
+    game.warDmgMul = 1.0 + idx * 0.12;
     enemies.forEach(function (e2) {
       e2.fireT = 1.5 + Math.random() * 0.4;
       e2.skillT = 4 + Math.random() * 2;
@@ -7680,7 +7680,7 @@
   function startWarFinalPhase() {
     game.warPhase = 'final';
     game.warRound = 4;
-    game.warDmgMul = 1.4;
+    game.warDmgMul = 1.6;
     const conf = [
       { kind: 'chatgpt', x: 0.2 },
       { kind: 'claude', x: 0.4 },
@@ -8014,7 +8014,7 @@
       });
       return;
     }
-    const bulletCap = game.lowFx ? 64 : (game.fps && game.fps < 56 ? 90 : 110);
+    const bulletCap = game.lowFx ? 80 : (game.fps && game.fps < 56 ? 110 : 140);
     let idx = 0;
     for (const e of bosses) {
       if (ebullets.length > bulletCap) continue;
@@ -8034,7 +8034,7 @@
       }
       e.fireT -= dt;
       idx += 1;
-      if (e.heavyT === undefined) e.heavyT = 5.5 + Math.random() * 3;
+      if (e.heavyT === undefined) e.heavyT = 4.2 + Math.random() * 2.4;
       e.heavyT -= dt;
       const mx = e.x;
       const my = e.y - e.h * 0.55;
@@ -8086,18 +8086,18 @@
       }
       if (e.fireT > 0) continue;
       if (e.kind === 'altman' || e.kind === 'chatgpt') {
-        e.fireT = p2 ? 0.95 : 1.35;
+        e.fireT = p2 ? 0.72 : 1.0;
         for (let k = -1; k <= 1; k++) {
           ebullet(mx, my, a + k * 0.14, U(300), BULLET_COLORS.fast, U(12), 'GPT');
         }
       } else if (e.kind === 'dario' || e.kind === 'gemini') {
-        e.fireT = p2 ? 1.15 : 1.7;
+        e.fireT = p2 ? 0.88 : 1.3;
         fireRing(mx, my, 6, e.t, U(185), BULLET_COLORS.area);
         for (let k = -1; k <= 1; k += 2) {
           ebullet(mx, my, a + k * 0.26, U(225), BULLET_COLORS.track, U(15), 'Claude');
         }
       } else if (e.kind === 'musk' || e.kind === 'grok') {
-        e.fireT = p2 ? 1.05 : 1.5;
+        e.fireT = p2 ? 0.8 : 1.12;
         for (let k = -1; k <= 1; k++) {
           ebullet(mx, my, a + k * 0.16, U(315), BULLET_COLORS.fast, U(14), 'Grok');
         }
@@ -8105,7 +8105,7 @@
           ebullet(mx, my, a, U(205), BULLET_COLORS.track, U(18), 'X');
         }
       } else {
-        e.fireT = p2 ? 1.1 : 1.6;
+        e.fireT = p2 ? 0.85 : 1.2;
         for (let k = -1; k <= 1; k += 2) {
           ebullet(mx, my, a + k * 0.22, U(250), BULLET_COLORS.track, U(16), 'Claude');
         }
@@ -10989,6 +10989,23 @@
             spawnTowerFloor();
             player.invuln = 99;
             document.title = 'TOWERSHOT floor=5 enemies=' + enemies.length + ' skins=' + enemies.map(function (e) { return e.towerSkin || '-'; }).join(',');
+          }, 700);
+        } else if (sc === 'bossdens') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room', 'is-cutscene');
+            beginStage(true);
+            spawnBoss('grok');
+            player.invuln = 999;
+            setTimeout(function () {
+              document.title = 'BOSSDENS bullets=' + ebullets.length + ' hp=' + Math.round((enemies[0] || {}).hp || 0);
+            }, 4000);
           }, 700);
         } else if (sc === 'elitegate') {
           setTimeout(function () {
