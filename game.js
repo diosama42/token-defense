@@ -193,6 +193,11 @@
       key: 'seed', name: 'SEED 娘', badge: 'S',
       color: '150,220,255', textColors: ['#a8d8ff', '#e8f4ff', '#7fc0ff'],
       skill: 'seedance', ult: '数据倾倒'
+    },
+    {
+      key: 'doubao_winter', name: '冬装豆包', badge: '豆',
+      color: '150,220,255', textColors: ['#a8d8ff', '#e8f4ff', '#9fd0ff'],
+      skill: '视频生成', ult: '数据暴走'
     }
   ];
 
@@ -1126,7 +1131,7 @@
       game.dashHit = [];
       addText(p.x, p.y - U(130), '检索突进·Search', '255,180,92', 20);
       sfx(300, 0.18, 'sawtooth', 0.05);
-    } else {
+    } else if (heroIndex === 8) {
       /* SEED：seedance，放出一排会追人的视频分镜弹 */
       addText(p.x, p.y - U(130), 'seedance · 分镜追踪', '150,220,255', 20);
       const baseA = Math.atan2(-U(160), p.face * U(800));
@@ -1136,6 +1141,18 @@
       }
       rings.push({ x: p.x + p.face * U(30), y: p.y - U(60), r0: U(8), r1: U(150), w: U(4), life: 0.42, max: 0.42, color: '150,220,255' });
       sfx(500, 0.16, 'triangle', 0.05);
+    } else {
+      /* 冬装豆包：视频生成，冰晶分镜四散 */
+      addText(p.x, p.y - U(130), '视频生成 · 分镜乱切', '150,220,255', 20);
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * TAU;
+        tokenBullet(p.x + Math.cos(a) * U(20), p.y - U(56), Math.cos(a) * U(700), Math.sin(a) * U(700), 8 * heroDmg(), i % 2 === 0, '#a8d8ff');
+      }
+      for (const e of enemies.slice()) {
+        if (Math.abs(e.x - p.x) < U(240)) { hurtEnemy(e, 26 * heroDmg(), 0, 0); e.stun = 1.0; }
+      }
+      rings.push({ x: p.x, y: p.y - U(54), r0: U(10), r1: U(180), w: U(5), life: 0.45, max: 0.45, color: '150,220,255' });
+      sfx(460, 0.2, 'triangle', 0.05);
     }
   }
 
@@ -1222,7 +1239,7 @@
       }
       addText(W * 0.5, H * 0.3, '【真相引擎】全部检索出来', '255,180,92', 26);
       sfx(160, 0.7, 'sawtooth', 0.07);
-    } else {
+    } else if (heroIndex === 8) {
       /* SEED：数据倾倒，全屏数据流砸落 */
       game.flash = 0.9;
       game.shake = U(16);
@@ -1235,6 +1252,20 @@
       }
       addText(W * 0.5, H * 0.3, '【数据倾倒】整屏都是数据流', '150,220,255', 26);
       sfx(180, 0.6, 'square', 0.06);
+    } else {
+      /* 冬装豆包：数据暴走，全屏雪崩 + 减速 */
+      game.flash = 0.9;
+      game.shake = U(18);
+      game.slow = Math.max(game.slow, 1.8);
+      for (const e of enemies.slice()) hurtEnemy(e, 72 * heroDmg(), 0, 0, true);
+      for (let i = 0; i < 16; i++) {
+        tokenBullet(rand(W * 0.05, W * 0.95), H * 0.06, 0, U(780), 12 * heroDmg(), true, '#a8d8ff');
+      }
+      for (let i = 0; i < 3; i++) {
+        rings.push({ x: W * 0.5, y: groundY - U(50), r0: U(24), r1: U(240 + i * 160), w: U(7), life: 0.65, max: 0.65, color: '150,220,255' });
+      }
+      addText(W * 0.5, H * 0.3, '【数据暴走】整座城堡都在下雪', '150,220,255', 26);
+      sfx(160, 0.65, 'sawtooth', 0.07);
     }
   }
 
@@ -2861,6 +2892,22 @@
     }
   }
 
+  const SELF_EGG_LINES = {
+    grok: [
+      { name: 'Grok 娘', portrait: 'grok', fx: 'shake', text: '你个臭大学生，[w=240]还敢当我面用我的冒牌货？！[shake]本尊在这！[/shake]' },
+      { name: 'Grok 娘', portrait: 'grok', text: '既然撞上了，那就让我看看——[c=#ffd166]你配不配用我的脸。[/c]' },
+      { name: '文心一言', portrait: 'wenxin', text: '……这算不算自己打自己？总之，别被她戳穿。' }
+    ],
+    seed: [
+      { name: 'SEED 娘', portrait: 'seed', fx: 'shake', text: '你居然拿我的模型来打我？[w=260]这些分镜可都是我拍的！' },
+      { name: 'SEED 娘', portrait: 'seed', text: '行啊，那就让你看看[c=#ffd166]原版和盗版的差距[/c]。' }
+    ],
+    doubao_boss: [
+      { name: '冬装豆包', portrait: 'doubao_winter', fx: 'shake', text: '你、你怎么穿着我的冬装……[w=240]而且比我穿得还像？' },
+      { name: '冬装豆包', portrait: 'doubao_winter', text: '不管了！[c=#ff8fa8]先把你身上的那件脱下来再说！[/c]' }
+    ]
+  };
+
   function startBossIntro() {
     const st = STAGES[game.stage];
     if (!st) return;
@@ -2883,6 +2930,16 @@
         talk();
       }
     };
+
+    /* 用同款角色打同款 Boss：专属战前彩蛋，代替一般流程 */
+    const heroKey = (HEROES[heroIndex] || {}).key;
+    const eggBoss = { grok: 'grok', seed: 'seed', doubao_boss: 'doubao_winter' }[st.boss];
+    if (showBranch && eggBoss === heroKey && SELF_EGG_LINES[st.boss]) {
+      game.branchDone[branchKey] = true;
+      clearMinions();
+      showDialog(SELF_EGG_LINES[st.boss], playStory);
+      return;
+    }
 
     /* 奶蛙的选项放在它的剧情过场之前（其余 Boss 放在剧情之后） */
     if (showBranch && branchKey === 'nail') {
@@ -8367,6 +8424,35 @@
             game.paused = true;
             setTimeout(function () { document.title = 'WBS pb=' + pbullets.length + ' p0=' + (pbullets[0] ? Math.round(pbullets[0].x) + ',' + Math.round(pbullets[0].y) : '-'); }, 400);
           }, 400);
+        } else if (sc === 'selfegg') {
+          setTimeout(function () {
+            heroIndex = 7;
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            game.bossSpawned = false;
+            game.stageClearPending = false;
+            startBossIntro();
+            const seen = [];
+            let n = 0;
+            const tick = function () {
+              n++;
+              if (game.state === 'cine') { const c = document.getElementById('cine-skip'); if (c) c.click(); }
+              if (game.state === 'dialog') {
+                const t = document.getElementById('dialog-text');
+                if (t && t.textContent && seen[seen.length - 1] !== t.textContent.slice(0, 18)) seen.push(t.textContent.slice(0, 18));
+                const b = document.getElementById('dialog-next'); if (b) b.click();
+              }
+              if (game.state === 'choice') { seen.push('CHOICE'); }
+              if (n < 20) setTimeout(tick, 300);
+              else document.title = 'SELFEGG ' + seen.join('|').slice(0, 160) + ' state=' + game.state + ' heroes=' + HEROES.length + ' btns=' + document.querySelectorAll('.hero-pick__item').length;
+            };
+            setTimeout(tick, 200);
+          }, 500);
         } else if (sc === 'layoutmenu') {
           setTimeout(function () {
             document.getElementById('btn-settings').click();
