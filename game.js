@@ -219,7 +219,7 @@
   ];
 
   const BUFF_TIER = {
-    '无限支援': 'rare',
+    '无限支援': 'legend',
     '暴击协议': 'rare',
     '吸血编译': 'rare',
     '护盾再生': 'rare',
@@ -367,7 +367,7 @@
 
   const BUFFS = [
     { name: 'Token 虹吸', desc: 'Token 能量获取 ×1.5，上限 +10', apply: function () { player.tokenMul = Math.min(3, player.tokenMul * 1.5); player.maxToken += 10; } },
-    { name: '无限支援', desc: '支援冷却归零，可连续召唤', apply: function () { game.buffSupportFree = true; player.supportCd = 0; } },
+    { name: '无限支援', desc: '支援冷却固定 5 秒（传说）', apply: function () { game.buffSupportFive = true; player.supportCd = 5; } },
     { name: '弹幕扩散', desc: '平A 每次多 1 发 Token 弹幕', apply: function () { game.buffShots = Math.min(3, game.buffShots + 1); } },
     { name: '算力超频', desc: '全部伤害 +15%', apply: function () { player.dmgMul = Math.min(1.8, player.dmgMul * 1.15); } },
     { name: '缓存扩容', desc: '最大生命 +25 并回满', apply: function () { player.maxHp += 25; player.hp = player.maxHp; } },
@@ -463,7 +463,7 @@
     enemyDamageScale: 0.62,
     bosses: {
       grok:        { hp: 1800, w: 90,  h: 205, x: 0.68 },
-      nail_boss:   { hp: 2250, w: 128, h: 215, x: 0.62 },
+      nail_boss:   { hp: 3400, w: 128, h: 215, x: 0.62 },
       doubao_boss: { hp: 2350, w: 112, h: 210, x: 0.72 },
       seed:        { hp: 3300, w: 112, h: 215, x: 0.70 }
     }
@@ -1170,7 +1170,9 @@
     if (p.supportCd > 0 && !game.buffSupportFree && !game.infinite) { deny(el.acts.support); return; }
     p.supportLock = 0.35;
 
-    p.supportCd = (game.buffSupportFree || game.infinite) ? 0 : (game.wenxinSupport ? SUPPORT_CD * 0.5 : SUPPORT_CD) * (p.supportCdMul || 1);
+    if (game.buffSupportFive) p.supportCd = 5 * (p.supportCdMul || 1);
+    else if (game.buffSupportFree || game.infinite) p.supportCd = 0;
+    else p.supportCd = (game.wenxinSupport ? SUPPORT_CD * 0.5 : SUPPORT_CD) * (p.supportCdMul || 1);
     let supPool = (game.siliconWar ? SILICON_SUPPORTS : SUPPORTS).slice();
     for (const k of game.allyKeys) {
       if (SUPPORT_EXTRA[k]) supPool.push(SUPPORT_EXTRA[k]);
@@ -1220,6 +1222,7 @@
 
     /* Boss 破防窗口：定身期间受伤 +50% */
     if (e.isBoss && e.stun > 0) dmg *= 1.5;
+    if (e.kind === 'nail_boss') dmg *= 0.82;
     e.hp -= Math.max(1, dmg);
     e.hurt = 0.14;
     if (kx) e.kx = (e.kx || 0) + kx * 0.35;
@@ -1392,7 +1395,7 @@
   }
 
   /* 敌弹统一入口 */
-  function ebullet(x, y, ang, spd, color, r, text) {
+  function ebullet(x, y, ang, spd, color, r, text, dmg) {
     if (ebullets.length > (game.lowFx ? 180 : 320)) return;
     if (!isFinite(x) || !isFinite(y) || !isFinite(ang) || !isFinite(spd)) return;
     if (!isFinite(r) || r <= 0) r = U(7);
@@ -1403,7 +1406,8 @@
       r: r || U(7),
       color: color || '255,209,102',
       life: 5,
-      text: text || null
+      text: text || null,
+      dmg: dmg || Math.round((text ? 8 : 7) * (game.warDmgMul || 1))
     });
   }
 
@@ -1986,17 +1990,30 @@
           e.phase = 'dash';
           e.phaseT = 0.6;
           e.dashDir = p.x < e.x ? -1 : 1;
+          const ddx = p.x - e.x;
+          const ddy = (p.y - U(60)) - (e.y - e.h * 0.5);
+          const dl = Math.max(1, Math.hypot(ddx, ddy));
+          const spd = U(e.hp < e.maxHp * 0.5 ? 1150 : 900);
+          e.dashVX = ddx / dl * spd;
+          e.dashVY = clamp(ddy / dl * spd, -U(520), U(520));
           e.dashHit = false;
           sfx(220, 0.2, 'sawtooth', 0.05);
         }
       } else {
-        e.x += e.dashDir * U(e.hp < e.maxHp * 0.5 ? 1040 : 820) * d;
-        if (!e.dashHit && Math.abs(e.x - p.x) < U(46)) {
-          e.dashHit = true;
-          damagePlayer(16, e.dashDir);
+        e.x += (e.dashVX || e.dashDir * U(900)) * d;
+        e.y = clamp(e.y + (e.dashVY || 0) * d, groundY - U(220), groundY);
+        if (!e.dashHit) {
+          const hdx = Math.abs(e.x - p.x);
+          const hdy = Math.abs((e.y - e.h * 0.5) - (p.y - U(60)));
+          if (hdx < U(52) && hdy < U(70)) {
+            e.dashHit = true;
+            damagePlayer(18, e.dashDir);
+          }
         }
         if (e.phaseT <= 0) {
           e.phase = 'idle';
+          e.y = groundY;
+          e.dashVY = 0;
           const enraged = e.hp < e.maxHp * 0.5;
           e.phaseT = enraged ? 1.0 : 1.5;
           fireRing(e.x + e.face * U(14), e.y - e.h * 0.55, 10, e.t, U(150), BULLET_COLORS.fast);
@@ -2071,11 +2088,11 @@
         e.x = lerp(e.x, e.homeX, 1 - Math.pow(0.01, d));
         /* 笑的时候甩出螺旋弹幕 */
         e.spiralT = (e.spiralT || 0) + d;
-        if (e.spiralT > 0.11) {
+        if (e.spiralT > 0.08) {
           e.spiralT = 0;
           e.spiralA = (e.spiralA || 0) + 0.55;
           for (let k = 0; k < 2; k++) {
-            ebullet(e.x, e.y - e.h * 0.55, e.spiralA + k * Math.PI, U(240), BULLET_COLORS.normal, U(9));
+            ebullet(e.x, e.y - e.h * 0.55, e.spiralA + k * Math.PI, U(260), BULLET_COLORS.normal, U(9), '奶', 8);
           }
         }
         if (e.laughT <= 0) {
@@ -2090,18 +2107,55 @@
       e.x = lerp(e.x, e.homeX + Math.sin(e.t * 0.5) * U(22), 1 - Math.pow(0.02, d));
       e.fireT -= d;
       if (e.fireT <= 0) {
-        if (e.dense) {
-          e.fireT = 0.55;
-          const base = Math.atan2((p.y - U(72)) - (e.y - U(90)), p.x - e.x);
-          for (let i = -3; i <= 3; i++) {
-            ebullet(e.x, e.y - e.h * 0.58, base + i * 0.13, U(340), BULLET_COLORS.normal, U(8));
+        e.patMode = (e.patMode || 0) + 1;
+        const mode = e.patMode % 5;
+        const base = Math.atan2((p.y - U(72)) - (e.y - U(90)), p.x - e.x);
+        const mx = e.x;
+        const my = e.y - e.h * 0.58;
+        if (mode === 0) {
+          /* 扇形三连 */
+          e.fireT = e.dense ? 0.55 : 0.9;
+          const n = e.dense ? 4 : 3;
+          for (let i = -n; i <= n; i++) {
+            ebullet(mx, my, base + i * 0.13, U(340), BULLET_COLORS.normal, U(9), '奶', 8);
           }
-          fireRing(e.x, e.y - e.h * 0.55, 10, e.t * 0.9, U(210), BULLET_COLORS.normal);
+        } else if (mode === 1) {
+          /* 大号瞄准弹 */
+          e.fireT = e.dense ? 0.8 : 1.25;
+          ebullet(mx, my, base, U(230), BULLET_COLORS.track, U(22), '呱', 14);
+          for (let i = -1; i <= 1; i += 2) {
+            ebullet(mx, my, base + i * 0.22, U(300), BULLET_COLORS.normal, U(9), '奶', 8);
+          }
+          sfx(240, 0.12, 'sawtooth', 0.04);
+        } else if (mode === 2) {
+          /* 跳跃砸地：全屏地面冲击，必须跳起来 */
+          e.fireT = e.dense ? 1.2 : 1.7;
+          e.slamT = 0.5;
+          e.vy = -U(520);
+          warnAt(p.x, groundY, U(160), 0.9, '255,120,150');
+          addText(W * 0.5, H * 0.3, '奶蛙跳起来了——跳起来躲地面冲击！', '255,209,102', 18);
+          setTimeout(function () {
+            if (e.dead) return;
+            fireRing(W * 0.5, groundY - U(14), 16, 0, U(330), BULLET_COLORS.area);
+            game.shake = U(20);
+            sfx(90, 0.5, 'sine', 0.07);
+          }, 500);
+        } else if (mode === 3) {
+          /* 追踪泡泡 */
+          e.fireT = e.dense ? 0.9 : 1.35;
+          for (let i = 0; i < 3; i++) {
+            const ang = base + (i - 1) * 0.5;
+            const b = { x: mx, y: my, vx: Math.cos(ang) * U(190), vy: Math.sin(ang) * U(190),
+              r: U(12), color: '150,220,255', life: 5, text: '泡', dmg: 9, trail: true };
+            ebullets.push(b);
+          }
+          addText(mx, my - U(30), '追踪泡泡！', '150,220,255', 14);
         } else {
-          e.fireT = 0.95;
-          const base = Math.atan2((p.y - U(72)) - (e.y - U(90)), p.x - e.x);
+          /* 高密度环形 */
+          e.fireT = e.dense ? 1.0 : 1.5;
+          fireRing(mx, my, e.dense ? 14 : 10, e.t * 0.9, U(240), BULLET_COLORS.normal);
           for (let i = -2; i <= 2; i++) {
-            ebullet(e.x, e.y - e.h * 0.58, base + i * 0.15, U(320), BULLET_COLORS.normal, U(8));
+            ebullet(mx, my, base + i * 0.14, U(360), BULLET_COLORS.fast, U(8), '奶', 8);
           }
         }
         sfx(400, 0.06, 'square', 0.03);
@@ -2214,7 +2268,7 @@
 
   function updateStage(d, dt) {
     /* 兜底：决战里所有 Boss 都已死亡却还停在战斗，超过 0.8 秒强制进胜利收尾 */
-    if (game.siliconWar && game.state === 'play') {
+    if (game.siliconWar && game.state === 'play' && game.warPhase === 'final') {
       const anyAlive = enemies.some(function (e) { return e.isBoss && !e.dead && e.hp > 0; });
       if (!anyAlive) {
         game.warIdleT = (game.warIdleT || 0) + dt;
@@ -2602,7 +2656,7 @@
         const px = player.x;
         const py = player.y - U(66);
         if (Math.abs(b.x - px) < b.r + U(5) && Math.abs(b.y - py) < b.r + U(11)) {
-          damagePlayer(b.text ? 8 : 7, Math.sign(px - b.x) || 1);
+          damagePlayer(b.dmg || (b.text ? 8 : 7), Math.sign(px - b.x) || 1);
           ebullets.splice(i, 1);
         }
       }
@@ -3142,6 +3196,13 @@
     if (player.dead) { player.dead = false; player.hp = player.maxHp * 0.6; }
     player.hp = Math.min(player.maxHp, player.hp + 30);
     player.token = Math.max(player.token, 60);
+
+    if (game.stage === 1 && platforms.length === 0) {
+      platforms.push({ x: W * 0.16, w: U(200), lift: U(200) });
+      platforms.push({ x: W * 0.5, w: U(220), lift: U(150) });
+      platforms.push({ x: W * 0.78, w: U(180), lift: U(230) });
+      game.nextPlat = W + U(600);
+    }
 
     const startPlay = function () {
       game.state = 'play';
@@ -6068,6 +6129,62 @@
     { idx: 8, key: 'seed', name: 'SEED 娘', desc: 'seedance / 数据倾倒' }
   ];
 
+  /* 隐藏决战：四轮车轮战 + 最终强化形态 */
+  const WAR_ROUNDS = [
+    { ceo: 'altman', ai: 'chatgpt',
+      win: '可恶……不是说脆皮大学生吗？我居然会输。Gemini，交给你们了！',
+      lose: '终归只是个大学生。去把 Transformer 学明白，再来挑战我们。' },
+    { ceo: 'pichai', ai: 'gemini',
+      win: 'Google 不会缺席……但这一轮，是你们赢了。Claude，轮到你们了。',
+      lose: '下次记得带够算力，再来敲这扇门。' },
+    { ceo: 'dario', ai: 'claude',
+      win: '开源……居然真的能赢。Grok，看你的了。',
+      lose: '开源救不了你的期末作业。' },
+    { ceo: 'musk', ai: 'grok',
+      win: '我在火星待太久了……最后，四个模型一起上！',
+      lose: '回火星之前，我记住你了。' }
+  ];
+
+  function spawnWarPair(idx) {
+    const r = WAR_ROUNDS[idx];
+    if (!r) return;
+    const hpBase = 1500 + idx * 300;
+    spawnSpecialBoss(r.ceo, W * 0.36, hpBase, U(54), U(100));
+    spawnSpecialBoss(r.ai, W * 0.68, hpBase + 80, U(60), U(124));
+    game.warRound = idx;
+    game.warPhase = 'pair';
+    game.warTransition = false;
+    game.warDmgMul = 1 + idx * 0.18;
+    enemies.forEach(function (e2) { e2.fireT = 1.5 + Math.random() * 0.4; });
+    player.invuln = Math.max(player.invuln, 1.6);
+    addText(W * 0.5, H * 0.22, '车轮战 · 第 ' + (idx + 1) + ' / 4 轮', '255,209,102', 22);
+  }
+
+  function startWarFinalPhase() {
+    game.warPhase = 'final';
+    game.warRound = 4;
+    game.warDmgMul = 2.0;
+    const conf = [
+      { kind: 'chatgpt', x: 0.2 },
+      { kind: 'claude', x: 0.4 },
+      { kind: 'gemini', x: 0.6 },
+      { kind: 'grok', x: 0.8 }
+    ];
+    conf.forEach(function (c) {
+      spawnSpecialBoss(c.kind, W * c.x, 1900, U(60), U(124));
+    });
+    enemies.forEach(function (e2) {
+      e2.fireT = 1.2 + Math.random() * 0.4;
+      e2.enhanced = true;
+      e2.hp = e2.maxHp = Math.round(e2.maxHp * 1.25);
+    });
+    player.invuln = Math.max(player.invuln, 2.2);
+    game.flash = 0.8;
+    game.shake = U(22);
+    addText(W * 0.5, H * 0.2, '最终阶段：四个模型 · 强化形态！', '255,120,150', 26);
+    sfx(110, 0.8, 'sawtooth', 0.08);
+  }
+
   function showPrep() {
     game.state = 'prep';
     document.body.classList.add('is-cutscene');
@@ -6127,21 +6244,11 @@
     ebullets = [];
     pbullets = [];
     enemies = [];
-    const conf = [
-      { kind: 'altman', x: 0.16, hp: 960, w: 54, h: 100 },
-      { kind: 'chatgpt', x: 0.255, hp: 940, w: 60, h: 126 },
-      { kind: 'pichai', x: 0.35, hp: 960, w: 54, h: 100 },
-      { kind: 'gemini', x: 0.445, hp: 940, w: 60, h: 124 },
-      { kind: 'musk', x: 0.54, hp: 960, w: 54, h: 100 },
-      { kind: 'grok', x: 0.635, hp: 940, w: 62, h: 128 },
-      { kind: 'dario', x: 0.73, hp: 940, w: 54, h: 98 },
-      { kind: 'claude', x: 0.825, hp: 940, w: 60, h: 124 }
-    ];
-    conf.forEach(function (c) {
-      spawnSpecialBoss(c.kind, W * c.x, c.hp, U(c.w), U(c.h));
-    });
-    /* 开局 1.6 秒内 Boss 不开火，给玩家站稳再打 */
-    enemies.forEach(function (e2) { e2.fireT = 1.6 + Math.random() * 0.6; });
+    game.warRound = 0;
+    game.warPhase = 'pair';
+    game.warTransition = false;
+    game.warDmgMul = 1;
+    spawnWarPair(0);
     /* 队友：没选的三位出场帮忙 */
     allies = [];
     const allySlots = [
@@ -6164,8 +6271,7 @@
       });
     });
     addText(W * 0.5, H * 0.24, '硅谷 · AI 垄断决战', '255,209,102', 26);
-    addText(W * 0.5, H * 0.3, '你站在这边：队友 ' + allies.length + ' 人 · 支援限定 GLM / DS / Qwen / Kimi / SEED', '150,220,255', 14);
-    /* 决战增益：7 个 Boss 一起上，给你和队友一点底气（否则太肉） */
+    addText(W * 0.5, H * 0.3, '车轮战 4 轮 · 队友 ' + allies.length + ' 人 · 最后四个模型一起上', '150,220,255', 14);
     player.dmgMul *= 1.35;
     applyWenxinBlessing();
     setBgm('boss');
@@ -6209,13 +6315,22 @@
         { bg: 'city', actors: [{ img: 'wenxin', side: 'center' }], text: '灯还亮着。这一次，Token 自由属于你。', dur: 3200 }
       ], finish);
     } else {
-      /* 失败 CG：Token 被收走 → 期末作业挂科 */
-      playCine([
+      const lr = WAR_ROUNDS[Math.min(3, game.warRound || 0)];
+      game.state = 'dialog';
+      document.body.classList.add('is-cutscene');
+      showDialog([
+        { name: '对手', portrait: lr ? lr.ceo : 'altman', fx: 'shake', text: lr ? lr.lose : '不过如此。' },
+        { name: '文心一言', portrait: 'wenxin', text: '……这一轮，是我们输了。' }
+      ], function () {
+        document.body.classList.remove('is-cutscene');
+        /* 失败 CG：Token 被收走 → 期末作业挂科 */
+        playCine([
         { bg: 'silicon', actors: [{ img: 'altman', side: 'left' }, { img: 'dario', side: 'right' }], text: '垄断阵营收走了你账户里最后一点 Token。', dur: 3200 },
         { bg: 'glitch', actors: [{ img: 'musk', side: 'left' }, { img: 'pichai', side: 'right' }], text: '「下次记得带够算力再来。」', dur: 3000 },
         { bg: 'void', actors: [], text: '期末作业的文档，停在了第一页。', dur: 2800 },
-        { bg: 'school', actors: [], text: '[c=#ff8fa8]成绩单上，多了一个红色的「挂科」。[/c]', dur: 3600 }
-      ], finish);
+          { bg: 'school', actors: [], text: '[c=#ff8fa8]成绩单上，多了一个红色的「挂科」。[/c]', dur: 3600 }
+        ], finish);
+      });
     }
   }
 
@@ -6360,10 +6475,32 @@
     const bosses = enemies.filter(function (e) { return e.isBoss && !e.dead && e.hp > 0; });
     if (!bosses.length) {
       /* 胜利判定期间保护玩家，避免被最后一发残留弹打死变成失败结局 */
-      player.invuln = Math.max(player.invuln, 2.5);
+      player.invuln = Math.max(player.invuln, 3.5);
       ebullets = [];
-      game.hiddenWinT += dt;
-      if (game.hiddenWinT > 0.7) finishSiliconWar(true);
+      if (game.warTransition) return;
+      if (game.warPhase === 'final') {
+        game.hiddenWinT += dt;
+        if (game.hiddenWinT > 0.7) finishSiliconWar(true);
+        return;
+      }
+      game.warTransition = true;
+      const idx = game.warRound || 0;
+      const rr = WAR_ROUNDS[idx];
+      game.state = 'dialog';
+      document.body.classList.add('is-cutscene');
+      showDialog([
+        { name: '对手', portrait: rr ? rr.ceo : 'altman', fx: 'shake', text: rr ? rr.win : '……' },
+        { name: '文心一言', portrait: 'wenxin', text: idx < 3 ? '撑过一轮。下一对，已经在前面等你了。' : '四轮都撑过去了——他们要一起上了。' }
+      ], function () {
+        document.body.classList.remove('is-cutscene');
+        if (idx < 3) {
+          spawnWarPair(idx + 1);
+        } else {
+          startWarFinalPhase();
+        }
+        game.state = 'play';
+        document.body.classList.add('is-playing');
+      });
       return;
     }
     const bulletCap = game.lowFx ? 64 : (game.fps && game.fps < 56 ? 90 : 110);
@@ -6553,6 +6690,7 @@
     game.affection = 0;
     game.buffShots = 0;
     game.buffSupportFree = false;
+    game.buffSupportFive = false;
     game.rescueA = false;
     game.rescueB = false;
     game.infinite = false;
@@ -8160,6 +8298,29 @@
             }
             game.paused = true;
             setTimeout(function () { document.title = 'WBS pb=' + pbullets.length + ' p0=' + (pbullets[0] ? Math.round(pbullets[0].x) + ',' + Math.round(pbullets[0].y) : '-'); }, 400);
+          }, 400);
+        } else if (sc === 'wheeltest') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            startSiliconWar(6);
+            player.hp = player.maxHp = 999999;
+            game.infinite = true;
+            let n = 0;
+            const tick = function () {
+              n++;
+              if (game.state === 'dialog') { const b = document.getElementById('dialog-next'); if (b) b.click(); }
+              if (game.state === 'cine') { const c = document.getElementById('cine-skip'); if (c) c.click(); }
+              if (game.state === 'play' && n % 4 === 0) {
+                enemies.slice().forEach(function (e) { if (e.isBoss) { e.hp = 1; hurtEnemy(e, 99999, 0, 0, true); } });
+              }
+              if (n < 120) setTimeout(tick, 300);
+              else document.title = 'WHEEL round=' + game.warRound + ' phase=' + game.warPhase + ' alive=' + enemies.filter(function(e){return e.isBoss && !e.dead && e.hp>0;}).length + ' state=' + game.state + ' over=' + (overEl && overEl.classList.contains('show')) + ' title=' + (el.overTitle ? el.overTitle.textContent : '-');
+            };
+            tick();
           }, 400);
         } else if (sc === 'waroff') {
           setTimeout(function () {

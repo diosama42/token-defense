@@ -3434,3 +3434,16 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
   transform: none;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
 }
+
+
+/* LEGEND-RED：无限支援等红色传奇卡 */
+.buff-card.tier-legend {
+  border-color: rgba(255, 86, 118, 0.9) !important;
+  background: linear-gradient(180deg, rgba(64, 10, 24, 0.96), rgba(24, 4, 10, 0.96)) !important;
+  box-shadow: 0 0 26px rgba(255, 70, 110, 0.25);
+}
+.buff-card.tier-legend b { color: #ffd6de !important; }
+.buff-card.tier-legend .buff-card__tier {
+  background: rgba(255, 76, 110, 0.92) !important;
+  color: #fff !important;
+}
