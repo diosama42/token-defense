@@ -245,6 +245,8 @@
     '疾跑编译': 'dodge', '铁壁缓存': 'power', '冷却压缩': 'power', '拾荒协议': 'token',
     '连击充能': 'bullet', '弹药回收': 'token', '穿透弹幕': 'bullet', '暴击爆炸': 'crit',
     '闪避充能': 'dodge', '支援炮击': 'summon', '绝境协议': 'power', '开局即巅峰': 'power',
+    '连击加速': 'bullet', '闪避分身': 'dodge', '大招回响': 'power', '击杀爆破': 'bullet',
+    '护盾反伤': 'power', '暴击连锁': 'crit', '吸血溢流': 'crit',
     '核心·弹幕': 'bullet', '核心·闪避': 'dodge', '核心·召唤': 'summon'
   };
   const SET_INFO = {
@@ -301,6 +303,7 @@
     '三段跳': 'legend',
     'Token 池扩容': 'legend',
     '核心·弹幕': 'legend', '核心·闪避': 'legend', '核心·召唤': 'legend',
+    '闪避分身': 'rare', '大招回响': 'rare', '击杀爆破': 'rare', '护盾反伤': 'rare',
     '穿透弹幕': 'rare', '暴击爆炸': 'rare', '支援炮击': 'rare', '绝境协议': 'rare',
     '开局即巅峰': 'legend'
   };
@@ -510,6 +513,13 @@
     { name: '支援炮击', desc: '召唤支援时额外打出一轮弹幕', apply: function () { game.buffSupportShot = true; } },
     { name: '绝境协议', desc: '生命低于 30% 时伤害 +25%', apply: function () { game.buffLowHp = true; } },
     { name: '开局即巅峰', desc: '每关开始获得 1 层护盾', apply: function () { game.buffStartShield = true; } },
+    { name: '连击加速', desc: '连击越高，平A 越快（最多 -35%）', apply: function () { game.buffComboRate = true; } },
+    { name: '闪避分身', desc: '闪避后留下一个残影，自动射击', apply: function () { game.buffDodgeClone = true; } },
+    { name: '大招回响', desc: '释放大招后，技能冷却立刻恢复', apply: function () { game.buffUltEcho = true; } },
+    { name: '击杀爆破', desc: '击杀敌人时引发小范围爆炸', apply: function () { game.buffKillBoom = true; } },
+    { name: '护盾反伤', desc: '护盾被击破时，对周围敌人造成伤害', apply: function () { game.buffShieldBoom = true; } },
+    { name: '暴击连锁', desc: '连击越高，暴击率越高（最多 +20%）', apply: function () { game.buffCritChain = true; } },
+    { name: '吸血溢流', desc: '吸血溢出部分转化为护盾', apply: function () { game.buffOverShield = true; } },
     { name: '核心·弹幕', core: true, desc: '核心：平A 多 1 发，命中分裂', apply: function () { game.buffShots = Math.min(4, game.buffShots + 1); game.setSplit = true; } },
     { name: '核心·闪避', core: true, desc: '核心：完美闪避射 3 发，闪避 CD -25%', apply: function () { game.setDodgeShot = true; player.dashCdMul *= 0.75; } },
     { name: '核心·召唤', core: true, desc: '核心：支援 CD -50%，伤害 +10%', apply: function () { player.supportCdMul *= 0.5; player.dmgMul *= 1.1; } }
@@ -1333,6 +1343,7 @@
 
   function fireRate() {
     let cd = ATK_CD;
+    if (game.buffComboRate) cd *= clamp(1 - (game.combo || 0) * 0.004, 0.65, 1);
     if (player.astra > 0) cd *= 0.72;
     if (player.rage > 0) cd *= 0.7;
     if (player.speedMul > 1) cd /= player.speedMul;
@@ -1540,6 +1551,7 @@
 
     if (!game.infinite) p.token -= ULT_COST;
     p.ultCd = game.infinite ? 0 : ULT_CD * (p.cdMul || 1);
+    if (game.buffUltEcho) p.skillCd = 0;
     p.invuln = Math.max(p.invuln, 1.0);
 
     if (heroIndex === 0) {
@@ -1880,6 +1892,14 @@
       addText(e.x, e.y - e.h - U(12), 'KILL', '255,120,150', 20);
     }
     buzz(boss ? 60 : 18);
+    if (game.buffKillBoom && !boss) {
+      for (const e2 of enemies.slice()) {
+        if (e2 !== e && !e2.dead && Math.abs(e2.x - e.x) < U(100) && Math.abs(e2.y - e.y) < U(100)) {
+          hurtEnemy(e2, 24, 0, 0);
+        }
+      }
+      rings.push({ x: e.x, y: e.y - U(30), r0: U(6), r1: U(80), w: U(4), life: 0.25, max: 0.25, color: '255,180,120' });
+    }
     const idx = enemies.indexOf(e);
     if (idx >= 0) enemies.splice(idx, 1);
     sfx(boss ? 90 : 200, boss ? 0.6 : 0.16, 'sawtooth', 0.05);
@@ -1888,7 +1908,17 @@
   function damagePlayer(dmg, dir) {
     const p = player;
     if (game.state !== 'play') return;
-    if (p.dead || p.invuln > 0 || p.shield > 0) return;
+    if (p.dead || p.invuln > 0) return;
+    if (p.shield > 0) {
+      if (game.buffShieldBoom) {
+        for (const e of enemies.slice()) {
+          if (!e.dead && Math.abs(e.x - p.x) < U(150)) hurtEnemy(e, 30, 0, 0);
+        }
+        rings.push({ x: p.x, y: p.y - U(56), r0: U(10), r1: U(160), w: U(6), life: 0.3, max: 0.3, color: '150,220,255' });
+        game.shake = SAVE.reduceFx ? 0 : U(10);
+      }
+      return;
+    }
     const realDmg = Math.max(1, Math.round(dmg * CONFIG.enemyDamageScale * (game.enemyDmgMul || 1) * (game.eliteDmgMul || 1) * (p.defenseMul || 1) * diffCfg().dmg / diffCfg().def));
     /* 硅谷决战里弹幕太密，硬直减半，避免被锁在原地动不了 */
     const hurtStun = game.siliconWar ? 0.05 : 0.3;
@@ -2408,6 +2438,11 @@
           for (let k = 0; k < 3; k++) {
             const ang = -0.5 + k * 0.5;
             tokenBullet(p.x, p.y - U(60), p.face * Math.cos(ang) * U(900), Math.sin(ang) * U(240), 10 * heroDmg(), true);
+          }
+        }
+        if (game.buffDodgeClone) {
+          for (let k = -1; k <= 1; k++) {
+            tokenBullet(p.x - p.face * U(30), p.y - U(58), p.face * U(760), k * U(180), 8 * heroDmg(), true);
           }
         }
         sfx(1240, 0.12, 'triangle', 0.05);
@@ -3372,7 +3407,8 @@
             if (tracers.length > 80) tracers.splice(0, tracers.length - 80);
           }
           let dmg = b.dmg;
-          if (player.critChance > 0 && Math.random() < player.critChance) {
+          const chainCrit = game.buffCritChain ? Math.min(0.2, (game.combo || 0) * 0.004) : 0;
+          if ((player.critChance + chainCrit) > 0 && Math.random() < (player.critChance + chainCrit)) {
             dmg *= 2;
             hitSfx('crit');
             addText(b.x, b.y - U(18), 'CRIT', '255,220,120', 18);
@@ -3395,7 +3431,12 @@
             player.hp = Math.min(player.maxHp, player.hp + game.setCritHeal);
           }
           if (player.lifesteal > 0) {
-            player.hp = Math.min(player.maxHp, player.hp + dmg * player.lifesteal);
+            const heal = dmg * player.lifesteal;
+            const before = player.hp;
+            player.hp = Math.min(player.maxHp, player.hp + heal);
+            if (game.buffOverShield && player.hp >= player.maxHp) {
+              player.shield = Math.min(5, (player.shield || 0) + 0.35);
+            }
           }
           if (game.buffExplode) {
             for (const e2 of enemies.slice()) {
@@ -4469,6 +4510,62 @@
       renderShopPanel();
     });
     grid.appendChild(modelCard);
+    }
+
+    const removeCard = document.createElement('button');
+    removeCard.type = 'button';
+    removeCard.className = 'rooms__card';
+    removeCard.disabled = !game.buffs.length;
+    removeCard.innerHTML = '<b>删除词条</b><span>' + (game.buffs.length ? '移除最近获得的词条：' + game.buffs[game.buffs.length - 1] : '没有可删除的词条') + '</span><i class="rooms__price">40 金币</i>';
+    removeCard.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!game.buffs.length) return;
+      if (game.coins < 40) { roomWarn(panel, '金币不足，还差 ' + (40 - game.coins) + ' 金币'); return; }
+      game.coins -= 40;
+      const removed = game.buffs.pop();
+      rebuildPlayerStats();
+      showAchvToast('已删除词条', removed);
+      renderShopPanel();
+    });
+    grid.appendChild(removeCard);
+
+    const upgradeCard = document.createElement('button');
+    upgradeCard.type = 'button';
+    upgradeCard.className = 'rooms__card';
+    upgradeCard.disabled = !game.buffs.length;
+    upgradeCard.innerHTML = '<b>强化词条</b><span>' + (game.buffs.length ? '随机让一个已有词条再触发一次' : '没有可强化的词条') + '</span><i class="rooms__price">70 金币</i>';
+    upgradeCard.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!game.buffs.length) return;
+      if (game.coins < 70) { roomWarn(panel, '金币不足，还差 ' + (70 - game.coins) + ' 金币'); return; }
+      game.coins -= 70;
+      const name = game.buffs[Math.floor(Math.random() * game.buffs.length)];
+      const buff = BUFFS.filter(function (b) { return b.name === name; })[0];
+      if (buff) buff.apply();
+      applySetBonuses(true);
+      showAchvToast('强化词条', name + ' 效果叠加');
+      renderShopPanel();
+    });
+    grid.appendChild(upgradeCard);
+
+    if (!game.curseBought) {
+      const curseCard = document.createElement('button');
+      curseCard.type = 'button';
+      curseCard.className = 'rooms__card';
+      curseCard.innerHTML = '<b>禁忌协议</b><span>免费获得 2 个随机词条，但最大生命 -35、防御 -10%</span><i class="rooms__price">免费</i>';
+      curseCard.addEventListener('click', function (e) {
+        e.stopPropagation();
+        game.curseBought = true;
+        for (let i = 0; i < 2; i++) grantCommonBuff();
+        player.maxHp = Math.max(60, player.maxHp - 35);
+        player.hp = Math.min(player.hp, player.maxHp);
+        player.defenseMul = Math.min(1.2, player.defenseMul * 1.1);
+        game.flash = 0.4;
+        addText(player.x, player.y - U(130), '禁忌协议：力量与代价', '255,120,150', 18);
+        sfx(140, 0.4, 'sawtooth', 0.06);
+        renderShopPanel();
+      });
+      grid.appendChild(curseCard);
     }
 
     const refresh = document.createElement('button');
@@ -11249,6 +11346,36 @@
             setTimeout(function () {
               document.title = 'NEWBOSS stages=' + STAGES.length + ' boss=' + (enemies[0] || {}).kind + ' hp=' + Math.round((enemies[0] || {}).hp || 0) + ' eb=' + ebullets.length + ' boss2=' + STAGES[2].boss;
             }, 3000);
+          }, 700);
+        } else if (sc === 'shopdepth') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room', 'is-cutscene');
+            beginStage(true);
+            game.coins = 400;
+            game.buffs = ['推理加速', '弹幕扩散'];
+            game.fullPower = false;
+            game.curseBought = false;
+            openRoomShop();
+            setTimeout(function () {
+              const cards = Array.prototype.map.call(document.querySelectorAll('#rest-grid .rooms__card'), function (b) { return b.textContent.replace(/\s+/g, ' ').trim().slice(0, 16); });
+              let del = null, curse = null;
+              document.querySelectorAll('#rest-grid .rooms__card').forEach(function (b) {
+                if (b.textContent.indexOf('删除词条') >= 0) del = b;
+                if (b.textContent.indexOf('禁忌协议') >= 0) curse = b;
+              });
+              if (del) del.click();
+              if (curse) curse.click();
+              setTimeout(function () {
+                document.title = 'SHOPDEPTH cards=' + cards.length + ' buffs=' + game.buffs.join(',') + ' maxHp=' + player.maxHp + ' curse=' + game.curseBought + ' texts=' + cards.join('|').slice(0, 140);
+              }, 500);
+            }, 500);
           }, 700);
         } else if (sc === 'heroselectionshot') {
           setTimeout(function () {
