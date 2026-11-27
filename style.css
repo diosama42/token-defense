@@ -3489,3 +3489,28 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
   animation: kmPulse 0.8s ease-in-out infinite;
 }
 @keyframes kmPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+
+/* 调整按键时（包括还没进游戏）把操作层显示出来 */
+html.layout-edit .controls {
+  z-index: 9100 !important;
+  pointer-events: auto !important;
+}
+html.layout-edit .controls .pad,
+html.layout-edit .controls .jump,
+html.layout-edit .controls .stick {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+html.layout-edit .controls .pad *,
+html.layout-edit .controls .jump *,
+html.layout-edit .controls .stick * {
+  pointer-events: auto;
+}
+
+
+html.layout-edit .controls {
+  opacity: 1 !important;
+  visibility: visible !important;
+}

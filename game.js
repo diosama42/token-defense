@@ -8367,6 +8367,17 @@
             game.paused = true;
             setTimeout(function () { document.title = 'WBS pb=' + pbullets.length + ' p0=' + (pbullets[0] ? Math.round(pbullets[0].x) + ',' + Math.round(pbullets[0].y) : '-'); }, 400);
           }, 400);
+        } else if (sc === 'layoutmenu') {
+          setTimeout(function () {
+            document.getElementById('btn-settings').click();
+            document.getElementById('btn-edit-layout').click();
+            setTimeout(function () {
+              const pad = document.querySelector('.pad');
+              const cs = getComputedStyle(pad);
+              const jump = getComputedStyle(document.querySelector('.jump'));
+              document.title = 'LAYMENU pad=' + cs.opacity + '/' + cs.visibility + ' jump=' + jump.opacity + '/' + jump.visibility + ' edit=' + document.documentElement.classList.contains('layout-edit');
+            }, 400);
+          }, 700);
         } else if (sc === 'rebindtest') {
           setTimeout(function () {
             startGame();
