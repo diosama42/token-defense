@@ -702,7 +702,7 @@
   /* ---------- 存档（版本化 + 旧键迁移） ---------- */
   const SAVE_KEY = 'tb_save_v2';
   const SAVE = (function () {
-    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false };
+    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false, btnStyle: 'ring' };
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
@@ -1283,6 +1283,7 @@
     p.chainT = CHAIN_WIN;
     p.attackCd = fireRate();
     p.attackT = ATK_DUR;
+    p.recoilT = 0.12;
     game.combo += 1;
     if (game.combo === 10 || game.combo === 25 || game.combo === 50) {
       const heal = game.combo === 50 ? 12 : game.combo === 25 ? 6 : 3;
@@ -1803,7 +1804,7 @@
       x: x, y: groundY,
       vx: -side * speed, vy: 0, kx: 0,
       w: w, h: h,
-      hp: hp * (game.enemyHpMul || 1) * diffCfg().hp, maxHp: hp * (game.enemyHpMul || 1) * diffCfg().hp,
+      hp: hp * (game.enemyHpMul || 1) * diffCfg().hp * (game.roomElite ? 1.6 : 1), maxHp: hp * (game.enemyHpMul || 1) * diffCfg().hp * (game.roomElite ? 1.6 : 1),
       hurt: 0, t: rand(0, 6), fireT: rand(0.8, 1.8), face: -side,
       stun: 0, dead: false, isBoss: false,
       homeX: side > 0 ? W * rand(0.62, 0.88) : W * rand(0.12, 0.38)
@@ -2182,6 +2183,8 @@
     p.ultCd = Math.max(0, p.ultCd - d);
     p.supportCd = Math.max(0, p.supportCd - d);
     p.attackT = Math.max(0, p.attackT - dt);
+    p.recoilT = Math.max(0, (p.recoilT || 0) - dt);
+    p.landT = Math.max(0, (p.landT || 0) - dt);
     p.chainT = Math.max(0, p.chainT - dt);
     p.invuln = Math.max(0, p.invuln - dt);
     if (p.shieldRegen > 0) {
@@ -2336,8 +2339,24 @@
       }
     }
 
-    if (p.onGround) { p.coyote = 0.1; p.jumps = 0; }
-    else p.coyote = Math.max(0, p.coyote - pd);
+    if (p.onGround) {
+      if (!p.wasGround && p.vy >= 0) {
+        p.landT = 0.18;
+        for (let i = 0; i < 5; i++) {
+          spawnSparks(p.x + rand(-U(18), U(18)), groundY - U(4), '180,220,245', 2);
+        }
+      }
+      p.coyote = 0.1; p.jumps = 0;
+    } else {
+      p.coyote = Math.max(0, p.coyote - pd);
+    }
+    /* 跑动尘土 */
+    p.dustT = Math.max(0, (p.dustT || 0) - pd);
+    if (p.onGround && Math.abs(p.vx) > U(250) && p.dustT <= 0) {
+      p.dustT = 0.11;
+      spawnSparks(p.x - p.face * U(16), groundY - U(4), '150,200,230', 1);
+    }
+    p.wasGround = p.onGround;
 
     p.x = clamp(p.x, U(26), W - U(26));
     if (p.onGround && Math.abs(p.vx) > U(40)) p.runPhase += pd * (7 + Math.abs(p.vx) / U(80));
@@ -3788,6 +3807,8 @@
     const items = [
       { type: 'wave', title: '波次防守', desc: '守住 14 秒的敌人波次，按得分获得金币' },
       { type: 'reward', title: '奖励关卡', desc: '10 秒限时挑战，分数翻倍，金币更多' },
+      { type: 'elite', title: '精英战', desc: '12 秒高强度敌人，金币 1.8 倍' },
+      { type: 'event', title: '事件', desc: '随机二选一，不消耗房间次数' },
       { type: 'shop', title: '商店', desc: '用金币换治疗 / 词条 / 装备，不消耗房间次数' }
     ];
     items.forEach(function (it) {
@@ -3798,6 +3819,7 @@
       b.addEventListener('click', function (e) {
         e.stopPropagation();
         if (it.type === 'shop') { openRoomShop(); return; }
+        if (it.type === 'event') { showEventRoom(); return; }
         startRoom(it.type);
       });
       grid.appendChild(b);
@@ -3811,12 +3833,13 @@
     document.body.classList.remove('is-room');
     game.roomType = type;
     game.roomT = 0;
-    game.roomTarget = type === 'reward' ? (10 + game.stage * 1.5) : (14 + game.stage * 2);
+    game.roomTarget = type === 'reward' ? (10 + game.stage * 1.5) : type === 'elite' ? (12 + game.stage) : (14 + game.stage * 2);
+    game.roomElite = type === 'elite';
     game.roomStartScore = game.score;
     game.scoreMul = type === 'reward' ? 2 : 1;
     game.roomActive = true;
     beginStage(true);
-    addText(W * 0.5, H * 0.3, type === 'reward' ? '奖励关卡 · 分数翻倍！' : '波次防守 · 撑住！', '255,209,102', 20);
+    addText(W * 0.5, H * 0.3, type === 'reward' ? '奖励关卡 · 分数翻倍！' : type === 'elite' ? '精英战 · 敌人强化！' : '波次防守 · 撑住！', '255,209,102', 20);
     sfx(700, 0.14, 'triangle', 0.05);
   }
 
@@ -3833,7 +3856,8 @@
       else startRoom('wave');
       return;
     }
-    const gained = Math.max(12, Math.round((game.score - game.roomStartScore) / 70 * (1 + game.stage * 0.2)));
+    const gained = Math.max(12, Math.round((game.score - game.roomStartScore) / 70 * (1 + game.stage * 0.2) * (game.roomElite ? 1.8 : 1)));
+    game.roomElite = false;
     game.coins += gained;
     game.scoreMul = 1;
     let bonusText = '';
@@ -4006,6 +4030,49 @@
     roomHideAll();
     document.body.classList.add('is-room');
     renderRestPanel(true);
+  }
+
+  function showEventRoom() {
+    game.state = 'node';
+    roomHideAll();
+    document.body.classList.add('is-room');
+    const panel = document.getElementById('rest');
+    const grid = document.getElementById('rest-grid');
+    const coinsEl = document.getElementById('rest-coins');
+    const title = panel ? panel.querySelector('.rooms__title') : null;
+    const kicker = panel ? panel.querySelector('.rooms__k') : null;
+    if (!panel || !grid) return;
+    if (title) title.textContent = '随机事件';
+    if (kicker) kicker.textContent = 'EVENT';
+    if (coinsEl) coinsEl.textContent = '路边捡到一张写着「AI 使用守则」的纸条。';
+    grid.innerHTML = '';
+    const card = function (t, d, fn) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'rooms__card rooms__card--main';
+      b.innerHTML = '<b>' + t + '</b><span>' + d + '</span>';
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        fn();
+        panel.classList.remove('show');
+        document.body.classList.remove('is-room');
+        showNodeSelect();
+      });
+      grid.appendChild(b);
+    };
+    card('抄近路（激进）', 'Token +40，生命 -10', function () {
+      player.token = Math.min(player.maxToken, player.token + 40);
+      player.hp = Math.max(1, player.hp - 10);
+      addText(player.x, player.y - U(120), 'Token +40 · 生命 -10', '255,209,102', 17);
+      sfx(760, 0.12, 'triangle', 0.04);
+    });
+    card('睡一觉（保守）', '生命 +25，金币 +20', function () {
+      player.hp = Math.min(player.maxHp, player.hp + 25);
+      game.coins += 20;
+      addText(player.x, player.y - U(120), '生命 +25 · 金币 +20', '110,247,180', 17);
+      sfx(640, 0.12, 'sine', 0.04);
+    });
+    panel.classList.add('show');
   }
 
   function showBossRest() {
@@ -5273,7 +5340,16 @@
       ctx.scale(1 / sq, sq);
 
       if (img && img.width) {
+        ctx.save();
+        const rk = (p.recoilT || 0) / 0.12;
+        const lk = (p.landT || 0) / 0.18;
+        if (rk > 0) ctx.translate(-p.face * U(6) * rk, 0);
+        if (lk > 0) {
+          ctx.translate(0, 0);
+          ctx.scale(1 + 0.06 * lk, 1 - 0.09 * lk);
+        }
         ctx.drawImage(img, -sprW * 0.5, -sprH, sprW, sprH);
+        ctx.restore();
         if (e.hurt > 0) {
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -8118,13 +8194,24 @@
     const root = document.documentElement;
     root.style.setProperty('--ui-scale', String(SAVE.uiScale || 1));
     root.style.setProperty('--ui-alpha', String(SAVE.uiAlpha === undefined ? 1 : SAVE.uiAlpha));
+    const style = SAVE.btnStyle || 'ring';
+    root.classList.remove('btn-style-ring', 'btn-style-square', 'btn-style-minimal');
+    root.classList.add('btn-style-' + style);
+    const pick = document.querySelectorAll('#btn-style-pick button');
+    Array.prototype.forEach.call(pick, function (b) {
+      b.classList.toggle('is-on', b.dataset.style === style);
+    });
     applyLayout();
   }
 
   function applyLayout() {
     const L = SAVE.layout;
     if (!L) return;
-    const map = { stick: '.stick', jump: '.jump', pad: '.pad' };
+    const map = {
+      stick: '.stick', jump: '.jump',
+      act_attack: '.act--attack', act_skill: '.act--skill',
+      act_ult: '.act--ult', act_support: '.act--support'
+    };
     Object.keys(map).forEach(function (k) {
       const el = document.querySelector(map[k]);
       const v = L[k];
@@ -8199,7 +8286,7 @@
       });
       document.body.appendChild(hint);
     }
-    hint.innerHTML = '<strong>✓ 完成调整，继续游戏</strong><span>拖动摇杆 / 跳跃 / 技能键调整位置</span>';
+    hint.innerHTML = '<strong>✓ 完成调整，继续游戏</strong><span>摇杆 / 跳跃 / 四个攻击键都可以单独拖动</span>';
     hint.classList.add('show');
     let target = null, startX = 0, startY = 0, startL = 0, startB = 0;
     const wrap = document.querySelector('.controls');
@@ -8230,7 +8317,10 @@
     };
     const onUp = function (ev) {
       if (!target) return;
-      const key = target.classList.contains('stick') ? 'stick' : target.classList.contains('jump') ? 'jump' : 'pad';
+      let key = 'pad';
+      if (target.classList.contains('stick')) key = 'stick';
+      else if (target.classList.contains('jump')) key = 'jump';
+      else if (target.dataset && target.dataset.act) key = 'act_' + target.dataset.act;
       if (!SAVE.layout) SAVE.layout = {};
       SAVE.layout[key] = [
         Number(parseFloat(target.style.left || '0').toFixed(2)),
@@ -8239,7 +8329,7 @@
       saveWrite();
       target = null;
     };
-    ['.stick', '.jump', '.pad'].forEach(function (sel) {
+    ['.stick', '.jump', '.act--attack', '.act--skill', '.act--ult', '.act--support'].forEach(function (sel) {
       const el = document.querySelector(sel);
       if (!el) return;
       el.addEventListener('pointerdown', onDown, true);
@@ -10405,6 +10495,20 @@
   window.addEventListener('unhandledrejection', function (ev) {
     showRuntimeError(ev && ev.reason && (ev.reason.message || ev.reason));
   });
+
+  (function bindBtnStyle() {
+    const btns = document.querySelectorAll('#btn-style-pick button');
+    Array.prototype.forEach.call(btns, function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        SAVE.btnStyle = b.dataset.style || 'ring';
+        saveWrite();
+        applyUI();
+        sfx(700, 0.06, 'sine', 0.03);
+      });
+    });
+    applyUI();
+  })();
 
   bindAchv();
   boot();
