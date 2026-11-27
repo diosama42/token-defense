@@ -733,7 +733,7 @@
   /* ---------- 存档（版本化 + 旧键迁移） ---------- */
   const SAVE_KEY = 'tb_save_v2';
   const SAVE = (function () {
-    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false, btnStyle: 'ring', platform: null, assist: false, lastHero: 0, introDone: false, scores: [], daily: null, btnScale: 1 };
+    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false, btnStyle: 'ring', platform: null, assist: false, lastHero: 0, introDone: false, scores: [], daily: null, btnScale: 1, heroUnlocks: null, foreignLocked: false };
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
@@ -1765,6 +1765,31 @@
     if (e.hp <= 0) killEnemy(e);
   }
 
+  const FOREIGN_HEROES = { hero_purple2: true, hero_orange: true, hero_catpurple: true, grok: true };
+  const BOSS_HERO_UNLOCK = {
+    grok: 'grok', doubao_boss: 'doubao_winter', seed: 'seed',
+    chatgpt: 'hero_purple2', claude: 'hero_orange', gemini: 'hero_catpurple'
+  };
+
+  function heroUnlocked(hero) {
+    if (game.tower) return true;
+    if (!hero) return false;
+    if (!SAVE.heroUnlocks) SAVE.heroUnlocks = { hero_bluemaid: true };
+    if (SAVE.foreignLocked && FOREIGN_HEROES[hero.key]) return false;
+    return !!SAVE.heroUnlocks[hero.key];
+  }
+
+  function unlockHero(key) {
+    if (!key) return;
+    if (!SAVE.heroUnlocks) SAVE.heroUnlocks = { hero_bluemaid: true };
+    if (SAVE.heroUnlocks[key]) return;
+    SAVE.heroUnlocks[key] = true;
+    saveWrite();
+    const hero = HEROES.filter(function (h) { return h.key === key; })[0];
+    showAchvToast('解锁角色 · ' + (hero ? hero.name : key), '现在可以在剧情模式里选择了');
+    sfx(980, 0.16, 'triangle', 0.05);
+  }
+
   function killEnemy(e) {
     if (e.dead) return;
     e.dead = true;
@@ -1782,6 +1807,8 @@
     if (boss) {
       game.flash = 0.8;
       addText(e.x, e.y - e.h - U(20), 'Boss 被击破！', '255,209,102', 24);
+      const unlockKey = BOSS_HERO_UNLOCK[e.kind];
+      if (unlockKey) unlockHero(unlockKey);
     } else {
       addText(e.x, e.y - e.h - U(12), 'KILL', '255,120,150', 20);
     }
@@ -4352,6 +4379,14 @@
       addText(player.x, player.y - U(120), '生命 +25 · 金币 +20', '110,247,180', 17);
       sfx(640, 0.12, 'sine', 0.04);
     });
+    if (!SAVE.heroUnlocks) SAVE.heroUnlocks = { hero_bluemaid: true };
+    const domesticLocked = HEROES.filter(function (h) {
+      return !FOREIGN_HEROES[h.key] && !SAVE.heroUnlocks[h.key];
+    });
+    if (domesticLocked.length) {
+      const target = domesticLocked[Math.floor(Math.random() * domesticLocked.length)];
+      card('招募国产 AI', '解锁 ' + target.name, function () { unlockHero(target.key); });
+    }
     panel.classList.add('show');
   }
 
@@ -7549,6 +7584,11 @@
 
   /* ------- 隐藏结局：真结局之后 ------- */
   function playHiddenEnding() {
+    SAVE.foreignLocked = true;
+    if (SAVE.heroUnlocks) {
+      Object.keys(FOREIGN_HEROES).forEach(function (k) { SAVE.heroUnlocks[k] = false; });
+    }
+    saveWrite();
     achvStats().endHidden = true;
     checkAchv();
     if (truendEl) truendEl.classList.remove('show');
@@ -8438,9 +8478,15 @@
 
   function openHeroSelect() {
     if (typeof window !== 'undefined' && window.__SMOKE) {
-      heroIndex = SAVE.lastHero || 0;
+      heroIndex = 1;
       beginStage();
       return;
+    }
+    if (!game.tower) {
+      const anyUnlocked = HEROES.some(function (h) { return heroUnlocked(h); });
+      if (!heroUnlocked(HEROES[heroIndex] || HEROES[0])) {
+        heroIndex = 1;
+      }
     }
     flowHideAll();
     game.state = 'dialog';
@@ -8450,7 +8496,7 @@
     if (!panel || !grid) { beginStage(); return; }
     grid.innerHTML = '';
     HEROES.forEach(function (hero, idx) {
-      const locked = hero.unlock && !SAVE[hero.unlock];
+      const locked = game.tower ? false : !heroUnlocked(hero);
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'rooms__card' + (idx === heroIndex ? ' rooms__card--main' : '');
@@ -8462,11 +8508,14 @@
         if (locked) return;
         heroIndex = idx;
         applyHeroTheme();
+        if (el.heroName) el.heroName.textContent = hero.name;
+        if (el.heroBadge) el.heroBadge.textContent = hero.badge;
         SAVE.lastHero = idx;
         saveWrite();
         flowHideAll();
         document.body.classList.remove('is-cutscene');
-        beginStage();
+        if (game.tower) startGame();
+        else beginStage();
       });
       grid.appendChild(b);
     });
@@ -8658,8 +8707,14 @@
 
   document.getElementById('btn-start').addEventListener('click', function (e) {
     e.stopPropagation();
+    if (startMode === 'fight') { openTowerHeroSelect(); return; }
     startGame();
   });
+
+  function openTowerHeroSelect() {
+    game.tower = true;
+    openHeroSelect();
+  }
   function renderLeaderboard(tab) {
     const panel = document.getElementById('leaderboard');
     const list = document.getElementById('rank-list');
@@ -10988,6 +11043,43 @@
             spawnTowerFloor();
             player.invuln = 99;
             document.title = 'TOWERSHOT floor=5 enemies=' + enemies.length + ' skins=' + enemies.map(function (e) { return e.towerSkin || '-'; }).join(',');
+          }, 700);
+        } else if (sc === 'progresstest') {
+          setTimeout(function () {
+            SAVE.heroUnlocks = { hero_bluemaid: true };
+            SAVE.foreignLocked = false;
+            game.stage = 0;
+            spawnBoss('grok');
+            const b = enemies[enemies.length - 1];
+            killEnemy(b);
+            const grokUnlocked = !!(SAVE.heroUnlocks || {}).grok;
+            game.tower = true;
+            openHeroSelect();
+            const cards = document.querySelectorAll('#hero-select-grid .rooms__card');
+            const enabled = Array.prototype.filter.call(cards, function (x) { return !x.disabled; }).length;
+            game.tower = false;
+            SAVE.foreignLocked = true;
+            const grokAfterHidden = heroUnlocked(HEROES.filter(function (h) { return h.key === 'grok'; })[0]);
+            document.title = 'PROGRESS grokUnlock=' + grokUnlocked + ' towerEnabled=' + enabled + ' foreignAfterHidden=' + grokAfterHidden;
+          }, 700);
+        } else if (sc === 'unlocktest') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            SAVE.heroUnlocks = { hero_bluemaid: true };
+            startMode = 'story';
+            openHeroSelect();
+            const cards = document.querySelectorAll('#hero-select-grid .rooms__card');
+            const enabled = Array.prototype.filter.call(cards, function (b) { return !b.disabled; }).length;
+            const title0 = (HEROES[heroIndex] || {}).name;
+            if (cards[1]) cards[1].click();
+            setTimeout(function () {
+              document.title = 'UNLOCK enabled=' + enabled + ' default=' + title0 + ' hero=' + (HEROES[heroIndex] || {}).name + ' hud=' + document.getElementById('hero-name').textContent + ' state=' + game.state;
+            }, 800);
           }, 700);
         } else if (sc === 'bossdens') {
           setTimeout(function () {
