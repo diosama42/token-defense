@@ -6249,24 +6249,14 @@
     game.warTransition = false;
     game.warDmgMul = 1;
     spawnWarPair(0);
-    /* 队友：没选的三位出场帮忙 */
+    /* 队友：没选的国产 AI 全部出场帮忙 */
     allies = [];
-    const allySlots = [
-      { x: 0.12, lift: 74 },
-      { x: 0.36, lift: 74 },
-      { x: 0.6, lift: 74 }
-    ];
-    let slotIdx = 0;
-    let allyCount = 0;
-    PREP_HEROES.forEach(function (h) {
-      if (h.idx === heroIndex) return;
-      if (allyCount >= 3) return;
-      allyCount += 1;
-      const slot = allySlots[slotIdx % allySlots.length];
-      slotIdx += 1;
+    const pool = PREP_HEROES.filter(function (h) { return h.idx !== heroIndex; });
+    pool.forEach(function (h, i) {
+      const slotX = 0.1 + i * 0.075;
       allies.push({
         key: h.key, name: h.name,
-        x: W * slot.x, homeX: W * slot.x, lift: U(slot.lift),
+        x: W * slotX, homeX: W * slotX, lift: U(74),
         y: groundY, fireT: rand(0.2, 0.8), t: rand(0, 6)
       });
     });
