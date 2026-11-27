@@ -3935,3 +3935,11 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
   transform: translateX(-50%) translateY(0);
 }
 .enter-btn:active { transform: translateX(-50%) scale(0.95); }
+
+
+.start__cycle {
+  margin: -2px 0 8px;
+  font: 700 11px/1 ui-monospace, monospace;
+  letter-spacing: 0.2em;
+  color: rgba(255, 209, 102, 0.85);
+}

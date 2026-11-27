@@ -1810,6 +1810,31 @@
     chatgpt: 'hero_purple2', claude: 'hero_orange', gemini: 'hero_catpurple'
   };
 
+  const HERO_UNLOCK_HINT = {
+    hero_bluemaid: '初始角色',
+    grok: '击败 Grok 娘解锁',
+    hero_purple2: '击败被操控的 GPT 娘',
+    hero_orange: '击败被操控的 Claude 娘',
+    hero_catpurple: '击败被操控的 Gemini 娘',
+    doubao_winter: '击败冬装豆包解锁',
+    seed: '击败 SEED 娘解锁',
+    qwen: '事件房招募 / 商店购买国产 AI 剧情',
+    kimi: '事件房招募 / 商店购买国产 AI 剧情',
+    hero_catmaid: '事件房招募 / 商店购买国产 AI 剧情',
+    doubao: '事件房招募 / 商店购买国产 AI 剧情'
+  };
+
+  function updateCycleUI() {
+    const cycle = SAVE.cycle || 1;
+    const badge = document.getElementById('cycle-badge');
+    if (badge) badge.textContent = '第 ' + cycle + ' 周目';
+    const sub = document.getElementById('hero-select-sub');
+    if (sub) {
+      const unlocked = HEROES.filter(function (h) { return heroUnlocked(h); }).length;
+      sub.textContent = '第 ' + cycle + ' 周目 · 已解锁 ' + unlocked + ' / ' + HEROES.length + ' 位角色';
+    }
+  }
+
   function heroUnlocked(hero) {
     if (game.tower) return true;
     if (!hero) return false;
@@ -7682,6 +7707,8 @@
     if (cycle === 1) {
       SAVE.cycle = 2;
       saveWrite();
+      showAchvToast('第 2 周目', '角色已全部解锁，商店不再出售模型强化');
+      updateCycleUI();
     } else if (trueUnlocked() || cycle === 2) {
       playTrueEnding();
       return;
@@ -8380,6 +8407,8 @@
       e.stopPropagation();
       SAVE.cycle = 3;
       saveWrite();
+      showAchvToast('第 3 周目', '只准用国产 AI · 车轮战与最终决战');
+      updateCycleUI();
       playHiddenEnding();
     });
   }
@@ -8649,13 +8678,17 @@
     const grid = document.getElementById('hero-select-grid');
     if (!panel || !grid) { beginStage(); return; }
     grid.innerHTML = '';
+    updateCycleUI();
     HEROES.forEach(function (hero, idx) {
       const locked = game.tower ? false : !heroUnlocked(hero);
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'rooms__card' + (idx === heroIndex ? ' rooms__card--main' : '');
+      const hint = locked
+        ? (SAVE.cycle >= 3 && FOREIGN_HEROES[hero.key] ? '第 3 周目：只准用国产 AI' : (HERO_UNLOCK_HINT[hero.key] || '未解锁'))
+        : (hero.skill + ' / ' + hero.ult);
       b.innerHTML = '<img src="assets/sprites/' + (hero.key || '') + '.webp" alt="" />' +
-        '<b>' + hero.name + '</b><span>' + (locked ? '未解锁' : hero.skill + ' / ' + hero.ult) + '</span>';
+        '<b>' + hero.name + '</b><span>' + hint + '</span>';
       if (locked) b.disabled = true;
       b.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -8701,6 +8734,7 @@
     ensureAudio();
     const hero = HEROES[heroIndex] || HEROES[0];
     applyHeroTheme();
+    updateCycleUI();
     if (el.heroName) el.heroName.textContent = hero.name;
     if (el.heroBadge) el.heroBadge.textContent = hero.badge;
     resetWorld();
@@ -11216,6 +11250,19 @@
               document.title = 'NEWBOSS stages=' + STAGES.length + ' boss=' + (enemies[0] || {}).kind + ' hp=' + Math.round((enemies[0] || {}).hp || 0) + ' eb=' + ebullets.length + ' boss2=' + STAGES[2].boss;
             }, 3000);
           }, 700);
+        } else if (sc === 'heroselectionshot') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            SAVE.cycle = 1;
+            SAVE.heroUnlocks = { hero_bluemaid: true };
+            game.tower = false;
+            openHeroSelect();
+            document.title = 'HEROSEL cycle=' + (SAVE.cycle || 1) + ' sub=' + document.getElementById('hero-select-sub').textContent;
+          }, 600);
         } else if (sc === 'cycletest2') {
           setTimeout(function () {
             startGame(true);
@@ -12037,6 +12084,7 @@
     if (daily) daily.addEventListener('click', function (e) { e.stopPropagation(); startDaily(); });
   })();
 
+  updateCycleUI();
   bindAchv();
   boot();
 
