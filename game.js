@@ -50,7 +50,7 @@
   const SPR = Object.create(null);
   const SPRITE_LIST = [
     'hero_purple2', 'hero_bluemaid', 'hero_orange', 'hero_catpurple', 'hero_catmaid',
-    'grok', 'seed', 'wenxin', 'doubao_winter', 'doubao',
+    'grok', 'seed', 'wenxin', 'doubao_winter', 'doubao', 'enemy_tower_runner', 'enemy_tower_tank', 'enemy_tower_elite',
     'hero_purple2_full', 'hero_bluemaid_full', 'hero_orange_full', 'hero_catpurple_full',
     'hero_catmaid_full', 'qwen_full', 'kimi_full', 'grok_full', 'doubao_winter_full', 'doubao_full',
     'enemy_blob', 'enemy_doubao', 'enemy_elite', 'enemy_nail_boss', 'laugh_frog',
@@ -5454,6 +5454,7 @@
 
   /* ---------------- 敌人 ---------------- */
   function enemySprite(e) {
+    if (e.towerSkin && SPR[e.towerSkin]) return SPR[e.towerSkin];
     const p2 = e.isBoss && e.maxHp > 0 && e.hp <= e.maxHp * 0.5;
     if (e.kind === 'grok') return p2 && SPR.grok_full ? SPR.grok_full : SPR.grok;
     if (e.kind === 'seed') return SPR.seed;
@@ -7040,8 +7041,31 @@
       for (let i = 0; i < count; i++) {
         spawnEnemy(elite && i === 0 ? 'laugh' : (Math.random() < 0.2 ? 'doubao' : 'slime'));
       }
+      /* 爬塔专属外观与属性：迅捷 / 重甲 / 精英 */
+      enemies.forEach(function (e, i) {
+        /* 爬塔怪物直接出现在画面内，别从屏幕外慢慢走进来 */
+        e.x = clamp(W * (0.18 + 0.1 * (i % 6)) + rand(-U(20), U(20)), U(80), W - U(110));
+        e.y = groundY;
+        e.vx = (player.x < e.x ? -1 : 1) * U(rand(50, 90));
+        if (elite && e.kind === 'laugh') {
+          e.towerSkin = 'enemy_tower_elite';
+          e.hp = e.maxHp = Math.round(e.maxHp * 2.2);
+          e.w *= 1.2; e.h *= 1.2;
+          return;
+        }
+        if (i % 4 === 0) {
+          e.towerSkin = 'enemy_tower_runner';
+          e.hp = e.maxHp = Math.round(e.maxHp * 0.75);
+          e.vx *= 1.5;
+          e.w *= 0.9; e.h *= 0.9;
+        } else if (i % 5 === 1) {
+          e.towerSkin = 'enemy_tower_tank';
+          e.hp = e.maxHp = Math.round(e.maxHp * 2.4);
+          e.vx *= 0.7;
+          e.w *= 1.25; e.h *= 1.25;
+        }
+      });
       if (elite) {
-        enemies.forEach(function (e) { if (e.kind === 'laugh') { e.hp = e.maxHp = Math.round(e.maxHp * 2.2); e.w *= 1.2; e.h *= 1.2; } });
         addText(W * 0.5, H * 0.26, '第 ' + floor + ' 层 · 精英', '255,180,92', 22);
       } else {
         addText(W * 0.5, H * 0.26, '第 ' + floor + ' 层', '150,220,255', 20);
@@ -8227,7 +8251,6 @@
       game.towerClearT = 0;
       game.stage = 0;
       spawnTowerFloor();
-      addText(W * 0.5, H * 0.3, '无限爬塔 · 第 1 层', '255,209,102', 22);
     } else {
       showIntro();
     }
@@ -10616,6 +10639,15 @@
             startMode = 'fight';
             startGame();
           }, 120);
+        } else if (sc === 'towershot') {
+          setTimeout(function () {
+            startMode = 'fight';
+            startGame();
+            game.towerFloor = 5;
+            spawnTowerFloor();
+            player.invuln = 99;
+            document.title = 'TOWERSHOT floor=5 enemies=' + enemies.length + ' skins=' + enemies.map(function (e) { return e.towerSkin || '-'; }).join(',');
+          }, 700);
         } else if (sc === 'sharetest') {
           setTimeout(function () {
             startGame(true);
