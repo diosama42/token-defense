@@ -8425,7 +8425,7 @@
       tip.className = 'rooms__sub';
       tip.textContent = '加载中…';
       list.appendChild(tip);
-      fetch(SUPABASE.url + '/rest/v1/scores?select=score,grade,hero,mode,time,created_at&order=score.desc&limit=10', {
+      fetch(SUPABASE.url + '/rest/v1/scores?select=score,grade,hero,mode,time,created_at&mode=neq.test&order=score.desc&limit=10', {
         headers: { apikey: SUPABASE.key, Authorization: 'Bearer ' + SUPABASE.key }
       }).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); }).then(function (rows) {
         list.innerHTML = '';
@@ -10734,6 +10734,35 @@
             spawnTowerFloor();
             player.invuln = 99;
             document.title = 'TOWERSHOT floor=5 enemies=' + enemies.length + ' skins=' + enemies.map(function (e) { return e.towerSkin || '-'; }).join(',');
+          }, 700);
+        } else if (sc === 'globalpost') {
+          setTimeout(function () {
+            fetch(SUPABASE.url + '/rest/v1/scores', {
+              method: 'POST',
+              headers: {
+                apikey: SUPABASE.key,
+                Authorization: 'Bearer ' + SUPABASE.key,
+                'Content-Type': 'application/json',
+                Prefer: 'return=minimal'
+              },
+              body: JSON.stringify({ score: 2, grade: 'D', hero: '浏览器测试', mode: 'test', time: 2, name: 'browser-test' })
+            }).then(function (r) {
+              document.title = 'GLOBALPOST status=' + r.status;
+            }).catch(function (e) {
+              document.title = 'GLOBALPOST ERR ' + String(e).slice(0, 80);
+            });
+          }, 700);
+        } else if (sc === 'globaltest') {
+          setTimeout(function () {
+            localStorage.setItem('tb_ranktab', 'local');
+            renderLeaderboard('local');
+            const g = document.getElementById('rank-tab-global');
+            if (g) g.click();
+            setTimeout(function () {
+              const rows = document.querySelectorAll('#rank-list .rank__row');
+              const txt = Array.prototype.map.call(rows, function (r) { return r.textContent.replace(/\s+/g, ' '); }).join(' | ');
+              document.title = 'GLOBAL rows=' + rows.length + ' list=' + (document.getElementById('rank-list') ? document.getElementById('rank-list').textContent.replace(/\s+/g, ' ').slice(0, 120) : '-');
+            }, 3000);
           }, 700);
         } else if (sc === 'sharetest') {
           setTimeout(function () {
