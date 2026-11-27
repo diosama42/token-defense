@@ -6128,7 +6128,10 @@
   muted = !!SAVE.mute;
 
   function ensureAudio() {
-    if (actx && actx.state !== 'closed') return;
+    if (actx && actx.state !== 'closed') {
+      if (actx.state === 'suspended') { try { actx.resume(); } catch (e) { /* ignore */ } }
+      return;
+    }
     actx = null;
     masterGain = null;
     bgmGain = null;
@@ -6289,6 +6292,7 @@
     BGM.cfg = null;
     if (!SAVE.bgm || muted) return;
     ensureAudio();
+    resumeAudio();
     if (!actx) return;
     if (!bgmGain) {
       try {
@@ -10735,6 +10739,30 @@
             player.invuln = 99;
             document.title = 'TOWERSHOT floor=5 enemies=' + enemies.length + ' skins=' + enemies.map(function (e) { return e.towerSkin || '-'; }).join(',');
           }, 700);
+        } else if (sc === 'audiotest') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            const rp0 = document.getElementById('rooms'); if (rp0) rp0.classList.remove('show');
+            document.body.classList.remove('is-cutscene', 'is-room');
+            beginStage(true);
+            setTimeout(function () {
+              const btn = document.getElementById('btn-pause');
+              const r = btn.getBoundingClientRect();
+              const cx = Math.round(r.left + r.width / 2), cy = Math.round(r.top + r.height / 2);
+              window.__HIT = document.elementsFromPoint(cx, cy).slice(0, 6).map(function (x) { return (x.id || x.className || x.tagName) + ':' + getComputedStyle(x).pointerEvents; }).join(' | ');
+              window.__PE = getComputedStyle(btn).pointerEvents + '/' + getComputedStyle(document.querySelector('.hud')).pointerEvents + '/' + getComputedStyle(document.querySelector('.hud__tools')).pointerEvents;
+              btn.click();
+              setTimeout(function () {
+                document.title = 'AUDIO actx=' + (actx ? actx.state : 'null') + ' bgm=' + BGM.mode + ' rect=' + Math.round(r.left)+','+Math.round(r.top)+','+Math.round(r.width)+','+Math.round(r.height)+' pe=' + window.__PE + ' hit=' + window.__HIT;
+              }, 300);
+            }, 1200);
+          }, 700);
         } else if (sc === 'globalpost') {
           setTimeout(function () {
             fetch(SUPABASE.url + '/rest/v1/scores', {
@@ -11263,6 +11291,18 @@
     if (ev && ev.message && /Script error/.test(ev.message)) return;
     showRuntimeError(ev && ev.message);
   });
+  (function unlockAudioOnce() {
+    const unlock = function () {
+      try {
+        resumeAudio();
+        if (!BGM.mode || !BGM.timer) startBgm(currentBgmMode());
+      } catch (e) { /* ignore */ }
+    };
+    window.addEventListener('pointerdown', unlock, { passive: true });
+    window.addEventListener('keydown', unlock);
+    window.addEventListener('touchstart', unlock, { passive: true });
+  })();
+
   window.addEventListener('unhandledrejection', function (ev) {
     showRuntimeError(ev && ev.reason && (ev.reason.message || ev.reason));
   });

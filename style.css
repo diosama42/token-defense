@@ -3889,3 +3889,19 @@ html .pad .act.is-down {
   font: 700 12px/1 "PingFang SC", system-ui;
 }
 .rank-tabs button.is-on { border-color: rgba(110,247,180,.7); color: #d8ffe9; background: rgba(30,80,65,.8); }
+
+
+/* HUD-ALWAYS：战斗中 HUD 永远可点，不被过场类残留隐藏 */
+body.is-playing .hud {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+body.is-playing .hud__tools { pointer-events: auto !important; }
+body.is-playing .hud .tool { pointer-events: auto !important; }
+
+
+/* CONTROLS-PASS：操作层本身永远不拦截点击，只有按钮接收 */
+.controls { pointer-events: none !important; }
+.controls .stick,
+.controls .jump,
+.controls .pad .act { pointer-events: auto !important; }
