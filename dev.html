@@ -207,6 +207,8 @@
       <button class="start__btn start__btn--ghost" id="btn-charbook" type="button">角色介绍</button>
         <button class="start__btn start__btn--ghost" id="btn-cg" type="button">CG 鉴赏</button>
       <button class="start__btn start__btn--ghost" id="btn-achv" type="button">成就</button>
+      <button class="start__btn start__btn--ghost" id="btn-rank" type="button">排行榜</button>
+      <button class="start__btn start__btn--ghost" id="btn-daily" type="button">每日挑战</button>
 
       <ul class="start__keys">
         <li><kbd>A</kbd><kbd>D</kbd> 移动</li>
@@ -404,6 +406,17 @@
     </div>
   </section>
 
+<!-- ================= 排行榜 ================= -->
+  <section class="rooms" id="leaderboard">
+    <div class="rooms__box">
+      <p class="rooms__k">LOCAL RANKING</p>
+      <h3 class="rooms__title">排行榜</h3>
+      <p class="rooms__sub" id="rank-sub">本机记录 · 前 10 名</p>
+      <div class="achv__list" id="rank-list"></div>
+      <button class="rooms__card rooms__card--main" id="rank-close" type="button"><b>关闭</b><span>返回</span></button>
+    </div>
+  </section>
+
 <!-- ================= 暂停 ================= -->
   <section class="pause" id="pause">
     <div class="pause__box">
@@ -568,7 +581,10 @@
       <p class="over__k" id="over-k">GAME OVER</p>
       <h2 id="over-title">这局没能撑住</h2>
       <p class="over__score">得分 <b id="over-score">0</b> · 最高 <span id="over-best">0</span></p>
+      <p class="over__meta" id="over-meta"></p>
       <button class="start__btn" id="btn-revive" type="button">再战一次</button>
+      <button class="start__btn start__btn--ghost" id="btn-share" type="button">生成战绩卡</button>
+      <button class="start__btn start__btn--ghost" id="btn-over-rank" type="button">排行榜</button>
       <button class="start__btn start__btn--ghost" id="btn-over-menu" type="button">回到菜单</button>
     </div>
   </section>

@@ -729,7 +729,7 @@
   /* ---------- 存档（版本化 + 旧键迁移） ---------- */
   const SAVE_KEY = 'tb_save_v2';
   const SAVE = (function () {
-    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false, btnStyle: 'ring', platform: null, assist: false, lastHero: 0, introDone: false };
+    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false, btnStyle: 'ring', platform: null, assist: false, lastHero: 0, introDone: false, scores: [], daily: null };
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
@@ -1322,6 +1322,7 @@
       sfx(980, 0.12, 'sine', 0.04);
     }
     { const st0 = achvStats(); if (game.combo > st0.maxCombo) st0.maxCombo = game.combo; }
+    game.runMaxCombo = Math.max(game.runMaxCombo || 0, game.combo);
     game.comboT = 2.2;
 
     const dmg = heroDmg() * (p.chain === 3 ? 18 : p.chain === 2 ? 11 : 7);
@@ -1766,6 +1767,7 @@
     game.score += (boss ? 3000 : e.kind === 'laugh' ? 500 : 160) * (game.scoreMul || 1);
     if (game.buffKillToken) player.token = Math.min(player.maxToken, player.token + 2);
     game.kills += 1;
+    game.runKills = (game.runKills || 0) + 1;
     achvStats().kills += 1;
     checkAchv();
     game.stageKills = (game.stageKills || 0) + 1;
@@ -4104,7 +4106,7 @@
     const pool = BUFFS.filter(function (b) { return !b.core && game.buffs.indexOf(b.name) < 0; });
     const stock = [];
     for (let i = 0; i < 3 && pool.length; i++) {
-      const idx = Math.floor(Math.random() * pool.length);
+      const idx = Math.floor((game.daily ? dailyRand() : Math.random()) * pool.length);
       const b = pool.splice(idx, 1)[0];
       const tier = BUFF_TIER[b.name] || 'common';
       stock.push({ name: b.name, desc: b.desc, price: tier === 'legend' ? 110 : tier === 'rare' ? 70 : 40, sold: false });
@@ -7023,7 +7025,8 @@
     player.hp = Math.min(player.maxHp, player.hp + 8);
     if (floor % 10 === 0) {
       const bosses = ['grok', 'nail_boss', 'doubao_boss', 'seed'];
-      spawnBoss(bosses[(floor / 10 - 1) % bosses.length]);
+      const bossIdx = game.daily ? Math.floor(dailyRand() * bosses.length) : (floor / 10 - 1) % bosses.length;
+      spawnBoss(bosses[bossIdx]);
       const b = enemies[enemies.length - 1];
       if (b) {
         b.hp = b.maxHp = Math.round(b.maxHp * (1 + floor * 0.25));
@@ -8196,6 +8199,10 @@
   }
 
   function startGame() {
+    game.runStartAt = Date.now();
+    game.runKills = 0;
+    game.runMaxCombo = 0;
+    game.runRecorded = false;
     startBgm('battle');
     if (game.state === 'play') return;
     ensureAudio();
@@ -8322,6 +8329,32 @@
     checkAchv();
     overScoreEl.textContent = String(Math.floor(game.score));
     overBestEl.textContent = String(best);
+    const secs = Math.max(1, Math.round((Date.now() - (game.runStartAt || Date.now())) / 1000));
+    const mm = Math.floor(secs / 60), ss = secs % 60;
+    const scoreNum = Math.floor(game.score);
+    const grade = scoreNum >= 50000 ? 'S' : scoreNum >= 30000 ? 'A' : scoreNum >= 15000 ? 'B' : scoreNum >= 6000 ? 'C' : 'D';
+    game.runGrade = grade;
+    game.runTime = secs;
+    const meta = document.getElementById('over-meta');
+    if (meta) meta.textContent = '评级 ' + grade + ' · 用时 ' + mm + '分' + String(ss).padStart(2, '0') + '秒 · 击杀 ' + (game.runKills || 0) + ' · 最高连击 ' + (game.runMaxCombo || 0);
+    if (!game.runRecorded) {
+      game.runRecorded = true;
+      if (!SAVE.scores) SAVE.scores = [];
+      SAVE.scores.push({
+        score: scoreNum, grade: grade, time: secs,
+        hero: (HEROES[heroIndex] || HEROES[0]).name,
+        mode: game.daily ? 'daily' : game.tower ? 'tower' : 'story',
+        date: new Date().toISOString().slice(0, 10)
+      });
+      SAVE.scores.sort(function (a, b) { return b.score - a.score; });
+      SAVE.scores = SAVE.scores.slice(0, 20);
+      if (game.daily) {
+        const today = new Date().toISOString().slice(0, 10);
+        if (!SAVE.daily || SAVE.daily.date !== today) SAVE.daily = { date: today, best: 0 };
+        SAVE.daily.best = Math.max(SAVE.daily.best || 0, scoreNum);
+      }
+      saveWrite();
+    }
     if (game.warResult === 'win' || game.warResult === 'lose') {
       if (el.overTitle) el.overTitle.textContent = victory ? '期末作业 · 完成' : '挂科了';
       if (el.overK) el.overK.textContent = victory ? 'VICTORY · TOKEN RECLAIMED' : 'DEFEAT · 期末作业未完成';
@@ -8336,6 +8369,88 @@
     e.stopPropagation();
     startGame();
   });
+  function renderLeaderboard() {
+    const panel = document.getElementById('leaderboard');
+    const list = document.getElementById('rank-list');
+    if (!panel || !list) return;
+    list.innerHTML = '';
+    const rows = (SAVE.scores || []).slice(0, 10);
+    if (!rows.length) {
+      const empty = document.createElement('p');
+      empty.className = 'rooms__sub';
+      empty.textContent = '还没有记录，去打一局吧。';
+      list.appendChild(empty);
+    }
+    rows.forEach(function (r, i) {
+      const row = document.createElement('div');
+      row.className = 'rank__row';
+      const modeName = r.mode === 'daily' ? '每日' : r.mode === 'tower' ? '爬塔' : '剧情';
+      row.innerHTML = '<span>' + (i + 1) + '. ' + r.grade + ' · ' + r.score + '</span><em>' + r.hero + ' · ' + modeName + ' · ' + Math.floor(r.time / 60) + ':' + String(r.time % 60).padStart(2, '0') + ' · ' + r.date + '</em>';
+      list.appendChild(row);
+    });
+    panel.classList.add('show');
+  }
+
+  function downloadShareCard() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 720;
+    canvas.height = 1000;
+    const c = canvas.getContext('2d');
+    const g = c.createLinearGradient(0, 0, 0, 1000);
+    g.addColorStop(0, '#0b1424');
+    g.addColorStop(1, '#04070d');
+    c.fillStyle = g;
+    c.fillRect(0, 0, 720, 1000);
+    c.strokeStyle = 'rgba(94,231,255,0.35)';
+    c.lineWidth = 3;
+    c.strokeRect(22, 22, 676, 956);
+    c.textAlign = 'center';
+    c.fillStyle = '#8fe8ff';
+    c.font = '700 20px "PingFang SC", system-ui';
+    c.fillText('绝地反击 · 词元保卫战', 360, 88);
+    c.fillStyle = '#eaf8ff';
+    c.font = '800 64px "PingFang SC", system-ui';
+    c.fillText('评级 ' + (game.runGrade || 'D'), 360, 190);
+    c.fillStyle = '#ffd166';
+    c.font = '800 82px ui-monospace, monospace';
+    c.fillText(String(Math.floor(game.score)), 360, 300);
+    c.fillStyle = 'rgba(200,230,250,0.75)';
+    c.font = '600 22px "PingFang SC", system-ui';
+    const secs = game.runTime || 0;
+    c.fillText('用时 ' + Math.floor(secs / 60) + '分' + (secs % 60) + '秒 · 击杀 ' + (game.runKills || 0), 360, 360);
+    c.fillText('最高连击 ' + (game.runMaxCombo || 0) + ' · ' + (HEROES[heroIndex] || HEROES[0]).name, 360, 396);
+    c.fillStyle = 'rgba(150,220,255,0.8)';
+    c.font = '600 18px "PingFang SC", system-ui';
+    const build = (game.buffs || []).slice(0, 5).join(' / ') || '无词条';
+    c.fillText('Build：' + build, 360, 470);
+    c.fillStyle = 'rgba(190,220,245,0.5)';
+    c.font = '500 16px "PingFang SC", system-ui';
+    c.fillText('diosama42.github.io/token-defense', 360, 900);
+    try {
+      const a = document.createElement('a');
+      a.download = 'token-defense-' + Math.floor(game.score) + '.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      showAchvToast('战绩卡已生成', '已保存到下载目录');
+    } catch (e) { showAchvToast('生成失败', '浏览器不支持导出'); }
+  }
+
+  function dailyRand() {
+    game.dailySeed = ((game.dailySeed || 1) * 1664525 + 1013904223) >>> 0;
+    return game.dailySeed / 4294967296;
+  }
+
+  function startDaily() {
+    const today = new Date().toISOString().slice(0, 10);
+    game.daily = true;
+    game.dailySeed = Number(today.replace(/-/g, '')) || 1;
+    if (!SAVE.daily || SAVE.daily.date !== today) SAVE.daily = { date: today, best: 0 };
+    startMode = 'fight';
+    startEl.classList.add('is-hidden');
+    startGame();
+    addText(W * 0.5, H * 0.34, '每日挑战 · ' + today + ' · 种子 ' + game.dailySeed, '255,209,102', 18);
+  }
+
   function retryRun() {
     /* 从当前死亡的关卡重开，保留这一局已获得的词条 / 金币 / 全力形态 */
     const wasTower = !!game.tower;
@@ -10501,6 +10616,32 @@
             startMode = 'fight';
             startGame();
           }, 120);
+        } else if (sc === 'sharetest') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.score = 24000;
+            game.runKills = 33;
+            game.runMaxCombo = 41;
+            game.buffs = ['核心·弹幕'];
+            game.stage = 1;
+            showOver(false);
+            const meta = document.getElementById('over-meta');
+            renderLeaderboard();
+            const rows = document.querySelectorAll('#rank-list .rank__row');
+            document.title = 'SHARE meta=' + (meta ? meta.textContent : '-') + ' rows=' + rows.length + ' scores=' + ((SAVE.scores || []).length) + ' grade=' + game.runGrade;
+          }, 700);
+        } else if (sc === 'dailytest') {
+          setTimeout(function () {
+            startDaily();
+            setTimeout(function () {
+              document.title = 'DAILY tower=' + game.tower + ' seed=' + game.dailySeed + ' floor=' + game.towerFloor + ' daily=' + (SAVE.daily ? SAVE.daily.date : '-');
+            }, 1200);
+          }, 700);
         } else if (sc === 'shopui') {
           setTimeout(function () {
             startGame(true);
@@ -11001,6 +11142,20 @@
     if (on) on.addEventListener('click', function (e) { e.stopPropagation(); finishMobileSetup(true); });
     const off = document.getElementById('assist-off');
     if (off) off.addEventListener('click', function (e) { e.stopPropagation(); finishMobileSetup(false); });
+  })();
+
+  (function bindShareAndRank() {
+    const rankBtn = document.getElementById('btn-rank');
+    if (rankBtn) rankBtn.addEventListener('click', function (e) { e.stopPropagation(); renderLeaderboard(); });
+    const overRank = document.getElementById('btn-over-rank');
+    if (overRank) overRank.addEventListener('click', function (e) { e.stopPropagation(); renderLeaderboard(); });
+    const rankClose = document.getElementById('rank-close');
+    const rankPanel = document.getElementById('leaderboard');
+    if (rankClose && rankPanel) rankClose.addEventListener('click', function (e) { e.stopPropagation(); rankPanel.classList.remove('show'); });
+    const share = document.getElementById('btn-share');
+    if (share) share.addEventListener('click', function (e) { e.stopPropagation(); downloadShareCard(); });
+    const daily = document.getElementById('btn-daily');
+    if (daily) daily.addEventListener('click', function (e) { e.stopPropagation(); startDaily(); });
   })();
 
   bindAchv();
