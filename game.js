@@ -2686,7 +2686,6 @@
         warnAt(p.x, groundY, U(90), 0.5, '94,231,255');
       }
     }
-    if (e.fireT <= 0) e.fireT = 0.01;
   }
 
   function updateBoss(e, d) {
@@ -4218,6 +4217,8 @@
       ebullets = [];
       pbullets = [];
       enemies = [];
+      game.roomElite = false;
+      game.eliteDmgMul = 1;
       game.nodeCount += 1;
       if (game.nodeCount >= 4) startBossIntro();
       else startRoom('wave');
@@ -5992,7 +5993,7 @@
   /* ---------------- 敌人 ---------------- */
   function enemySprite(e) {
     if (e.towerSkin && SPR[e.towerSkin]) return SPR[e.towerSkin];
-    const p2 = e.isBoss && e.maxHp > 0 && e.hp <= e.maxHp * 0.5;
+    const p2 = e.isBoss && (e.forceAdult || (e.maxHp > 0 && e.hp <= e.maxHp * 0.5));
     if (e.kind === 'grok') return p2 && SPR.grok_full ? SPR.grok_full : SPR.grok;
     if (e.kind === 'seed') return SPR.seed;
     if (e.kind === 'doubao_boss') return p2 && SPR.doubao_winter_full ? SPR.doubao_winter_full : SPR.doubao_winter;
@@ -8085,6 +8086,7 @@
       e2.fireT = 1.2 + Math.random() * 0.4;
       e2.skillT = 2.5 + Math.random() * 2;
       e2.enhanced = true;
+      e2.forceAdult = true;
       e2.hp = e2.maxHp = Math.round(e2.maxHp * 1.25);
     });
     player.invuln = Math.max(player.invuln, 2.2);
@@ -11475,6 +11477,21 @@
             setTimeout(function () {
               document.title = 'NEWBOSS stages=' + STAGES.length + ' boss=' + (enemies[0] || {}).kind + ' hp=' + Math.round((enemies[0] || {}).hp || 0) + ' eb=' + ebullets.length + ' boss2=' + STAGES[2].boss;
             }, 3000);
+          }, 700);
+        } else if (sc === 'warfinal') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            startSiliconWar(6);
+            startWarFinalPhase();
+            player.invuln = 999;
+            game.infinite = true;
+            setTimeout(function () {
+              document.title = 'WARFINAL n=' + enemies.length + ' adult=' + enemies.filter(function (e) { return e.forceAdult; }).length + ' kinds=' + enemies.map(function (e) { return e.kind; }).join(',');
+            }, 800);
           }, 700);
         } else if (sc === 'rankdaily') {
           setTimeout(function () {
