@@ -729,7 +729,7 @@
   /* ---------- 存档（版本化 + 旧键迁移） ---------- */
   const SAVE_KEY = 'tb_save_v2';
   const SAVE = (function () {
-    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false, btnStyle: 'ring', platform: null, assist: false, lastHero: 0, introDone: false, scores: [], daily: null };
+    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false, btnStyle: 'ring', platform: null, assist: false, lastHero: 0, introDone: false, scores: [], daily: null, btnScale: 1 };
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
@@ -5979,7 +5979,7 @@
       const boss = enemies.filter(function (e) { return e.isBoss; })[0];
       ctx.fillStyle = 'rgba(220,245,255,0.9)';
       ctx.font = '700 ' + (13 * S).toFixed(0) + 'px "PingFang SC", system-ui';
-      ctx.fillText(st.name + ' · ' + st.bossName + (boss && boss.variantName ? ' · ' + boss.variantName : '') + (boss ? ' ' + Math.ceil(boss.hp) : ' 已击破'), W * 0.5, by + U(15));
+      ctx.fillText(st.name + ' · ' + st.bossName + (boss && boss.variantName ? ' · ' + boss.variantName : '') + (boss ? ' ' + Math.ceil(boss.hp) : ' 已击破'), W * 0.5, by + U(38));
     } else if (danger) {
       const label = '⚠ Boss 还有 ' + Math.ceil(remaining) + ' 秒！';
       const sc = 1 + pulse * 0.1;
@@ -5995,7 +5995,7 @@
     } else {
       ctx.fillStyle = 'rgba(220,245,255,0.9)';
       ctx.font = '700 ' + (13 * S).toFixed(0) + 'px "PingFang SC", system-ui';
-      ctx.fillText(st.name + ' · 防守 ' + Math.ceil(remaining) + 's', W * 0.5, by + U(15));
+      ctx.fillText(st.name + ' · 防守 ' + Math.ceil(remaining) + 's', W * 0.5, by + U(38));
     }
 
     if (game.buffs.length) {
@@ -8204,6 +8204,7 @@
         e.stopPropagation();
         if (locked) return;
         heroIndex = idx;
+        applyHeroTheme();
         SAVE.lastHero = idx;
         saveWrite();
         flowHideAll();
@@ -8222,6 +8223,13 @@
     startGame();
   }
 
+  function applyHeroTheme() {
+    const hero = HEROES[heroIndex] || HEROES[0];
+    const root = document.documentElement;
+    root.style.setProperty('--hero-rgb', hero.color || '94,231,255');
+    root.dataset.hero = hero.key || '';
+  }
+
   function startGame() {
     game.runStartAt = Date.now();
     game.runKills = 0;
@@ -8231,6 +8239,7 @@
     if (game.state === 'play') return;
     ensureAudio();
     const hero = HEROES[heroIndex] || HEROES[0];
+    applyHeroTheme();
     if (el.heroName) el.heroName.textContent = hero.name;
     if (el.heroBadge) el.heroBadge.textContent = hero.badge;
     resetWorld();
@@ -8582,6 +8591,8 @@
   const setScaleEl = document.getElementById('set-uiscale');
   const setScaleValEl = document.getElementById('set-uiscale-val');
   const setAlphaEl = document.getElementById('set-uialpha');
+  const setBtnSizeEl = document.getElementById('set-btnsize');
+  const setBtnSizeValEl = document.getElementById('set-btnsize-val');
   const setAlphaValEl = document.getElementById('set-uialpha-val');
   const setLowEl = document.getElementById('set-lowfx');
   const setReduceEl = document.getElementById('set-reducefx');
@@ -8598,6 +8609,9 @@
     if (setScaleEl) setScaleEl.value = String(sc);
     if (setScaleValEl) setScaleValEl.textContent = String(sc);
     if (setAlphaEl) setAlphaEl.value = String(al);
+    const bs = Math.round((SAVE.btnScale || 1) * 100);
+    if (setBtnSizeEl) setBtnSizeEl.value = String(bs);
+    if (setBtnSizeValEl) setBtnSizeValEl.textContent = String(bs);
     if (setAlphaValEl) setAlphaValEl.textContent = String(al);
     if (setLowEl) setLowEl.checked = !!SAVE.lowFxSet;
     if (setReduceEl) setReduceEl.checked = !!SAVE.reduceFx;
@@ -8667,6 +8681,8 @@
     const root = document.documentElement;
     root.style.setProperty('--ui-scale', String(SAVE.uiScale || 1));
     root.style.setProperty('--ui-alpha', String(SAVE.uiAlpha === undefined ? 1 : SAVE.uiAlpha));
+    root.style.setProperty('--btn-mul', String(SAVE.btnScale || 1));
+    applyHeroTheme();
     const style = SAVE.btnStyle || 'ring';
     root.classList.remove('btn-style-ring', 'btn-style-square', 'btn-style-minimal');
     root.classList.add('btn-style-' + style);
@@ -8716,6 +8732,14 @@
       const v = Number(setAlphaEl.value) / 100;
       saveSet('uiAlpha', v);
       if (setAlphaValEl) setAlphaValEl.textContent = setAlphaEl.value;
+      applyUI();
+    });
+  }
+  if (setBtnSizeEl) {
+    setBtnSizeEl.addEventListener('input', function () {
+      const v = Number(setBtnSizeEl.value) / 100;
+      saveSet('btnScale', v);
+      if (setBtnSizeValEl) setBtnSizeValEl.textContent = setBtnSizeEl.value;
       applyUI();
     });
   }

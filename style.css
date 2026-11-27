@@ -3806,3 +3806,76 @@ html .pad .act.is-down {
   color: #dff6ff;
 }
 .rank__row em { font-style: normal; color: rgba(190, 220, 245, 0.55); font-size: 10px; }
+
+
+/* HERO-THEME：角色主题化按键与 HUD */
+:root { --hero-rgb: 94, 231, 255; --btn-mul: 1; }
+.pad .act {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(var(--hero-rgb), 0.34), transparent 62%),
+    radial-gradient(circle at 50% 118%, rgba(4, 8, 18, 0.95), rgba(8, 16, 30, 0.82)) !important;
+  border-color: rgba(var(--hero-rgb), 0.55) !important;
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.5),
+    0 0 18px rgba(var(--hero-rgb), 0.16),
+    inset 0 0 22px rgba(var(--hero-rgb), 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
+}
+.pad .act::before {
+  border-color: rgba(var(--hero-rgb), 0.3) !important;
+}
+.pad .act__glyph {
+  color: #f4ffff;
+  text-shadow: 0 0 14px rgba(var(--hero-rgb), 0.95), 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+.pad .act.is-down {
+  transform: scale(0.9);
+  filter: brightness(1.4);
+  box-shadow: 0 0 30px rgba(var(--hero-rgb), 0.5), inset 0 0 26px rgba(var(--hero-rgb), 0.35) !important;
+}
+.pad .act.is-ready {
+  animation: heroReady 1.6s ease-in-out infinite;
+}
+@keyframes heroReady {
+  0%, 100% { box-shadow: 0 10px 26px rgba(0,0,0,.5), 0 0 14px rgba(var(--hero-rgb),.22), inset 0 0 20px rgba(var(--hero-rgb),.18); }
+  50% { box-shadow: 0 10px 26px rgba(0,0,0,.5), 0 0 30px rgba(var(--hero-rgb),.55), inset 0 0 26px rgba(var(--hero-rgb),.3); }
+}
+/* 冷却只压环形，不糊住图标 */
+.pad .act .act__cd {
+  inset: -3px;
+  border-radius: 50%;
+  background: conic-gradient(rgba(3, 7, 14, 0.72) calc(var(--cd) * 1turn), rgba(3, 7, 14, 0) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+}
+.pad .act .act__cdtxt {
+  font-size: calc(var(--btn) * 0.26);
+  color: #f4ffff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
+}
+/* HUD 统一玻璃层级 */
+.hud__card, .hud__score {
+  background: linear-gradient(180deg, rgba(12, 22, 38, 0.78), rgba(6, 12, 22, 0.72));
+  border: 1px solid rgba(var(--hero-rgb), 0.22);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+}
+.bar--hp i {
+  background: linear-gradient(90deg, rgba(var(--hero-rgb), 0.95), rgba(255, 255, 255, 0.85), rgba(var(--hero-rgb), 0.95));
+  box-shadow: 0 0 10px rgba(var(--hero-rgb), 0.45);
+}
+.bar--ep i {
+  background: linear-gradient(90deg, rgba(var(--hero-rgb), 0.55), #8fe8ff);
+}
+.hud__card .avatar b {
+  color: #f4ffff;
+  text-shadow: 0 0 12px rgba(var(--hero-rgb), 0.9);
+}
+
+
+/* BTN-MUL：按键大小滑杆 */
+:root { --btn: calc(clamp(58px, 13.8vmin, 94px) * var(--btn-mul, 1)); }
+@media (orientation: portrait) {
+  :root { --btn: calc(clamp(50px, 15.2vmin, 70px) * var(--btn-mul, 1)); }
+}

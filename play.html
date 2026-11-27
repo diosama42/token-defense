@@ -3819,6 +3819,79 @@ html .pad .act.is-down {
 }
 .rank__row em { font-style: normal; color: rgba(190, 220, 245, 0.55); font-size: 10px; }
 
+
+/* HERO-THEME：角色主题化按键与 HUD */
+:root { --hero-rgb: 94, 231, 255; --btn-mul: 1; }
+.pad .act {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(var(--hero-rgb), 0.34), transparent 62%),
+    radial-gradient(circle at 50% 118%, rgba(4, 8, 18, 0.95), rgba(8, 16, 30, 0.82)) !important;
+  border-color: rgba(var(--hero-rgb), 0.55) !important;
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.5),
+    0 0 18px rgba(var(--hero-rgb), 0.16),
+    inset 0 0 22px rgba(var(--hero-rgb), 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
+}
+.pad .act::before {
+  border-color: rgba(var(--hero-rgb), 0.3) !important;
+}
+.pad .act__glyph {
+  color: #f4ffff;
+  text-shadow: 0 0 14px rgba(var(--hero-rgb), 0.95), 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+.pad .act.is-down {
+  transform: scale(0.9);
+  filter: brightness(1.4);
+  box-shadow: 0 0 30px rgba(var(--hero-rgb), 0.5), inset 0 0 26px rgba(var(--hero-rgb), 0.35) !important;
+}
+.pad .act.is-ready {
+  animation: heroReady 1.6s ease-in-out infinite;
+}
+@keyframes heroReady {
+  0%, 100% { box-shadow: 0 10px 26px rgba(0,0,0,.5), 0 0 14px rgba(var(--hero-rgb),.22), inset 0 0 20px rgba(var(--hero-rgb),.18); }
+  50% { box-shadow: 0 10px 26px rgba(0,0,0,.5), 0 0 30px rgba(var(--hero-rgb),.55), inset 0 0 26px rgba(var(--hero-rgb),.3); }
+}
+/* 冷却只压环形，不糊住图标 */
+.pad .act .act__cd {
+  inset: -3px;
+  border-radius: 50%;
+  background: conic-gradient(rgba(3, 7, 14, 0.72) calc(var(--cd) * 1turn), rgba(3, 7, 14, 0) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+}
+.pad .act .act__cdtxt {
+  font-size: calc(var(--btn) * 0.26);
+  color: #f4ffff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
+}
+/* HUD 统一玻璃层级 */
+.hud__card, .hud__score {
+  background: linear-gradient(180deg, rgba(12, 22, 38, 0.78), rgba(6, 12, 22, 0.72));
+  border: 1px solid rgba(var(--hero-rgb), 0.22);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+}
+.bar--hp i {
+  background: linear-gradient(90deg, rgba(var(--hero-rgb), 0.95), rgba(255, 255, 255, 0.85), rgba(var(--hero-rgb), 0.95));
+  box-shadow: 0 0 10px rgba(var(--hero-rgb), 0.45);
+}
+.bar--ep i {
+  background: linear-gradient(90deg, rgba(var(--hero-rgb), 0.55), #8fe8ff);
+}
+.hud__card .avatar b {
+  color: #f4ffff;
+  text-shadow: 0 0 12px rgba(var(--hero-rgb), 0.9);
+}
+
+
+/* BTN-MUL：按键大小滑杆 */
+:root { --btn: calc(clamp(58px, 13.8vmin, 94px) * var(--btn-mul, 1)); }
+@media (orientation: portrait) {
+  :root { --btn: calc(clamp(50px, 15.2vmin, 70px) * var(--btn-mul, 1)); }
+}
+
 </style>
 </head>
 <body>
@@ -4278,6 +4351,11 @@ html .pad .act.is-down {
         <span>按键大小</span>
         <input id="set-uiscale" type="range" min="80" max="140" step="5" />
         <b id="set-uiscale-val">100</b>
+      </label>
+      <label class="settings__row">
+        <span>按键大小</span>
+        <input id="set-btnsize" type="range" min="85" max="130" step="5" />
+        <b id="set-btnsize-val">100</b>
       </label>
       <label class="settings__row">
         <span>按键透明度</span>
@@ -5199,7 +5277,7 @@ html .pad .act.is-down {
   /* ---------- 存档（版本化 + 旧键迁移） ---------- */
   const SAVE_KEY = 'tb_save_v2';
   const SAVE = (function () {
-    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false, btnStyle: 'ring', platform: null, assist: false, lastHero: 0, introDone: false, scores: [], daily: null };
+    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false, btnStyle: 'ring', platform: null, assist: false, lastHero: 0, introDone: false, scores: [], daily: null, btnScale: 1 };
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
@@ -10449,7 +10527,7 @@ html .pad .act.is-down {
       const boss = enemies.filter(function (e) { return e.isBoss; })[0];
       ctx.fillStyle = 'rgba(220,245,255,0.9)';
       ctx.font = '700 ' + (13 * S).toFixed(0) + 'px "PingFang SC", system-ui';
-      ctx.fillText(st.name + ' · ' + st.bossName + (boss && boss.variantName ? ' · ' + boss.variantName : '') + (boss ? ' ' + Math.ceil(boss.hp) : ' 已击破'), W * 0.5, by + U(15));
+      ctx.fillText(st.name + ' · ' + st.bossName + (boss && boss.variantName ? ' · ' + boss.variantName : '') + (boss ? ' ' + Math.ceil(boss.hp) : ' 已击破'), W * 0.5, by + U(38));
     } else if (danger) {
       const label = '⚠ Boss 还有 ' + Math.ceil(remaining) + ' 秒！';
       const sc = 1 + pulse * 0.1;
@@ -10465,7 +10543,7 @@ html .pad .act.is-down {
     } else {
       ctx.fillStyle = 'rgba(220,245,255,0.9)';
       ctx.font = '700 ' + (13 * S).toFixed(0) + 'px "PingFang SC", system-ui';
-      ctx.fillText(st.name + ' · 防守 ' + Math.ceil(remaining) + 's', W * 0.5, by + U(15));
+      ctx.fillText(st.name + ' · 防守 ' + Math.ceil(remaining) + 's', W * 0.5, by + U(38));
     }
 
     if (game.buffs.length) {
@@ -12674,6 +12752,7 @@ html .pad .act.is-down {
         e.stopPropagation();
         if (locked) return;
         heroIndex = idx;
+        applyHeroTheme();
         SAVE.lastHero = idx;
         saveWrite();
         flowHideAll();
@@ -12692,6 +12771,13 @@ html .pad .act.is-down {
     startGame();
   }
 
+  function applyHeroTheme() {
+    const hero = HEROES[heroIndex] || HEROES[0];
+    const root = document.documentElement;
+    root.style.setProperty('--hero-rgb', hero.color || '94,231,255');
+    root.dataset.hero = hero.key || '';
+  }
+
   function startGame() {
     game.runStartAt = Date.now();
     game.runKills = 0;
@@ -12701,6 +12787,7 @@ html .pad .act.is-down {
     if (game.state === 'play') return;
     ensureAudio();
     const hero = HEROES[heroIndex] || HEROES[0];
+    applyHeroTheme();
     if (el.heroName) el.heroName.textContent = hero.name;
     if (el.heroBadge) el.heroBadge.textContent = hero.badge;
     resetWorld();
@@ -13052,6 +13139,8 @@ html .pad .act.is-down {
   const setScaleEl = document.getElementById('set-uiscale');
   const setScaleValEl = document.getElementById('set-uiscale-val');
   const setAlphaEl = document.getElementById('set-uialpha');
+  const setBtnSizeEl = document.getElementById('set-btnsize');
+  const setBtnSizeValEl = document.getElementById('set-btnsize-val');
   const setAlphaValEl = document.getElementById('set-uialpha-val');
   const setLowEl = document.getElementById('set-lowfx');
   const setReduceEl = document.getElementById('set-reducefx');
@@ -13068,6 +13157,9 @@ html .pad .act.is-down {
     if (setScaleEl) setScaleEl.value = String(sc);
     if (setScaleValEl) setScaleValEl.textContent = String(sc);
     if (setAlphaEl) setAlphaEl.value = String(al);
+    const bs = Math.round((SAVE.btnScale || 1) * 100);
+    if (setBtnSizeEl) setBtnSizeEl.value = String(bs);
+    if (setBtnSizeValEl) setBtnSizeValEl.textContent = String(bs);
     if (setAlphaValEl) setAlphaValEl.textContent = String(al);
     if (setLowEl) setLowEl.checked = !!SAVE.lowFxSet;
     if (setReduceEl) setReduceEl.checked = !!SAVE.reduceFx;
@@ -13137,6 +13229,8 @@ html .pad .act.is-down {
     const root = document.documentElement;
     root.style.setProperty('--ui-scale', String(SAVE.uiScale || 1));
     root.style.setProperty('--ui-alpha', String(SAVE.uiAlpha === undefined ? 1 : SAVE.uiAlpha));
+    root.style.setProperty('--btn-mul', String(SAVE.btnScale || 1));
+    applyHeroTheme();
     const style = SAVE.btnStyle || 'ring';
     root.classList.remove('btn-style-ring', 'btn-style-square', 'btn-style-minimal');
     root.classList.add('btn-style-' + style);
@@ -13186,6 +13280,14 @@ html .pad .act.is-down {
       const v = Number(setAlphaEl.value) / 100;
       saveSet('uiAlpha', v);
       if (setAlphaValEl) setAlphaValEl.textContent = setAlphaEl.value;
+      applyUI();
+    });
+  }
+  if (setBtnSizeEl) {
+    setBtnSizeEl.addEventListener('input', function () {
+      const v = Number(setBtnSizeEl.value) / 100;
+      saveSet('btnScale', v);
+      if (setBtnSizeValEl) setBtnSizeValEl.textContent = setBtnSizeEl.value;
       applyUI();
     });
   }
