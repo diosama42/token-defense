@@ -9642,6 +9642,10 @@ html .pad .act.is-down {
     }
 
     if (img && img.width) {
+      const rk = (p.recoilT || 0) / 0.12;
+      const lk = (p.landT || 0) / 0.18;
+      if (rk > 0) ctx.translate(-U(6) * rk, 0);
+      if (lk > 0) ctx.scale(1 + 0.06 * lk, 1 - 0.09 * lk);
       ctx.drawImage(img, -sprW * 0.5, -sprH, sprW, sprH);
       if (p.hurt > 0) {
         ctx.save();
@@ -9704,16 +9708,7 @@ html .pad .act.is-down {
       ctx.scale(1 / sq, sq);
 
       if (img && img.width) {
-        ctx.save();
-        const rk = (p.recoilT || 0) / 0.12;
-        const lk = (p.landT || 0) / 0.18;
-        if (rk > 0) ctx.translate(-p.face * U(6) * rk, 0);
-        if (lk > 0) {
-          ctx.translate(0, 0);
-          ctx.scale(1 + 0.06 * lk, 1 - 0.09 * lk);
-        }
         ctx.drawImage(img, -sprW * 0.5, -sprH, sprW, sprH);
-        ctx.restore();
         if (e.hurt > 0) {
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -13778,6 +13773,37 @@ html .pad .act.is-down {
                 document.title = 'FULL full=' + game.fullPower + ' coins=' + game.coins + ' dmg=' + player.dmgMul.toFixed(2) + ' maxHp=' + player.maxHp;
               }, 400);
             }, 400);
+          }, 700);
+        } else if (sc === 'eventbug') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room');
+            beginStage(true);
+            showEventRoom();
+            setTimeout(function () {
+              const eb = document.querySelectorAll('#rest-grid .rooms__card');
+              if (eb[0]) eb[0].click();
+              setTimeout(function () {
+                const cards = document.querySelectorAll('#rooms-grid .rooms__card');
+                let elite = null;
+                cards.forEach(function (b) { if (b.textContent.indexOf('精英战') >= 0) elite = b; });
+                window.__ELITE = !!elite;
+                if (elite) elite.click();
+                setTimeout(function () {
+                  window.__IMM = game.state + '/' + game.roomActive + '/' + game.roomType;
+                }, 120);
+                setTimeout(function () {
+                  document.title = 'EVENTBUG found=' + window.__ELITE + ' imm=' + window.__IMM + ' err=' + String(window.__ERR || 'none').split('\n')[0].slice(0, 60) + ' cnt=' + (window.__ERR_COUNT || 0) + ' state=' + game.state + ' room=' + game.roomActive + ' type=' + game.roomType;
+                }, 2500);
+              }, 600);
+            }, 600);
           }, 700);
         } else if (sc === 'varianttest') {
           setTimeout(function () {
