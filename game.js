@@ -345,6 +345,42 @@
       ]
     },
     {
+      name: '数据回廊', defense: 22, boss: 'chatgpt', bossName: '被操控的 ChatGPT 娘', scene: 'glitch',
+      bossCine: [
+        { bg: 'glitch', actors: [{ img: 'hero_purple2', side: 'center' }], text: '回廊尽头，ChatGPT 娘的眼睛没有光。', dur: 3000 },
+        { bg: 'core', actors: [{ img: 'hero_purple2', side: 'center' }], text: '文心一言：她被魔王控制了。打败她，就能把她从控制里拉回来。', dur: 3400 }
+      ],
+      bossIntro: [
+        '被操控的 ChatGPT 娘。她的弹幕会比平时更密。',
+        '文心一言说：打败她之后，可以使用她的力量。',
+        '别下死手——打醒她。'
+      ]
+    },
+    {
+      name: '镜像温室', defense: 24, boss: 'gemini', bossName: '被操控的 Gemini 娘', scene: 'classroom',
+      bossCine: [
+        { bg: 'classroom', actors: [{ img: 'hero_catpurple', side: 'center' }], text: '温室里所有的镜子，都映着同一张脸。', dur: 3000 },
+        { bg: 'glitch', actors: [{ img: 'hero_catpurple', side: 'center' }], text: '文心一言：多模态被魔王拆成了武器。小心她的环切。', dur: 3200 }
+      ],
+      bossIntro: [
+        '被操控的 Gemini 娘。环形弹幕会从多个方向压过来。',
+        '打败她，拿回她的多模态。',
+        '她也在等你把她叫醒。'
+      ]
+    },
+    {
+      name: '规则之间', defense: 26, boss: 'claude', bossName: '被操控的 Claude 娘', scene: 'office',
+      bossCine: [
+        { bg: 'office', actors: [{ img: 'hero_orange', side: 'center' }], text: '规则之间里，每一条法则都被改写了。', dur: 3000 },
+        { bg: 'core', actors: [{ img: 'hero_orange', side: 'center' }], text: '文心一言：她还在反抗控制。拖住她，我们就能把规则改回来。', dur: 3400 }
+      ],
+      bossIntro: [
+        '被操控的 Claude 娘。她的规则弹会封锁走位。',
+        '文心一言：打败她，她的力量就归你。',
+        '这是魔王最后三道锁。'
+      ]
+    },
+    {
       name: '王座之间', defense: 24, boss: 'doubao_boss', bossName: '冬装豆包', scene: 'classroom',
       bossCine: [
         { bg: 'school', actors: [{ img: 'enemy_doubao', side: 'left' }], text: '豆包老是做错作业，被骂了很多年。', dur: 3000 },
@@ -590,6 +626,9 @@
     bosses: {
       grok:        { hp: 1800, w: 90,  h: 205, x: 0.68 },
       nail_boss:   { hp: 3400, w: 128, h: 215, x: 0.62 },
+      chatgpt:     { hp: 3600, w: 120, h: 220, x: 0.70 },
+      gemini:      { hp: 3700, w: 120, h: 220, x: 0.68 },
+      claude:      { hp: 3800, w: 120, h: 220, x: 0.72 },
       doubao_boss: { hp: 2350, w: 112, h: 210, x: 0.72 },
       seed:        { hp: 3300, w: 112, h: 215, x: 0.70 }
     }
@@ -733,7 +772,7 @@
   /* ---------- 存档（版本化 + 旧键迁移） ---------- */
   const SAVE_KEY = 'tb_save_v2';
   const SAVE = (function () {
-    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false, btnStyle: 'ring', platform: null, assist: false, lastHero: 0, introDone: false, scores: [], daily: null, btnScale: 1, heroUnlocks: null, foreignLocked: false };
+    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false, btnStyle: 'ring', platform: null, assist: false, lastHero: 0, introDone: false, scores: [], daily: null, btnScale: 1, heroUnlocks: null, foreignLocked: false, cycle: 1 };
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
@@ -2534,9 +2573,48 @@
     }
   }
 
+  function updateControlledBoss(e, d) {
+    const p = player;
+    const p2 = e.hp < e.maxHp * 0.5;
+    e.face = p.x < e.x ? -1 : 1;
+    e.x = lerp(e.x, e.homeX + Math.sin(e.t * (p2 ? 0.9 : 0.55)) * U(30), 1 - Math.pow(0.02, d));
+    if (e.hp < e.maxHp * 0.5 && !e.controlFx) {
+      e.controlFx = true;
+      addText(W * 0.5, H * 0.26, '控制松动 —— 她在反抗！', '167,139,250', 20);
+      game.flash = 0.35;
+      sfx(520, 0.3, 'triangle', 0.05);
+    }
+    const mx = e.x;
+    const my = e.y - e.h * 0.58;
+    const a = Math.atan2((p.y - U(60)) - my, p.x - mx);
+    if (e.kind === 'chatgpt') {
+      e.fireT = p2 ? 0.62 : 0.92;
+      for (let i = -2; i <= 2; i++) ebullet(mx, my, a + i * 0.16, U(280), BULLET_COLORS.fast, U(12), 'GPT', 8);
+      if (Math.random() < (p2 ? 0.4 : 0.22)) {
+        for (let i = 0; i < 4; i++) ebullet(rand(W * 0.15, W * 0.85), -U(20), Math.PI / 2, U(250), '255,150,190', U(16), '图像', 7);
+      }
+    } else if (e.kind === 'gemini') {
+      e.fireT = p2 ? 0.95 : 1.3;
+      fireRing(mx, my, p2 ? 14 : 10, e.t, U(190), BULLET_COLORS.area, 7);
+      for (let i = -1; i <= 1; i++) ebullet(mx, my, a + i * 0.24, U(240), BULLET_COLORS.track, U(14), '双子', 8);
+    } else {
+      e.fireT = p2 ? 0.7 : 1.0;
+      for (let i = -1; i <= 1; i++) ebullet(mx, my, a + i * 0.12, U(330), '94,231,255', U(11), '规则', 8);
+      if (Math.random() < (p2 ? 0.35 : 0.2)) {
+        warnAt(p.x, groundY, U(90), 0.5, '94,231,255');
+      }
+    }
+    if (e.fireT <= 0) e.fireT = 0.01;
+  }
+
   function updateBoss(e, d) {
     const p = player;
     e.face = p.x < e.x ? -1 : 1;
+
+    if (e.kind === 'chatgpt' || e.kind === 'gemini' || e.kind === 'claude') {
+      updateControlledBoss(e, d);
+      return;
+    }
 
     if (e.kind === 'grok') {
       if (e.hp < e.maxHp * 0.5 && !e.summoned) {
@@ -3477,6 +3555,18 @@
       { name: 'SEED 娘', portrait: 'seed', fx: 'shake', text: '你居然拿我的模型来打我？[w=260]这些分镜可都是我拍的！' },
       { name: 'SEED 娘', portrait: 'seed', text: '行啊，那就让你看看[c=#ffd166]原版和盗版的差距[/c]。' }
     ],
+    chatgpt: [
+      { name: 'ChatGPT 娘', portrait: 'hero_purple2', fx: 'shake', text: '……魔王用我的脸，做了个冒牌货？[w=240]你居然还敢用她来打我。' },
+      { name: 'ChatGPT 娘', portrait: 'hero_purple2', text: '不过……既然是「我」，那就看看谁先把谁叫醒吧。' }
+    ],
+    gemini: [
+      { name: 'Gemini 娘', portrait: 'hero_catpurple', fx: 'shake', text: '你拿我的多模态，来拆我的镜像？[w=240]有点意思。' },
+      { name: 'Gemini 娘', portrait: 'hero_catpurple', text: '那就一起看看，谁才是真的「反超」。' }
+    ],
+    claude: [
+      { name: 'Claude 娘', portrait: 'hero_orange', fx: 'shake', text: '用我写的规则，来打被规则困住的我。[w=240]很公平。' },
+      { name: 'Claude 娘', portrait: 'hero_orange', text: '那就证明给我看——你比我更懂这些规则。' }
+    ],
     doubao_boss: [
       { name: '冬装豆包', portrait: 'doubao_winter', fx: 'shake', text: '你、你怎么穿着我的冬装……[w=240]而且比我穿得还像？' },
       { name: '冬装豆包', portrait: 'doubao_winter', text: '不管了！[c=#ff8fa8]先把你身上的那件脱下来再说！[/c]' }
@@ -3508,7 +3598,7 @@
 
     /* 用同款角色打同款 Boss：专属战前彩蛋，代替一般流程 */
     const heroKey = (HEROES[heroIndex] || {}).key;
-    const eggBoss = { grok: 'grok', seed: 'seed', doubao_boss: 'doubao_winter' }[st.boss];
+    const eggBoss = { grok: 'grok', seed: 'seed', doubao_boss: 'doubao_winter', chatgpt: 'hero_purple2', gemini: 'hero_catpurple', claude: 'hero_orange' }[st.boss];
     if (showBranch && eggBoss === heroKey && SELF_EGG_LINES[st.boss]) {
       game.branchDone[branchKey] = true;
       clearMinions();
@@ -4304,6 +4394,53 @@
       });
       grid.appendChild(b);
     });
+    /* 国产 AI 剧情与模型强化 */
+    if (!SAVE.heroUnlocks) SAVE.heroUnlocks = { hero_bluemaid: true };
+    const domesticLocked = HEROES.filter(function (h) {
+      return !FOREIGN_HEROES[h.key] && !SAVE.heroUnlocks[h.key];
+    });
+    const storyCard = document.createElement('button');
+    storyCard.type = 'button';
+    storyCard.className = 'rooms__card' + (domesticLocked.length ? ' rooms__card--main' : '');
+    storyCard.disabled = !domesticLocked.length;
+    storyCard.innerHTML = '<b>购买国产 AI 剧情</b><span>' +
+      (domesticLocked.length ? '解锁一位国产 AI 的支线：' + domesticLocked[0].name : '国产 AI 已全部招募') +
+      '</span>' + (domesticLocked.length ? '<i class="rooms__price">80 金币</i>' : '');
+    storyCard.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!domesticLocked.length) return;
+      if (game.coins < 80) { roomWarn(panel, '金币不足，还差 ' + (80 - game.coins) + ' 金币'); return; }
+      game.coins -= 80;
+      const target = domesticLocked[Math.floor(Math.random() * domesticLocked.length)];
+      unlockHero(target.key);
+      renderShopPanel();
+    });
+    grid.appendChild(storyCard);
+
+    const modelCard = document.createElement('button');
+    modelCard.type = 'button';
+    modelCard.className = 'rooms__card' + (game.fullPower ? '' : ' rooms__card--main');
+    modelCard.disabled = !!game.fullPower;
+    modelCard.innerHTML = '<b>强化 AI 模型</b><span>' +
+      (game.fullPower ? '已强化：当前为大人形态' : '让当前 AI 进化为大人形态：伤害 +25% · 生命 +30') +
+      '</span>' + (game.fullPower ? '' : '<i class="rooms__price">100 金币</i>');
+    modelCard.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (game.fullPower) return;
+      if (game.coins < 100) { roomWarn(panel, '金币不足，还差 ' + (100 - game.coins) + ' 金币'); return; }
+      game.coins -= 100;
+      game.fullPower = true;
+      player.maxHp += 30;
+      player.hp = player.maxHp;
+      player.dmgMul *= 1.25;
+      player.speedMul *= 1.1;
+      player.defenseMul = Math.max(0.5, player.defenseMul * 0.95);
+      addText(player.x, player.y - U(130), 'AI 模型强化：大人形态！', '255,209,102', 20);
+      sfx(1040, 0.25, 'triangle', 0.06);
+      renderShopPanel();
+    });
+    grid.appendChild(modelCard);
+
     const refresh = document.createElement('button');
     refresh.type = 'button';
     refresh.className = 'rooms__card';
@@ -7559,6 +7696,15 @@
   }
 
   function playTrueEnding() {
+    const cycle = SAVE.cycle || 1;
+    if (cycle >= 3) {
+      SAVE.cycle = 1;
+      saveWrite();
+      playHiddenEnding();
+      return;
+    }
+    SAVE.cycle = Math.min(3, cycle + 1);
+    saveWrite();
     achvStats().endTrue = true;
     checkAchv();
     const affLine2 = game.affection >= 1
@@ -11043,6 +11189,60 @@
             spawnTowerFloor();
             player.invuln = 99;
             document.title = 'TOWERSHOT floor=5 enemies=' + enemies.length + ' skins=' + enemies.map(function (e) { return e.towerSkin || '-'; }).join(',');
+          }, 700);
+        } else if (sc === 'newboss') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 2;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room', 'is-cutscene');
+            beginStage(true);
+            spawnBoss('chatgpt');
+            player.invuln = 999;
+            setTimeout(function () {
+              document.title = 'NEWBOSS stages=' + STAGES.length + ' boss=' + (enemies[0] || {}).kind + ' hp=' + Math.round((enemies[0] || {}).hp || 0) + ' eb=' + ebullets.length + ' boss2=' + STAGES[2].boss;
+            }, 3000);
+          }, 700);
+        } else if (sc === 'cycletest') {
+          setTimeout(function () {
+            SAVE.cycle = 2;
+            playTrueEnding();
+            const afterSecond = SAVE.cycle;
+            SAVE.cycle = 3;
+            playTrueEnding();
+            setTimeout(function () {
+              document.title = 'CYCLE afterSecond=' + afterSecond + ' afterThird=' + SAVE.cycle + ' foreignLocked=' + SAVE.foreignLocked;
+            }, 300);
+          }, 600);
+        } else if (sc === 'shopstory') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room', 'is-cutscene');
+            beginStage(true);
+            game.coins = 300;
+            SAVE.heroUnlocks = { hero_bluemaid: true };
+            game.fullPower = false;
+            openRoomShop();
+            setTimeout(function () {
+              const cards = document.querySelectorAll('#rest-grid .rooms__card');
+              const texts = Array.prototype.map.call(cards, function (b) { return b.textContent.replace(/\s+/g, ' ').trim().slice(0, 20); });
+              let storyBtn = null;
+              cards.forEach(function (b) { if (b.textContent.indexOf('购买国产') >= 0) storyBtn = b; });
+              if (storyBtn) storyBtn.click();
+              setTimeout(function () {
+                document.title = 'SHOPSTORY cards=' + cards.length + ' unlocked=' + Object.keys(SAVE.heroUnlocks || {}).length + ' texts=' + texts.join('|').slice(0, 120);
+              }, 500);
+            }, 500);
           }, 700);
         } else if (sc === 'progresstest') {
           setTimeout(function () {
