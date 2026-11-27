@@ -3754,3 +3754,28 @@ html .pad .act.is-down {
   transform: scale(0.9) !important;
   filter: brightness(1.35);
 }
+
+
+/* ROOM-WARN：金币不足抖动 + 红字 */
+@keyframes roomShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+.rooms__box.is-shake { animation: roomShake 0.34s ease; }
+.rooms__warn {
+  margin: 0 0 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 70, 100, 0.12);
+  border: 1px solid rgba(255, 92, 120, 0.5);
+  color: #ff8da3;
+  font: 700 12px/1.4 "PingFang SC", system-ui;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.18s, transform 0.18s;
+}
+.rooms__warn.show { opacity: 1; transform: translateY(0); }

@@ -3976,6 +3976,26 @@
     return true;
   }
 
+  function roomWarn(panel, text) {
+    if (!panel) return;
+    const box = panel.querySelector('.rooms__box');
+    if (!box) return;
+    let warn = box.querySelector('.rooms__warn');
+    if (!warn) {
+      warn = document.createElement('p');
+      warn.className = 'rooms__warn';
+      const grid = box.querySelector('.rooms__grid');
+      if (grid) box.insertBefore(warn, grid); else box.appendChild(warn);
+    }
+    warn.textContent = text || '金币不足';
+    warn.classList.add('show');
+    box.classList.remove('is-shake');
+    void box.offsetWidth;
+    box.classList.add('is-shake');
+    clearTimeout(warn._t);
+    warn._t = setTimeout(function () { warn.classList.remove('show'); }, 1500);
+  }
+
   function renderRestPanel(shopMode) {
     const panel = document.getElementById('rest');
     const grid = document.getElementById('rest-grid');
@@ -3999,8 +4019,8 @@
         if (ok && panel.classList.contains('show')) {
           renderRestPanel(shopMode);
         } else if (!ok && old < (price || 0)) {
-          b.disabled = true;
-          b.querySelector('span').textContent = desc + '（金币不足）';
+          roomWarn(panel, '金币不足，还差 ' + ((price || 0) - old) + ' 金币');
+          sfx(180, 0.12, 'square', 0.05);
         }
       });
       grid.appendChild(b);
@@ -10156,6 +10176,30 @@
             startMode = 'fight';
             startGame();
           }, 120);
+        } else if (sc === 'warncoin') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            game.coins = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room');
+            beginStage(true);
+            showBossRest();
+            setTimeout(function () {
+              const btns = document.querySelectorAll('#rest-grid .rooms__card');
+              if (btns[0]) btns[0].click();
+              setTimeout(function () {
+                const box = document.querySelector('#rest .rooms__box');
+                const warn = document.querySelector('#rest .rooms__warn');
+                document.title = 'WARN text=' + (warn ? warn.textContent : '-') + ' show=' + (warn ? warn.classList.contains('show') : '?') + ' shake=' + (box ? box.classList.contains('is-shake') : '?');
+              }, 200);
+            }, 500);
+          }, 700);
         } else if (sc === 'restclose') {
           setTimeout(function () {
             startGame(true);

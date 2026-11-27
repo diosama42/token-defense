@@ -3767,6 +3767,31 @@ html .pad .act.is-down {
   filter: brightness(1.35);
 }
 
+
+/* ROOM-WARN：金币不足抖动 + 红字 */
+@keyframes roomShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+.rooms__box.is-shake { animation: roomShake 0.34s ease; }
+.rooms__warn {
+  margin: 0 0 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 70, 100, 0.12);
+  border: 1px solid rgba(255, 92, 120, 0.5);
+  color: #ff8da3;
+  font: 700 12px/1.4 "PingFang SC", system-ui;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.18s, transform 0.18s;
+}
+.rooms__warn.show { opacity: 1; transform: translateY(0); }
+
 </style>
 </head>
 <body>
@@ -8340,6 +8365,26 @@ html .pad .act.is-down {
     return true;
   }
 
+  function roomWarn(panel, text) {
+    if (!panel) return;
+    const box = panel.querySelector('.rooms__box');
+    if (!box) return;
+    let warn = box.querySelector('.rooms__warn');
+    if (!warn) {
+      warn = document.createElement('p');
+      warn.className = 'rooms__warn';
+      const grid = box.querySelector('.rooms__grid');
+      if (grid) box.insertBefore(warn, grid); else box.appendChild(warn);
+    }
+    warn.textContent = text || '金币不足';
+    warn.classList.add('show');
+    box.classList.remove('is-shake');
+    void box.offsetWidth;
+    box.classList.add('is-shake');
+    clearTimeout(warn._t);
+    warn._t = setTimeout(function () { warn.classList.remove('show'); }, 1500);
+  }
+
   function renderRestPanel(shopMode) {
     const panel = document.getElementById('rest');
     const grid = document.getElementById('rest-grid');
@@ -8363,8 +8408,8 @@ html .pad .act.is-down {
         if (ok && panel.classList.contains('show')) {
           renderRestPanel(shopMode);
         } else if (!ok && old < (price || 0)) {
-          b.disabled = true;
-          b.querySelector('span').textContent = desc + '（金币不足）';
+          roomWarn(panel, '金币不足，还差 ' + ((price || 0) - old) + ' 金币');
+          sfx(180, 0.12, 'square', 0.05);
         }
       });
       grid.appendChild(b);
@@ -14520,6 +14565,30 @@ html .pad .act.is-down {
             startMode = 'fight';
             startGame();
           }, 120);
+        } else if (sc === 'warncoin') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            game.coins = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room');
+            beginStage(true);
+            showBossRest();
+            setTimeout(function () {
+              const btns = document.querySelectorAll('#rest-grid .rooms__card');
+              if (btns[0]) btns[0].click();
+              setTimeout(function () {
+                const box = document.querySelector('#rest .rooms__box');
+                const warn = document.querySelector('#rest .rooms__warn');
+                document.title = 'WARN text=' + (warn ? warn.textContent : '-') + ' show=' + (warn ? warn.classList.contains('show') : '?') + ' shake=' + (box ? box.classList.contains('is-shake') : '?');
+              }, 200);
+            }, 500);
+          }, 700);
         } else if (sc === 'restclose') {
           setTimeout(function () {
             startGame(true);
