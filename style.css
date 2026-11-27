@@ -3943,3 +3943,13 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
   letter-spacing: 0.2em;
   color: rgba(255, 209, 102, 0.85);
 }
+
+
+/* PORTRAIT-TITLE-FIX：窄屏标题与副标题不再叠在一起 */
+@media (max-width: 520px) and (orientation: portrait) {
+  .start__title { font-size: clamp(32px, 9vw, 44px); line-height: 1.12; }
+  .start__title span { margin-top: 7px; font-size: 11px; letter-spacing: 0.32em; }
+  .start__cycle { margin-top: 2px; }
+  .mode-pick { flex-direction: column; align-items: stretch; gap: 8px; }
+  .mode-pick__item { width: 100%; min-width: 0; box-sizing: border-box; }
+}

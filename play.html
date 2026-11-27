@@ -3956,6 +3956,16 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
   color: rgba(255, 209, 102, 0.85);
 }
 
+
+/* PORTRAIT-TITLE-FIX：窄屏标题与副标题不再叠在一起 */
+@media (max-width: 520px) and (orientation: portrait) {
+  .start__title { font-size: clamp(32px, 9vw, 44px); line-height: 1.12; }
+  .start__title span { margin-top: 7px; font-size: 11px; letter-spacing: 0.32em; }
+  .start__cycle { margin-top: 2px; }
+  .mode-pick { flex-direction: column; align-items: stretch; gap: 8px; }
+  .mode-pick__item { width: 100%; min-width: 0; box-sizing: border-box; }
+}
+
 </style>
 </head>
 <body>
@@ -9351,6 +9361,10 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
   bindRooms();
 
   function beginStage(combat) {
+    const stageHero = HEROES[heroIndex] || HEROES[0];
+    if (el.heroName) el.heroName.textContent = stageHero.name;
+    if (el.heroBadge) el.heroBadge.textContent = stageHero.badge;
+    applyHeroTheme();
     const st = STAGES[game.stage];
     if (!st) { playEnding(); return; }
     if (!combat) {
@@ -12720,6 +12734,7 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
   function startWarFinalPhase() {
     game.warPhase = 'final';
     game.warRound = 4;
+    enemies = [];
     game.warDmgMul = 1.6;
     const conf = [
       { kind: 'chatgpt', x: 0.2 },
@@ -16125,6 +16140,117 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
             setTimeout(function () {
               document.title = 'NEWBOSS stages=' + STAGES.length + ' boss=' + (enemies[0] || {}).kind + ' hp=' + Math.round((enemies[0] || {}).hp || 0) + ' eb=' + ebullets.length + ' boss2=' + STAGES[2].boss;
             }, 3000);
+          }, 700);
+        } else if (sc === 'e2e2') {
+          setTimeout(function () {
+            const out = [];
+            const ok = function (k, v) { out.push(k + '=' + v); };
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room', 'is-cutscene');
+            beginStage(true);
+            /* 一周目坏结局推进 */
+            SAVE.cycle = 1;
+            playEnding();
+            ok('cycleAfterBad', SAVE.cycle);
+            /* 二周目全角色 + 无模型卡 */
+            SAVE.cycle = 2;
+            const grok = HEROES.filter(function (h) { return h.key === 'grok'; })[0];
+            ok('c2All', heroUnlocked(grok));
+            game.coins = 300;
+            openRoomShop();
+            const shopTexts = Array.prototype.map.call(document.querySelectorAll('#rest-grid .rooms__card'), function (b) { return b.textContent; });
+            ok('c2ModelCard', shopTexts.some(function (t) { return t.indexOf('强化 AI 模型') >= 0; }));
+            document.getElementById('rest').classList.remove('show');
+            /* 三周目国产限制 */
+            SAVE.cycle = 3;
+            ok('c3Grok', heroUnlocked(grok));
+            ok('c3Seed', heroUnlocked(HEROES.filter(function (h) { return h.key === 'seed'; })[0]));
+            startSiliconWar(6);
+            startWarFinalPhase();
+            const models = enemies.filter(function (e) { return ['chatgpt','gemini','claude','grok'].indexOf(e.kind) >= 0; });
+            ok('finalAdults', models.filter(function (e) { return e.forceAdult; }).length);
+            ok('finalCount', models.length);
+            /* 重开保留关卡 */
+            game.stage = 2;
+            retryRun();
+            ok('retryStage', game.stage);
+            ok('retryState', game.state);
+            document.title = 'E2E2 ' + out.join(' ');
+          }, 700);
+        } else if (sc === 'e2e1') {
+          setTimeout(function () {
+            const out = [];
+            const ok = function (k, v) { out.push(k + '=' + v); };
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room', 'is-cutscene');
+            heroIndex = 1;
+            beginStage(true);
+            ok('hud', document.getElementById('hero-name').textContent);
+            const openPortal = function (type, cb) {
+              game.portalPick = true;
+              game.portals = [{ type: type, title: type, glyph: '?', sprite: 'portal_' + type, color: '110,247,180', x: W * 0.5, t: 0 }];
+              player.x = W * 0.5;
+              enterPortal();
+              setTimeout(cb, 220);
+            };
+            const clickCard = function (text, cb) {
+              const b = Array.prototype.filter.call(document.querySelectorAll('#rest-grid .rooms__card'), function (x) { return x.textContent.indexOf(text) >= 0; })[0];
+              if (b) b.click();
+              setTimeout(cb, 220);
+            };
+            openPortal('shop', function () {
+              ok('shopOpen', document.getElementById('rest').classList.contains('show'));
+              clickCard('离开商店', function () {
+                ok('node1', game.nodeCount);
+                openPortal('event', function () {
+                  const cards = document.querySelectorAll('#rest-grid .rooms__card');
+                  ok('eventCards', cards.length);
+                  ok('hasDomestic', Array.prototype.some.call(cards, function (b) { return b.textContent.indexOf('国产 AI') >= 0; }));
+                  if (cards[0]) cards[0].click();
+                  setTimeout(function () {
+                    ok('node2', game.nodeCount);
+                    openPortal('shop', function () {
+                      clickCard('离开商店', function () {
+                        ok('node3', game.nodeCount);
+                        ok('eliteGate', !!(game.portalPick && game.portals[0] && game.portals[0].eliteGate));
+                        player.x = game.portals[0].x;
+                        enterPortal();
+                        setTimeout(function () {
+                          ok('eliteType', game.roomType);
+                          ok('eliteTarget', Math.round(game.roomTarget));
+                          game.roomT = game.roomTarget - 0.01;
+                          setTimeout(function () {
+                            const cont = document.getElementById('room-continue');
+                            if (cont) cont.click();
+                            setTimeout(function () {
+                              ok('bossRest', document.getElementById('rest').classList.contains('show'));
+                              const go = Array.prototype.filter.call(document.querySelectorAll('#rest-grid .rooms__card'), function (x) { return x.textContent.indexOf('进入 Boss') >= 0; })[0];
+                              if (go) go.click();
+                              setTimeout(function () {
+                                ok('bossStart', game.state === 'cine' || game.state === 'play' || game.bossSpawned);
+                                document.title = 'E2E1 ' + out.join(' ');
+                              }, 400);
+                            }, 300);
+                          }, 300);
+                        }, 300);
+                      });
+                    });
+                  }, 250);
+                });
+              });
+            });
           }, 700);
         } else if (sc === 'doorsteps') {
           setTimeout(function () {
