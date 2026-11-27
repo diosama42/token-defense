@@ -813,8 +813,48 @@
       list.appendChild(row);
     });
   }
+  function refreshKeyHints() {
+    /* 屏幕按钮上的字母 */
+    document.querySelectorAll('.act').forEach(function (b) {
+      const k = b.querySelector('.act__key');
+      if (k && b.dataset.act) k.textContent = keyName(keyOf(b.dataset.act));
+    });
+    const jk = document.querySelector('.jump__key');
+    if (jk) jk.textContent = keyName(keyOf('jump'));
+    /* 开始页底部按键说明 */
+    const list = document.querySelector('.start__keys');
+    if (!list) return;
+    list.innerHTML = '';
+    const rows = [
+      ['移动', ['KeyA', 'KeyD']],
+      ['跳跃', [keyOf('jump')]],
+      ['闪避', [keyOf('dash')]],
+      ['平A', [keyOf('attack')]],
+      ['技能', [keyOf('skill')]],
+      ['大招', [keyOf('ult')]],
+      ['支援', [keyOf('support')]]
+    ];
+    rows.forEach(function (r) {
+      const li = document.createElement('li');
+      r[1].forEach(function (code) {
+        const k = document.createElement('kbd');
+        k.textContent = keyName(code);
+        li.appendChild(k);
+      });
+      if (typeof document.createTextNode === 'function') {
+        li.appendChild(document.createTextNode(' ' + r[0]));
+      } else {
+        const sp = document.createElement('span');
+        sp.textContent = ' ' + r[0];
+        li.appendChild(sp);
+      }
+      list.appendChild(li);
+    });
+  }
+
   function bindKeymapUI() {
     buildKeymapUI();
+    refreshKeyHints();
     const reset = document.getElementById('keymap-reset');
     if (reset) {
       reset.addEventListener('click', function (e) {
@@ -823,6 +863,7 @@
         keyCapture = null;
         saveKeymap();
         buildKeymapUI();
+        refreshKeyHints();
       });
     }
   }
@@ -844,6 +885,7 @@
       }
       keyCapture = null;
       buildKeymapUI();
+      refreshKeyHints();
       return;
     }
     if (e.repeat) return;
@@ -8424,6 +8466,17 @@
             game.paused = true;
             setTimeout(function () { document.title = 'WBS pb=' + pbullets.length + ' p0=' + (pbullets[0] ? Math.round(pbullets[0].x) + ',' + Math.round(pbullets[0].y) : '-'); }, 400);
           }, 400);
+        } else if (sc === 'hinttest') {
+          setTimeout(function () {
+            KEYMAP.attack = 'KeyF';
+            KEYMAP.jump = 'KeyG';
+            buildKeymapUI();
+            refreshKeyHints();
+            const list = document.querySelector('.start__keys');
+            const atk = document.querySelector('.act--attack .act__key');
+            const jk = document.querySelector('.jump__key');
+            document.title = 'HINT ' + (list ? list.textContent.replace(/\s+/g, ' ').slice(0, 80) : '-') + ' | atk=' + (atk ? atk.textContent : '-') + ' | jump=' + (jk ? jk.textContent : '-');
+          }, 700);
         } else if (sc === 'selfegg') {
           setTimeout(function () {
             heroIndex = 7;
