@@ -9086,6 +9086,49 @@
     if (!panel || !list) return;
     list.innerHTML = '';
     const which = tab || 'local';
+    if (which === 'daily') {
+      const today = new Date().toISOString().slice(0, 10);
+      if (!SUPABASE.url || !SUPABASE.key) {
+        const tip = document.createElement('p');
+        tip.className = 'rooms__sub';
+        tip.textContent = '每日榜需要配置 Supabase。';
+        list.appendChild(tip);
+        panel.classList.add('show');
+        return;
+      }
+      const tip = document.createElement('p');
+      tip.className = 'rooms__sub';
+      tip.textContent = '加载 ' + today + ' 的每日榜…';
+      list.appendChild(tip);
+      const url = SUPABASE.url + '/rest/v1/scores?select=score,grade,hero,mode,time,created_at&mode=eq.daily&created_at=gte.' + today + 'T00:00:00&order=score.desc&limit=10';
+      fetch(url, { headers: { apikey: SUPABASE.key, Authorization: 'Bearer ' + SUPABASE.key } })
+        .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+        .then(function (rows) {
+          list.innerHTML = '';
+          if (!Array.isArray(rows) || !rows.length) {
+            const empty = document.createElement('p');
+            empty.className = 'rooms__sub';
+            empty.textContent = '今天还没有人交卷。';
+            list.appendChild(empty);
+            return;
+          }
+          rows.forEach(function (r, i) {
+            const row = document.createElement('div');
+            row.className = 'rank__row';
+            row.innerHTML = '<span>' + (i + 1) + '. ' + (r.grade || 'D') + ' · ' + r.score + '</span><em>' + (r.hero || '-') + ' · ' + Math.floor((r.time || 0) / 60) + ':' + String((r.time || 0) % 60).padStart(2, '0') + '</em>';
+            list.appendChild(row);
+          });
+        })
+        .catch(function () {
+          list.innerHTML = '';
+          const err = document.createElement('p');
+          err.className = 'rooms__sub';
+          err.textContent = '每日榜加载失败，请稍后再试。';
+          list.appendChild(err);
+        });
+      panel.classList.add('show');
+      return;
+    }
     if (which === 'global') {
       if (!SUPABASE.url || !SUPABASE.key) {
         const tip = document.createElement('p');
@@ -9217,7 +9260,7 @@
     startMode = 'fight';
     startEl.classList.add('is-hidden');
     startGame();
-    addText(W * 0.5, H * 0.34, '每日挑战 · ' + today + ' · 种子 ' + game.dailySeed, '255,209,102', 18);
+    addText(W * 0.5, H * 0.34, '每日挑战 · ' + today + ' · 今日最高 ' + ((SAVE.daily && SAVE.daily.best) || 0), '255,209,102', 18);
   }
 
   function retryRun() {
@@ -11433,6 +11476,16 @@
               document.title = 'NEWBOSS stages=' + STAGES.length + ' boss=' + (enemies[0] || {}).kind + ' hp=' + Math.round((enemies[0] || {}).hp || 0) + ' eb=' + ebullets.length + ' boss2=' + STAGES[2].boss;
             }, 3000);
           }, 700);
+        } else if (sc === 'rankdaily') {
+          setTimeout(function () {
+            renderLeaderboard('local');
+            const d = document.getElementById('rank-tab-daily');
+            if (d) d.click();
+            setTimeout(function () {
+              const txt = document.getElementById('rank-list').textContent.replace(/\s+/g, ' ').slice(0, 100);
+              document.title = 'RANKDAILY tabs=' + document.querySelectorAll('.rank-tabs button').length + ' list=' + txt;
+            }, 2500);
+          }, 700);
         } else if (sc === 'assisttest') {
           setTimeout(function () {
             startGame(true);
@@ -12332,8 +12385,10 @@
     if (rankClose && rankPanel) rankClose.addEventListener('click', function (e) { e.stopPropagation(); rankPanel.classList.remove('show'); });
     const tabL = document.getElementById('rank-tab-local');
     const tabG = document.getElementById('rank-tab-global');
+    const tabD = document.getElementById('rank-tab-daily');
     if (tabL) tabL.addEventListener('click', function (e) { e.stopPropagation(); tabL.classList.add('is-on'); if (tabG) tabG.classList.remove('is-on'); renderLeaderboard('local'); });
-    if (tabG) tabG.addEventListener('click', function (e) { e.stopPropagation(); tabG.classList.add('is-on'); if (tabL) tabL.classList.remove('is-on'); renderLeaderboard('global'); });
+    if (tabG) tabG.addEventListener('click', function (e) { e.stopPropagation(); tabG.classList.add('is-on'); if (tabL) tabL.classList.remove('is-on'); if (tabD) tabD.classList.remove('is-on'); renderLeaderboard('global'); });
+    if (tabD) tabD.addEventListener('click', function (e) { e.stopPropagation(); tabD.classList.add('is-on'); if (tabL) tabL.classList.remove('is-on'); if (tabG) tabG.classList.remove('is-on'); renderLeaderboard('daily'); });
     const share = document.getElementById('btn-share');
     if (share) share.addEventListener('click', function (e) { e.stopPropagation(); downloadShareCard(); });
     const daily = document.getElementById('btn-daily');
