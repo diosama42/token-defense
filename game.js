@@ -2745,9 +2745,16 @@
         const ex = Math.abs(b.x - e.x);
         const ey = Math.abs(b.y - (e.y - e.h * 0.5));
         if (ex < e.w * 0.5 + b.r * 0.7 && ey < e.h * 0.5 + b.r * 0.7) {
-          if (b.sx != null) {
-            tracers.push({ x0: b.sx, y0: b.sy, x1: b.x, y1: b.y, life: 0.2, max: 0.2 });
-            if (tracers.length > 100) tracers.splice(0, tracers.length - 100);
+          if (game.siliconWar && b.sx != null) {
+            const tdx = b.x - b.sx;
+            const tdy = b.y - b.sy;
+            const tlen = Math.hypot(tdx, tdy) || 1;
+            const seg = Math.min(tlen, U(110));
+            tracers.push({
+              x0: b.x - tdx / tlen * seg, y0: b.y - tdy / tlen * seg,
+              x1: b.x, y1: b.y, life: 0.14, max: 0.14
+            });
+            if (tracers.length > 80) tracers.splice(0, tracers.length - 80);
           }
           let dmg = b.dmg;
           if (player.critChance > 0 && Math.random() < player.critChance) {
@@ -4713,10 +4720,10 @@
       /* 拖尾：让弹幕飞行轨迹看得见 */
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = 'rgba(170,240,255,0.35)';
-      ctx.lineWidth = Math.max(1.5, U(2.5));
+      ctx.strokeStyle = 'rgba(170,240,255,0.3)';
+      ctx.lineWidth = Math.max(1.5, U(2));
       ctx.beginPath();
-      ctx.moveTo(b.x - (b.vx || 0) * 0.035, b.y - (b.vy || 0) * 0.035);
+      ctx.moveTo(b.x - (b.vx || 0) * 0.018, b.y - (b.vy || 0) * 0.018);
       ctx.lineTo(b.x, b.y);
       ctx.stroke();
       ctx.restore();
