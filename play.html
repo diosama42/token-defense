@@ -6456,7 +6456,7 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
       x: x, y: groundY,
       vx: -side * speed, vy: 0, kx: 0,
       w: w, h: h,
-      hp: hp * (game.enemyHpMul || 1) * diffCfg().hp * (game.roomElite ? 2.8 : 1), maxHp: hp * (game.enemyHpMul || 1) * diffCfg().hp * (game.roomElite ? 2.8 : 1),
+      hp: hp * (game.enemyHpMul || 1) * diffCfg().hp * (game.roomElite ? 3.6 : 1), maxHp: hp * (game.enemyHpMul || 1) * diffCfg().hp * (game.roomElite ? 3.6 : 1),
       hurt: 0, t: rand(0, 6), fireT: rand(0.8, 1.8), face: -side,
       stun: 0, dead: false, isBoss: false,
       homeX: side > 0 ? W * rand(0.62, 0.88) : W * rand(0.12, 0.38)
@@ -8548,23 +8548,70 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
     const p = near;
     game.portalPick = false;
     updateEnterBtn();
+    if (p.eliteGate) { game.eliteFixed = true; startRoom('elite'); return; }
     if (p.type === 'shop') { openRoomShop(); return; }
     if (p.type === 'event') { showEventRoom(); return; }
     startRoom(p.type);
   }
 
+  function showEliteGate() {
+    roomHideAll();
+    document.body.classList.remove('is-room', 'is-cutscene');
+    document.body.classList.add('is-playing');
+    game.state = 'play';
+    game.roomActive = false;
+    game.portalPick = true;
+    game.portalT = 0;
+    enemies = [];
+    ebullets = [];
+    pbullets = [];
+    game.bossSpawned = false;
+    player.x = W * 0.18;
+    player.y = groundY;
+    player.vx = 0;
+    player.vy = 0;
+    player.onGround = true;
+    game.portals = [{
+      type: 'elite', title: 'Boss 前哨 · 精英战', glyph: '剑', sprite: 'portal_elite',
+      color: '255,90,120', x: W * 0.5, t: rand(0, 6), eliteGate: true
+    }];
+    addText(W * 0.5, H * 0.3, 'Boss 前哨 · 这一关固定是精英战', '255,120,150', 20);
+    addText(W * 0.5, H * 0.36, '走到传送门前，按 ' + keyName(keyOf('enter')) + ' 进入', '150,220,255', 17);
+    updateEnterBtn();
+    sfx(300, 0.2, 'sawtooth', 0.05);
+  }
+
   function startRoom(type) {
     roomHideAll();
     document.body.classList.remove('is-room');
+    const fixedElite = type === 'elite' && game.eliteFixed;
     game.roomType = type;
     game.roomT = 0;
-    game.roomTarget = type === 'reward' ? (10 + game.stage * 1.5) : type === 'elite' ? (12 + game.stage) : (14 + game.stage * 2);
+    game.roomTarget = type === 'reward' ? (10 + game.stage * 1.5)
+      : type === 'elite' ? (fixedElite ? 22 + game.stage * 2 : 16 + game.stage * 1.5)
+      : (14 + game.stage * 2);
     game.roomElite = type === 'elite';
-    game.eliteDmgMul = type === 'elite' ? 1.35 : 1;
+    game.eliteDmgMul = type === 'elite' ? (fixedElite ? 1.8 : 1.5) : 1;
     game.roomStartScore = game.score;
     game.scoreMul = type === 'reward' ? 2 : 1;
     game.roomActive = true;
     beginStage(true);
+    if (fixedElite) {
+      spawnEnemy('laugh');
+      const guard = enemies[enemies.length - 1];
+      if (guard) {
+        guard.towerSkin = 'enemy_tower_elite';
+        guard.hp = guard.maxHp = Math.round(guard.maxHp * 6);
+        guard.w *= 1.35; guard.h *= 1.35;
+        guard.x = W * 0.78;
+        guard.eliteGuard = true;
+      }
+      addText(W * 0.5, H * 0.3, 'Boss 前哨 · 精英守卫', '255,90,120', 20);
+    } else if (type === 'elite') {
+      addText(W * 0.5, H * 0.3, '精英战 · 敌人强化！', '255,209,102', 20);
+    } else if (type === 'reward') {
+      addText(W * 0.5, H * 0.3, '奖励关卡 · 分数翻倍！', '255,209,102', 20);
+    }
     sfx(700, 0.14, 'triangle', 0.05);
   }
 
@@ -8577,7 +8624,7 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
       pbullets = [];
       enemies = [];
       game.nodeCount += 1;
-      if (game.nodeCount >= 2) startBossIntro();
+      if (game.nodeCount >= 4) startBossIntro();
       else startRoom('wave');
       return;
     }
@@ -8935,8 +8982,13 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
       e.stopPropagation();
       roomHideAll();
       document.body.classList.remove('is-room');
+      if (game.roomType === 'elite' && game.eliteFixed) {
+        game.eliteFixed = false;
+        showBossRest();
+        return;
+      }
       game.nodeCount += 1;
-      if (game.nodeCount >= 2) showBossRest();
+      if (game.nodeCount >= 3) showEliteGate();
       else showNodeSelect();
     });
   }
@@ -8948,6 +9000,7 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
     if (!combat) {
       game.nodeCount = 0;
       game.roomActive = false;
+      game.eliteFixed = false;
     }
     game.stageT = 0;
     game.scene = 'street';
@@ -15545,6 +15598,27 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
             spawnTowerFloor();
             player.invuln = 99;
             document.title = 'TOWERSHOT floor=5 enemies=' + enemies.length + ' skins=' + enemies.map(function (e) { return e.towerSkin || '-'; }).join(',');
+          }, 700);
+        } else if (sc === 'elitegate') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room', 'is-cutscene');
+            beginStage(true);
+            game.nodeCount = 3;
+            showEliteGate();
+            setTimeout(function () {
+              player.x = game.portals[0].x;
+              window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF', key: 'f', bubbles: true }));
+              setTimeout(function () {
+                document.title = 'ELITEGATE fixed=' + game.eliteFixed + ' type=' + game.roomType + ' target=' + Math.round(game.roomTarget) + ' enemies=' + enemies.length + ' guard=' + enemies.filter(function (e) { return e.eliteGuard; }).length + ' dmg=' + game.eliteDmgMul;
+              }, 900);
+            }, 500);
           }, 700);
         } else if (sc === 'timershot') {
           setTimeout(function () {
