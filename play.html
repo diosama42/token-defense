@@ -5765,15 +5765,18 @@ html.layout-edit .controls {
   }
 
   function ensurePlatforms() {
-    while (game.nextPlat < W + U(400)) {
-      const gap = rand(U(220), U(400));
-      const w = rand(U(110), U(200));
-      const lift = rand(U(110), U(230));
+    let n = platforms.length;
+    while (game.nextPlat < W + U(300)) {
+      const gap = rand(U(120), U(220));
+      const w = rand(U(90), U(170));
+      /* 两层台阶：低层好跳，高层需要二段跳 */
+      const lift = (n % 2 === 0) ? rand(U(105), U(165)) : rand(U(200), U(295));
       const x = game.nextPlat + gap;
       platforms.push({ x: x, w: w, lift: lift });
       game.nextPlat = x + w;
+      n += 1;
     }
-    if (platforms.length > 8) platforms.splice(0, platforms.length - 8);
+    if (platforms.length > 14) platforms.splice(0, platforms.length - 14);
   }
 
   /* =========================================================
@@ -7429,11 +7432,16 @@ html.layout-edit .controls {
     player.hp = Math.min(player.maxHp, player.hp + 30);
     player.token = Math.max(player.token, 60);
 
-    if (game.stage === 1 && platforms.length === 0) {
-      platforms.push({ x: W * 0.16, w: U(200), lift: U(200) });
-      platforms.push({ x: W * 0.5, w: U(220), lift: U(150) });
-      platforms.push({ x: W * 0.78, w: U(180), lift: U(230) });
-      game.nextPlat = W + U(600);
+    if (game.stage === 1) {
+      platforms.length = 0;
+      const rows = [
+        [0.08, 0.18, 115], [0.24, 0.16, 205], [0.40, 0.20, 135],
+        [0.56, 0.15, 235], [0.68, 0.18, 150], [0.84, 0.14, 210]
+      ];
+      rows.forEach(function (r) {
+        platforms.push({ x: W * r[0], w: W * r[1], lift: U(r[2]) });
+      });
+      game.nextPlat = W + U(400);
     }
 
     const startPlay = function () {
@@ -12521,6 +12529,18 @@ html.layout-edit .controls {
             game.paused = true;
             setTimeout(function () { document.title = 'WBS pb=' + pbullets.length + ' p0=' + (pbullets[0] ? Math.round(pbullets[0].x) + ',' + Math.round(pbullets[0].y) : '-'); }, 400);
           }, 400);
+        } else if (sc === 'platstage') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 1;
+            beginStage();
+            document.title = 'PLAT n=' + platforms.length + ' lifts=' + platforms.map(function (p) { return Math.round(p.lift / (window.innerHeight || 560)); }).join(',');
+          }, 700);
         } else if (sc === 'jump3') {
           setTimeout(function () {
             startGame();
