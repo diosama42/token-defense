@@ -2332,15 +2332,36 @@
       /* 强化版西装奶蛙：一阶段高密度黄色弹幕 → 半血捧腹大笑控场 → 弹幕变密 */
       if (e.hp < e.maxHp * 0.5 && !e.laughed) {
         e.laughed = true;
-        e.laughT = 10;
-        game.controlT = 10;
-        game.freezeT = 10;
-        game.shake = U(26);
-        game.flash = 0.55;
-        queueLaugh(3);
-        input.jumpQueued = false;
-        input.held.attack = false;
-        sfx(150, 0.9, 'sawtooth', 0.07);
+        e.laughWarn = 3;
+        e.laughWarnTick = 3;
+        game.controlT = 0;
+        game.freezeT = 0;
+        addText(W * 0.5, H * 0.26, '奶蛙深吸一口气…… 3', '255,209,102', 22);
+        sfx(320, 0.08, 'triangle', 0.03);
+      }
+
+      /* 3 秒蓄气：提示结束后才开始大笑并同步播放声音 */
+      if (e.laughWarn > 0) {
+        e.laughWarn -= d;
+        const left = Math.max(1, Math.ceil(e.laughWarn));
+        if (left !== e.laughWarnTick) {
+          e.laughWarnTick = left;
+          addText(W * 0.5, H * 0.26, '奶蛙深吸一口气…… ' + left, '255,209,102', 22);
+        }
+        if (e.laughWarn <= 0) {
+          e.laughT = 10;
+          game.controlT = 10;
+          game.freezeT = 10;
+          game.shake = U(26);
+          game.flash = 0.55;
+          playLaugh();
+          input.jumpQueued = false;
+          input.held.attack = false;
+          sfx(150, 0.9, 'sawtooth', 0.07);
+          addText(W * 0.5, H * 0.26, '呱哈哈哈哈哈！', '255,120,150', 26);
+        } else {
+          return;
+        }
       }
 
       if (e.laughT > 0) {
