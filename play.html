@@ -10385,35 +10385,36 @@ html.layout-edit .controls {
 
   /* 隐藏决战：四轮车轮战 + 最终强化形态 */
   const WAR_ROUNDS = [
-    { ai: 'grok', name: 'Grok 娘',
-      win: '哼，本尊亲自上阵都能输？……行吧，下一轮，让 ChatGPT 陪你玩。',
-      lose: '连本尊都打不过，还敢自称大学生？回去补课吧。' },
-    { ai: 'chatgpt', name: 'ChatGPT 娘',
-      win: '我的图像生成居然没糊住你……Gemini，交给你了。',
-      lose: '模板都写好了：大学生 · fail。' },
-    { ai: 'gemini', name: 'Gemini 娘',
-      win: '多模态都被你看穿了？Claude，最后靠你了。',
-      lose: '下次记得带够多模态，再来。' },
-    { ai: 'claude', name: 'Claude 娘',
-      win: '逻辑上我该赢的……算了，四个一起上吧。',
+    { ceo: 'musk', ai: 'grok', name: '埃隆·马斯克',
+      win: 'Grok 都跟着我上了还输？……行吧，下一轮，奥尔特曼你来。',
+      lose: '连 Grok 都打不过，还敢闯硅谷？回去补课吧。' },
+    { ceo: 'altman', ai: 'chatgpt', name: '萨姆·奥尔特曼',
+      win: 'GPT 都没拦住你？……皮查伊，Gemini 交给你们了。',
+      lose: '终归只是个大学生。去把 Transformer 学明白再来。' },
+    { ceo: 'pichai', ai: 'gemini', name: '桑达尔·皮查伊',
+      win: 'Google 这次慢了半拍。阿莫迪，Claude 最后靠你们。',
+      lose: '下次记得带够算力，再来敲这扇门。' },
+    { ceo: 'dario', ai: 'claude', name: '达里奥·阿莫迪',
+      win: '逻辑上我该赢的……算了，四个模型一起上。',
       lose: '你的论证不成立：菜，就是菜。' }
   ];
 
   function spawnWarPair(idx) {
     const r = WAR_ROUNDS[idx];
     if (!r) return;
-    const hpBase = 1500 + idx * 350;
-    spawnSpecialBoss(r.ai, W * 0.64, hpBase, U(70), U(140));
+    const hpBase = 1200 + idx * 250;
+    spawnSpecialBoss(r.ceo, W * 0.34, hpBase, U(54), U(100));
+    spawnSpecialBoss(r.ai, W * 0.66, hpBase + 100, U(64), U(132));
     game.warRound = idx;
     game.warPhase = 'pair';
     game.warTransition = false;
-    game.warDmgMul = 0.85 + idx * 0.12;
+    game.warDmgMul = 0.9 + idx * 0.1;
     enemies.forEach(function (e2) {
       e2.fireT = 1.5 + Math.random() * 0.4;
       e2.skillT = 4 + Math.random() * 2;
     });
     player.invuln = Math.max(player.invuln, 1.6);
-    addText(W * 0.5, H * 0.22, '车轮战 · 第 ' + (idx + 1) + ' / 4 轮 · ' + r.name, '255,209,102', 22);
+    addText(W * 0.5, H * 0.22, '车轮战 · 第 ' + (idx + 1) + ' / 4 轮 · ' + r.name + ' & ' + r.ai, '255,209,102', 22);
   }
 
   function startWarFinalPhase() {
@@ -10566,7 +10567,7 @@ html.layout-edit .controls {
       game.state = 'dialog';
       document.body.classList.add('is-cutscene');
       showDialog([
-        { name: lr ? lr.name : '对手', portrait: lr ? lr.ai : 'grok', fx: 'shake', text: lr ? lr.lose : '不过如此。' },
+        { name: lr ? lr.name : '对手', portrait: lr ? lr.ceo : 'musk', fx: 'shake', text: lr ? lr.lose : '不过如此。' },
         { name: '文心一言', portrait: 'wenxin', text: '……这一轮，是我们输了。' }
       ], function () {
         document.body.classList.remove('is-cutscene');
@@ -10736,7 +10737,7 @@ html.layout-edit .controls {
       game.state = 'dialog';
       document.body.classList.add('is-cutscene');
       showDialog([
-        { name: rr ? rr.name : '对手', portrait: rr ? rr.ai : 'grok', fx: 'shake', text: rr ? rr.win : '……' },
+        { name: rr ? rr.name : '对手', portrait: rr ? rr.ceo : 'musk', fx: 'shake', text: rr ? rr.win : '……' },
         { name: '文心一言', portrait: 'wenxin', text: idx < 3 ? '撑过一轮。下一对，已经在前面等你了。' : '四轮都撑过去了——他们要一起上了。' }
       ], function () {
         document.body.classList.remove('is-cutscene');
