@@ -782,7 +782,7 @@
   /* ---------- 存档（版本化 + 旧键迁移） ---------- */
   const SAVE_KEY = 'tb_save_v2';
   const SAVE = (function () {
-    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false, btnStyle: 'ring', platform: null, assist: false, lastHero: 0, introDone: false, scores: [], daily: null, btnScale: 1, heroUnlocks: null, foreignLocked: false, cycle: 1 };
+    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false, btnStyle: 'ring', platform: null, assist: false, lastHero: 0, introDone: false, scores: [], daily: null, btnScale: 1, heroUnlocks: null, foreignLocked: false, cycle: 1, assistDodge: false };
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
@@ -2064,8 +2064,8 @@
   function freePart(p) { if (partPool.length < 900) partPool.push(p); }
 
   function spawnSparks(x, y, color, n) {
-    if (parts.length > 160) return;
-    if (game.lowFx) n = Math.max(1, Math.round(n * 0.4));
+    if (parts.length > (game.lowFx ? 90 : 160)) return;
+    if (game.lowFx) n = Math.max(1, Math.round(n * 0.25));
     for (let i = 0; i < n; i++) {
       const a = rand(0, TAU);
       const sp = rand(U(50), U(320));
@@ -2084,7 +2084,7 @@
   }
 
   function spawnExplosion(x, y, color) {
-    const count = game.lowFx ? 12 : 22;
+    const count = game.lowFx ? 8 : 22;
     for (let i = 0; i < count; i++) {
       const a = rand(0, TAU);
       const sp = rand(U(60), U(420));
@@ -2361,6 +2361,16 @@
 
     p.attackCd = Math.max(0, p.attackCd - d);
     game.heartT = Math.max(0, (game.heartT || 0) - dt);
+    if (SAVE.assistDodge && p.dashCd <= 0 && p.stun <= 0 && !p.dead) {
+      for (const b of ebullets) {
+        const dx = b.x - p.x;
+        const dy = b.y - (p.y - U(56));
+        if (dx * dx + dy * dy < U(95) * U(95)) {
+          const toward = (b.vx || 0) * dx + (b.vy || 0) * dy;
+          if (toward < 0) { p.dashReq = true; break; }
+        }
+      }
+    }
     if (p.hp > 0 && p.hp / p.maxHp <= 0.3 && game.heartT <= 0) {
       game.heartT = 0.9;
       sfx(58, 0.12, 'sine', 0.05);
@@ -9324,6 +9334,7 @@
   const setLowEl = document.getElementById('set-lowfx');
   const setReduceEl = document.getElementById('set-reducefx');
   const setAssistEl = document.getElementById('set-assist');
+  const setAssistDodgeEl = document.getElementById('set-assistdodge');
 
   function syncSettings() {
     const v = Math.round((SAVE.vol === undefined ? 0.8 : SAVE.vol) * 100);
@@ -9343,6 +9354,7 @@
     if (setLowEl) setLowEl.checked = !!SAVE.lowFxSet;
     if (setReduceEl) setReduceEl.checked = !!SAVE.reduceFx;
     if (setAssistEl) setAssistEl.checked = !!SAVE.assist;
+    if (setAssistDodgeEl) setAssistDodgeEl.checked = !!SAVE.assistDodge;
   }
 
   const pauseEl = document.getElementById('pause');
@@ -9579,6 +9591,11 @@
   if (setAssistEl) {
     setAssistEl.addEventListener('change', function () {
       saveSet('assist', !!setAssistEl.checked);
+    });
+  }
+  if (setAssistDodgeEl) {
+    setAssistDodgeEl.addEventListener('change', function () {
+      saveSet('assistDodge', !!setAssistDodgeEl.checked);
     });
   }
 
@@ -11416,6 +11433,25 @@
               document.title = 'NEWBOSS stages=' + STAGES.length + ' boss=' + (enemies[0] || {}).kind + ' hp=' + Math.round((enemies[0] || {}).hp || 0) + ' eb=' + ebullets.length + ' boss2=' + STAGES[2].boss;
             }, 3000);
           }, 700);
+        } else if (sc === 'assisttest') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room', 'is-cutscene');
+            beginStage(true);
+            SAVE.assist = true;
+            SAVE.assistDodge = true;
+            player.invuln = 0;
+            ebullets.push({ x: player.x + U(70), y: player.y - U(56), vx: -U(300), vy: 0, r: U(8), color: '255,92,138', life: 5, dmg: 8 });
+            setTimeout(function () {
+              document.title = 'ASSIST eb=' + ebullets.length + ' req=' + !!player.dashReq + ' dashCd=' + player.dashCd.toFixed(2) + ' dashT=' + (player.dashT || 0).toFixed(2) + ' inv=' + player.invuln.toFixed(1) + ' assist=' + SAVE.assistDodge;
+            }, 200);
+          }, 700);
         } else if (sc === 'bgmtest') {
           setTimeout(function () {
             startGame(true);
@@ -12268,8 +12304,14 @@
     if (mob) mob.addEventListener('click', function (e) { e.stopPropagation(); choosePlatform('mobile'); });
     const on = document.getElementById('assist-on');
     if (on) on.addEventListener('click', function (e) { e.stopPropagation(); finishMobileSetup(true); });
+    const plus = document.getElementById('assist-plus');
+    if (plus) plus.addEventListener('click', function (e) {
+      e.stopPropagation();
+      SAVE.assistDodge = true;
+      finishMobileSetup(true);
+    });
     const off = document.getElementById('assist-off');
-    if (off) off.addEventListener('click', function (e) { e.stopPropagation(); finishMobileSetup(false); });
+    if (off) off.addEventListener('click', function (e) { e.stopPropagation(); SAVE.assistDodge = false; finishMobileSetup(false); });
   })();
 
   (function bindPortalEnter() {

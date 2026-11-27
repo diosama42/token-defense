@@ -394,6 +394,7 @@
       <p class="rooms__sub">文心一言：「嫌设置太麻烦？我专门给你做了辅助模式。」</p>
       <div class="rooms__grid">
         <button class="rooms__card rooms__card--main" id="assist-on" type="button"><b>辅助模式</b><span>平A 自动释放，你只需要点技能和躲避弹幕攻击</span></button>
+        <button class="rooms__card" id="assist-plus" type="button"><b>辅助模式＋</b><span>自动平A + 自动闪避，你只管技能和大招</span></button>
         <button class="rooms__card" id="assist-off" type="button"><b>正常操作</b><span>平A、技能、闪避全部手动</span></button>
       </div>
     </div>
@@ -500,6 +501,10 @@
       <label class="settings__row">
         <span>辅助模式（自动平A）</span>
         <input id="set-assist" type="checkbox" />
+      </label>
+      <label class="settings__row">
+        <span>辅助闪避（自动躲弹）</span>
+        <input id="set-assistdodge" type="checkbox" />
       </label>
       <p class="settings__tip">低配模式会减少粒子与弹幕数量，老旧手机更流畅。</p>
       <button class="settings__close" id="set-close" type="button">完成</button>
