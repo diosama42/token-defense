@@ -1562,9 +1562,9 @@
     });
   }
 
-  function fireRing(x, y, n, off, spd, color) {
+  function fireRing(x, y, n, off, spd, color, dmg) {
     for (let i = 0; i < n; i++) {
-      ebullet(x, y, off + (i / n) * TAU, spd, color, U(9));
+      ebullet(x, y, off + (i / n) * TAU, spd, color, U(9), null, dmg);
     }
   }
 
@@ -5475,6 +5475,16 @@
     cineTimer = setTimeout(cineNext, s.dur || 2800);
   }
 
+  function cineRichText(t) {
+    const esc = String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return esc
+      .replace(/\[c=#([0-9a-fA-F]{3,8})\]/g, '<span style="color:#$1">')
+      .replace(/\[\/c\]/g, '</span>')
+      .replace(/\[w=\d+\]/g, '')
+      .replace(/\[shake\]|\[\/shake\]/g, '')
+      .replace(/\[b\]|\[\/b\]/g, '');
+  }
+
   function renderCineShot(s) {
     let html = '';
     if (s.bg) html += '<div class="cine__bg cine__bg--' + s.bg + '"></div>';
@@ -5493,7 +5503,7 @@
     });
     cineStageEl.innerHTML = html;
     cineSubEl.className = 'cine__sub' + (s.title ? ' cine__sub--title' : '');
-    cineSubEl.textContent = s.text || '';
+    cineSubEl.innerHTML = cineRichText(s.text || '');
     try { unlockCg(s); } catch (err) { /* ignore */ }
 
     cineSubEl.style.animation = 'none';
@@ -6324,39 +6334,41 @@
 
   /* 隐藏决战：四轮车轮战 + 最终强化形态 */
   const WAR_ROUNDS = [
-    { ceo: 'altman', ai: 'chatgpt',
-      win: '可恶……不是说脆皮大学生吗？我居然会输。Gemini，交给你们了！',
-      lose: '终归只是个大学生。去把 Transformer 学明白，再来挑战我们。' },
-    { ceo: 'pichai', ai: 'gemini',
-      win: 'Google 不会缺席……但这一轮，是你们赢了。Claude，轮到你们了。',
-      lose: '下次记得带够算力，再来敲这扇门。' },
-    { ceo: 'dario', ai: 'claude',
-      win: '开源……居然真的能赢。Grok，看你的了。',
-      lose: '开源救不了你的期末作业。' },
-    { ceo: 'musk', ai: 'grok',
-      win: '我在火星待太久了……最后，四个模型一起上！',
-      lose: '回火星之前，我记住你了。' }
+    { ai: 'grok', name: 'Grok 娘',
+      win: '哼，本尊亲自上阵都能输？……行吧，下一轮，让 ChatGPT 陪你玩。',
+      lose: '连本尊都打不过，还敢自称大学生？回去补课吧。' },
+    { ai: 'chatgpt', name: 'ChatGPT 娘',
+      win: '我的图像生成居然没糊住你……Gemini，交给你了。',
+      lose: '模板都写好了：大学生 · fail。' },
+    { ai: 'gemini', name: 'Gemini 娘',
+      win: '多模态都被你看穿了？Claude，最后靠你了。',
+      lose: '下次记得带够多模态，再来。' },
+    { ai: 'claude', name: 'Claude 娘',
+      win: '逻辑上我该赢的……算了，四个一起上吧。',
+      lose: '你的论证不成立：菜，就是菜。' }
   ];
 
   function spawnWarPair(idx) {
     const r = WAR_ROUNDS[idx];
     if (!r) return;
-    const hpBase = 1500 + idx * 300;
-    spawnSpecialBoss(r.ceo, W * 0.36, hpBase, U(54), U(100));
-    spawnSpecialBoss(r.ai, W * 0.68, hpBase + 80, U(60), U(124));
+    const hpBase = 1500 + idx * 350;
+    spawnSpecialBoss(r.ai, W * 0.64, hpBase, U(70), U(140));
     game.warRound = idx;
     game.warPhase = 'pair';
     game.warTransition = false;
-    game.warDmgMul = 1 + idx * 0.18;
-    enemies.forEach(function (e2) { e2.fireT = 1.5 + Math.random() * 0.4; });
+    game.warDmgMul = 0.85 + idx * 0.12;
+    enemies.forEach(function (e2) {
+      e2.fireT = 1.5 + Math.random() * 0.4;
+      e2.skillT = 4 + Math.random() * 2;
+    });
     player.invuln = Math.max(player.invuln, 1.6);
-    addText(W * 0.5, H * 0.22, '车轮战 · 第 ' + (idx + 1) + ' / 4 轮', '255,209,102', 22);
+    addText(W * 0.5, H * 0.22, '车轮战 · 第 ' + (idx + 1) + ' / 4 轮 · ' + r.name, '255,209,102', 22);
   }
 
   function startWarFinalPhase() {
     game.warPhase = 'final';
     game.warRound = 4;
-    game.warDmgMul = 2.0;
+    game.warDmgMul = 1.4;
     const conf = [
       { kind: 'chatgpt', x: 0.2 },
       { kind: 'claude', x: 0.4 },
@@ -6368,6 +6380,7 @@
     });
     enemies.forEach(function (e2) {
       e2.fireT = 1.2 + Math.random() * 0.4;
+      e2.skillT = 2.5 + Math.random() * 2;
       e2.enhanced = true;
       e2.hp = e2.maxHp = Math.round(e2.maxHp * 1.25);
     });
@@ -6502,7 +6515,7 @@
       game.state = 'dialog';
       document.body.classList.add('is-cutscene');
       showDialog([
-        { name: '对手', portrait: lr ? lr.ceo : 'altman', fx: 'shake', text: lr ? lr.lose : '不过如此。' },
+        { name: lr ? lr.name : '对手', portrait: lr ? lr.ai : 'grok', fx: 'shake', text: lr ? lr.lose : '不过如此。' },
         { name: '文心一言', portrait: 'wenxin', text: '……这一轮，是我们输了。' }
       ], function () {
         document.body.classList.remove('is-cutscene');
@@ -6672,7 +6685,7 @@
       game.state = 'dialog';
       document.body.classList.add('is-cutscene');
       showDialog([
-        { name: '对手', portrait: rr ? rr.ceo : 'altman', fx: 'shake', text: rr ? rr.win : '……' },
+        { name: rr ? rr.name : '对手', portrait: rr ? rr.ai : 'grok', fx: 'shake', text: rr ? rr.win : '……' },
         { name: '文心一言', portrait: 'wenxin', text: idx < 3 ? '撑过一轮。下一对，已经在前面等你了。' : '四轮都撑过去了——他们要一起上了。' }
       ], function () {
         document.body.classList.remove('is-cutscene');
@@ -6696,6 +6709,14 @@
       const speed = e.kind === 'musk' ? 1.3 : (e.kind === 'grok' ? 0.9 : 0.55 + idx * 0.06);
       e.x = lerp(e.x, e.homeX + Math.sin(e.t * speed + idx) * U(26), 1 - Math.pow(0.02, dt));
       e.x = clamp(e.x, U(64), W - U(96));
+      if (e.warDashT > 0) {
+        e.warDashT -= dt;
+        e.x = clamp(e.x + e.warDashDir * U(950) * dt, U(64), W - U(96));
+        if (!e.warDashHit && Math.abs(e.x - player.x) < U(48) && Math.abs((e.y - e.h * 0.5) - (player.y - U(60))) < U(80)) {
+          e.warDashHit = true;
+          damagePlayer(7, e.warDashDir);
+        }
+      }
       e.fireT -= dt;
       idx += 1;
       if (e.heavyT === undefined) e.heavyT = 5.5 + Math.random() * 3;
@@ -6703,6 +6724,31 @@
       const mx = e.x;
       const my = e.y - e.h * 0.55;
       const a = Math.atan2((player.y - U(64)) - my, player.x - mx);
+
+      e.skillT = (e.skillT === undefined ? 5 : e.skillT) - dt;
+      if (e.skillT <= 0 && !(e.heavyCharge > 0)) {
+        e.skillT = (game.warPhase === 'final' ? 4.2 : 6.5) + Math.random() * 2.2;
+        if (e.kind === 'grok') {
+          e.warDashT = 0.42;
+          e.warDashDir = player.x < e.x ? -1 : 1;
+          e.warDashHit = false;
+          warnAt(player.x, groundY, U(80), 0.45, '255,120,150');
+          addText(e.x, e.y - e.h - U(16), 'Grok：检索突进！', '255,180,92', 15);
+        } else if (e.kind === 'chatgpt') {
+          for (let i = 0; i < 6; i++) {
+            ebullet(rand(W * 0.15, W * 0.85), -U(24), Math.PI / 2, U(250), '255,150,190', U(14), '图像', 5);
+          }
+          addText(W * 0.5, H * 0.24, 'ChatGPT：生成图像雨！', '255,150,190', 15);
+        } else if (e.kind === 'gemini') {
+          fireRing(e.x, e.y - e.h * 0.55, 10, e.t, U(165), '167,139,250', 5);
+          addText(W * 0.5, H * 0.24, 'Gemini：多模态环切！', '167,139,250', 15);
+        } else {
+          for (let k = -1; k <= 1; k++) {
+            ebullet(mx, my, a + k * 0.1, U(360), '94,231,255', U(11), '代码', 6);
+          }
+          addText(W * 0.5, H * 0.24, 'Claude：改写你的血条！', '94,231,255', 15);
+        }
+      }
 
       if (e.heavyCharge > 0) {
         e.heavyCharge -= dt;
@@ -7078,8 +7124,15 @@
     addText(W * 0.5, H * 0.35, '梁圣：算力，续上。', '255,209,102', 16);
     game.state = 'dialog';
     document.body.classList.add('is-cutscene');
+    const sacLines = [
+      '别磨蹭了，我的 Token 和算力，都给你。',
+      '我们剩下的算力不多了……省着点用。',
+      '这是最后一份了。别再倒下，替我们打下去。',
+      '……拿去吧。别让我们的 Token 白费。'
+    ];
+    const lineText = sacLines[Math.min(sacLines.length - 1, Math.max(0, 4 - allies.length - 1))];
     showDialog([
-      { name: name, portrait: ally ? ally.key : null, fx: 'zoom', text: '[c=#8fe8ff]我的 Token 和算力，都给你。[/c][w=240]……替我打完。' },
+      { name: name, portrait: ally ? ally.key : null, fx: 'zoom', text: '[c=#8fe8ff]' + lineText + '[/c][w=240]……替我打完。' },
       { name: '梁圣', portrait: 'liang_sheng', text: '算力续上了。[w=220]伤害 +12%，受到的伤害 -8%。' }
     ], function () {
       game.state = 'play';
@@ -8481,6 +8534,25 @@
             }
             game.paused = true;
             setTimeout(function () { document.title = 'WBS pb=' + pbullets.length + ' p0=' + (pbullets[0] ? Math.round(pbullets[0].x) + ',' + Math.round(pbullets[0].y) : '-'); }, 400);
+          }, 400);
+        } else if (sc === 'cinetext') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            startSiliconWar(6);
+            game.warPhase = 'final';
+            game.warRound = 4;
+            enemies = [];
+            finishSiliconWar(true);
+            setTimeout(function () {
+              const sub = document.getElementById('cine-sub');
+              const txt = sub ? sub.textContent : '-';
+              const html = sub ? sub.innerHTML : '-';
+              document.title = 'CINE hasTag=' + (txt.indexOf('[c=') >= 0) + ' text=' + txt.slice(0, 60) + ' | span=' + (html.indexOf('<span') >= 0);
+            }, 900);
           }, 400);
         } else if (sc === 'platstage') {
           setTimeout(function () {
