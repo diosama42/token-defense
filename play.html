@@ -6037,7 +6037,8 @@ html.layout-edit .controls {
           sfx(420, 0.1, 'sine', 0.03);
           jumped = true;
         } else if (p.jumps < (p.maxJumps || 2)) {
-          p.vy = -U(960); p.jumps = 2;
+          p.vy = -U(960);
+          p.jumps = Math.min(p.maxJumps || 2, p.jumps + 1);
           rings.push({ x: p.x, y: p.y - U(30), r0: U(4), r1: U(60), w: U(3), life: 0.28, max: 0.28, color: '150,244,255' });
           sfx(520, 0.09, 'sine', 0.03);
           jumped = true;
@@ -12520,6 +12521,29 @@ html.layout-edit .controls {
             game.paused = true;
             setTimeout(function () { document.title = 'WBS pb=' + pbullets.length + ' p0=' + (pbullets[0] ? Math.round(pbullets[0].x) + ',' + Math.round(pbullets[0].y) : '-'); }, 400);
           }, 400);
+        } else if (sc === 'jump3') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            player.maxJumps = 3;
+            player.jumps = 0;
+            player.onGround = true;
+            player.invuln = 99;
+            input.jumpQueued = true;
+            let n = 0, presses = 0;
+            const tick = function () {
+              n++;
+              if (n === 2) { input.jumpQueued = true; presses++; }
+              if (n > 2 && n % 2 === 0 && !player.onGround) { input.jumpQueued = true; presses++; }
+              if (n < 40) setTimeout(tick, 100);
+              else document.title = 'JUMP3 presses=' + presses + ' jumps=' + player.jumps + ' onGround=' + player.onGround + ' y=' + Math.round(player.y);
+            };
+            tick();
+          }, 500);
         } else if (sc === 'hinttest') {
           setTimeout(function () {
             KEYMAP.attack = 'KeyF';
