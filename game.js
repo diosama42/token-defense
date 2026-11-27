@@ -50,7 +50,9 @@
   const SPR = Object.create(null);
   const SPRITE_LIST = [
     'hero_purple2', 'hero_bluemaid', 'hero_orange', 'hero_catpurple', 'hero_catmaid',
-    'grok', 'seed', 'wenxin', 'doubao_winter',
+    'grok', 'seed', 'wenxin', 'doubao_winter', 'doubao',
+    'hero_purple2_full', 'hero_bluemaid_full', 'hero_orange_full', 'hero_catpurple_full',
+    'hero_catmaid_full', 'qwen_full', 'kimi_full', 'grok_full', 'doubao_winter_full', 'doubao_full',
     'enemy_blob', 'enemy_doubao', 'enemy_elite', 'enemy_nail_boss', 'laugh_frog',
     'altman', 'dario', 'qwen', 'kimi', 'musk', 'pichai'
   ];
@@ -150,42 +152,42 @@
   /* 四大主控 AI 娘（按最终设定：ChatGPT=白色龙娘，GLM=黑猫，紫发猫娘=Gemini） */
   const HEROES = [
     {
-      key: 'hero_purple2', name: 'ChatGPT 娘', badge: 'C',
+      key: 'hero_purple2', name: 'ChatGPT 娘', badge: 'C', fullKey: 'hero_purple2_full',
       color: '210,220,255', textColors: ['#e6ecff', '#ffffff', '#b6c8ff'],
       skill: '狂暴 Astra', ult: '图像生成'
     },
     {
-      key: 'hero_bluemaid', name: 'DeepSeek 娘', badge: 'D',
+      key: 'hero_bluemaid', name: 'DeepSeek 娘', badge: 'D', fullKey: 'hero_bluemaid_full',
       color: '94,231,255', textColors: ['#8fe8ff', '#dffbff', '#4fc4ff'],
       skill: '思维链', ult: '开源'
     },
     {
-      key: 'hero_orange', name: 'Claude 娘', badge: 'K',
+      key: 'hero_orange', name: 'Claude 娘', badge: 'K', fullKey: 'hero_orange_full',
       color: '255,180,92', textColors: ['#ffc27a', '#fff0d6', '#ff9a4d'],
       skill: '最强代码', ult: '黎曼猜想'
     },
     {
-      key: 'hero_catpurple', name: 'Gemini 娘', badge: 'G',
+      key: 'hero_catpurple', name: 'Gemini 娘', badge: 'G', fullKey: 'hero_catpurple_full',
       color: '167,139,250', textColors: ['#a9d4ff', '#ff9db8', '#ffe08a'],
       skill: '文学家', ult: '反超'
     },
     {
-      key: 'qwen', name: 'Qwen 娘', badge: 'Q',
+      key: 'qwen', name: 'Qwen 娘', badge: 'Q', fullKey: 'qwen_full',
       color: '120,190,255', textColors: ['#a8d8ff', '#e8f4ff', '#7fc0ff'],
       skill: '千问·多模态', ult: '通义万相'
     },
     {
-      key: 'kimi', name: 'Kimi 娘', badge: 'K',
+      key: 'kimi', name: 'Kimi 娘', badge: 'K', fullKey: 'kimi_full',
       color: '200,220,255', textColors: ['#e6e9ff', '#ffffff', '#b8c8ff'],
       skill: '长文本·记忆', ult: '超长上下文'
     },
     {
-      key: 'hero_catmaid', name: 'GLM 娘', badge: 'G',
+      key: 'hero_catmaid', name: 'GLM 娘', badge: 'G', fullKey: 'hero_catmaid_full',
       color: '167,139,250', textColors: ['#c9b8ff', '#efe8ff', '#9b7dff'],
       skill: '代码生成', ult: '深度睡眠'
     },
     {
-      key: 'grok', name: 'Grok 娘', badge: 'X', unlock: 'grokUnlocked',
+      key: 'grok', name: 'Grok 娘', badge: 'X', unlock: 'grokUnlocked', fullKey: 'grok_full',
       color: '255,180,92', textColors: ['#ffd199', '#fff3e0', '#ffab5e'],
       skill: '检索突进', ult: '真相引擎'
     },
@@ -195,9 +197,14 @@
       skill: 'seedance', ult: '数据倾倒'
     },
     {
-      key: 'doubao_winter', name: '冬装豆包', badge: '豆',
+      key: 'doubao_winter', name: '冬装豆包', badge: '豆', fullKey: 'doubao_winter_full',
       color: '150,220,255', textColors: ['#a8d8ff', '#e8f4ff', '#9fd0ff'],
       skill: '视频生成', ult: '数据暴走'
+    },
+    {
+      key: 'doubao', name: '豆包（豆奶）', badge: '豆',
+      color: '255,209,102', textColors: ['#ffe3a0', '#fff6d8', '#ffc247'],
+      skill: '豆奶冲撞', ult: '视频生成'
     }
   ];
 
@@ -557,7 +564,7 @@
     { id: 'endhidden', name: '隐藏结局', desc: '解锁隐藏结局', icon: 'H', cond: function (s) { return !!s.endHidden; } },
     { id: 'easter', name: '算力，你收好', desc: '触发黄仁勋彩蛋', icon: '黄', cond: function (s) { return !!s.easter; } },
     { id: 'frog', name: '奶蛙之友', desc: '选择相信奶蛙', icon: '呱', cond: function (s) { return !!s.frog; } },
-    { id: 'heroes', name: '全员体验', desc: '使用过全部 10 位可操作角色', icon: '10', cond: function (s) { return Object.keys(s.heroes || {}).length >= 10; } },
+    { id: 'heroes', name: '全员体验', desc: '使用过全部 11 位可操作角色', icon: '11', cond: function (s) { return Object.keys(s.heroes || {}).length >= 11; } },
     { id: 'war', name: '车轮战胜利', desc: '在隐藏决战中获胜', icon: 'W', cond: function (s) { return s.warWins >= 1; } },
     { id: 'sacrifice', name: '不要磨蹭了', desc: '触发一次队友献祭复活', icon: '†', cond: function (s) { return s.sacrifices >= 1; } }
   ];
@@ -1360,7 +1367,7 @@
       }
       rings.push({ x: p.x + p.face * U(30), y: p.y - U(60), r0: U(8), r1: U(150), w: U(4), life: 0.42, max: 0.42, color: '150,220,255' });
       sfx(500, 0.16, 'triangle', 0.05);
-    } else {
+    } else if (heroIndex === 9) {
       /* 冬装豆包：视频生成，冰晶分镜四散 */
       addText(p.x, p.y - U(130), '视频生成 · 分镜乱切', '150,220,255', 20);
       for (let i = 0; i < 10; i++) {
@@ -1372,6 +1379,16 @@
       }
       rings.push({ x: p.x, y: p.y - U(54), r0: U(10), r1: U(180), w: U(5), life: 0.45, max: 0.45, color: '150,220,255' });
       sfx(460, 0.2, 'triangle', 0.05);
+    } else {
+      /* 豆包（豆奶）：豆奶冲撞 */
+      p.vx = p.face * U(1050);
+      p.invuln = Math.max(p.invuln, 0.45);
+      addText(p.x, p.y - U(130), '豆奶冲撞！', '255,209,102', 20);
+      for (let i = 0; i < 3; i++) {
+        tokenBullet(p.x, p.y - U(56), p.face * U(760), (i - 1) * U(160), 9 * heroDmg(), false, '#ffe3a0');
+      }
+      rings.push({ x: p.x, y: p.y - U(50), r0: U(8), r1: U(130), w: U(5), life: 0.4, max: 0.4, color: '255,209,102' });
+      sfx(520, 0.18, 'triangle', 0.05);
     }
   }
 
@@ -1471,7 +1488,7 @@
       }
       addText(W * 0.5, H * 0.3, '【数据倾倒】整屏都是数据流', '150,220,255', 26);
       sfx(180, 0.6, 'square', 0.06);
-    } else {
+    } else if (heroIndex === 9) {
       /* 冬装豆包：数据暴走，全屏雪崩 + 减速 */
       game.flash = 0.9;
       game.shake = U(18);
@@ -1485,6 +1502,15 @@
       }
       addText(W * 0.5, H * 0.3, '【数据暴走】整座城堡都在下雪', '150,220,255', 26);
       sfx(160, 0.65, 'sawtooth', 0.07);
+    } else {
+      /* 豆包（豆奶）：视频生成 */
+      game.flash = 0.8;
+      for (const e of enemies.slice()) hurtEnemy(e, 60 * heroDmg(), 0, 0, true);
+      for (let i = 0; i < 12; i++) {
+        tokenBullet(rand(W * 0.1, W * 0.9), -U(20) - i * U(18), 0, U(720), 12 * heroDmg(), true, '#ffe3a0');
+      }
+      addText(W * 0.5, H * 0.3, '【视频生成】满屏都是分镜', '255,209,102', 26);
+      sfx(240, 0.6, 'triangle', 0.06);
     }
   }
 
@@ -5031,17 +5057,18 @@
 
   /* ---------------- 敌人 ---------------- */
   function enemySprite(e) {
-    if (e.kind === 'grok') return SPR.grok;
+    const p2 = e.isBoss && e.maxHp > 0 && e.hp <= e.maxHp * 0.5;
+    if (e.kind === 'grok') return p2 && SPR.grok_full ? SPR.grok_full : SPR.grok;
     if (e.kind === 'seed') return SPR.seed;
-    if (e.kind === 'doubao_boss') return SPR.doubao_winter;
+    if (e.kind === 'doubao_boss') return p2 && SPR.doubao_winter_full ? SPR.doubao_winter_full : SPR.doubao_winter;
     if (e.kind === 'nail_boss') return SPR.enemy_nail_boss;
     if (e.kind === 'altman') return SPR.altman;
     if (e.kind === 'dario') return SPR.dario;
     if (e.kind === 'musk') return SPR.musk;
     if (e.kind === 'pichai') return SPR.pichai;
-    if (e.kind === 'chatgpt') return SPR.hero_purple2;
-    if (e.kind === 'gemini') return SPR.hero_catpurple;
-    if (e.kind === 'claude') return SPR.hero_orange;
+    if (e.kind === 'chatgpt') return p2 && SPR.hero_purple2_full ? SPR.hero_purple2_full : SPR.hero_purple2;
+    if (e.kind === 'gemini') return p2 && SPR.hero_catpurple_full ? SPR.hero_catpurple_full : SPR.hero_catpurple;
+    if (e.kind === 'claude') return p2 && SPR.hero_orange_full ? SPR.hero_orange_full : SPR.hero_orange;
     if (e.kind === 'doubao') return SPR.enemy_doubao;
     return SPR.enemy_blob;
   }
@@ -9785,6 +9812,42 @@
             startMode = 'fight';
             startGame();
           }, 120);
+        } else if (sc === 'warboss2') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            startSiliconWar(6);
+            player.hp = player.maxHp = 99999;
+            game.infinite = true;
+            setTimeout(function () {
+              enemies.forEach(function (e) { if (e.isBoss) e.hp = e.maxHp * 0.4; });
+              document.title = 'WARBOSS2 n=' + enemies.length;
+            }, 600);
+          }, 600);
+        } else if (sc === 'doubao10') {
+          setTimeout(function () {
+            heroIndex = 10;
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room');
+            beginStage(true);
+            player.invuln = 99;
+            doSkill();
+            doUlt();
+            setTimeout(function () {
+              const rp2 = document.getElementById('rooms'); if (rp2) rp2.classList.remove('show');
+              document.title = 'DB10 hero=' + (HEROES[heroIndex] || {}).name + ' img=' + (SPR.doubao ? 'yes' : 'no') + ' state=' + game.state;
+            }, 900);
+          }, 700);
         } else if (sc === 'boss2') {
           const mst = /[?&]stage=(\d)/.exec(qs);
           const stg = mst ? parseInt(mst[1], 10) : 0;
