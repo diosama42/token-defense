@@ -51,6 +51,7 @@
   const SPRITE_LIST = [
     'hero_purple2', 'hero_bluemaid', 'hero_orange', 'hero_catpurple', 'hero_catmaid',
     'grok', 'seed', 'wenxin', 'doubao_winter', 'doubao', 'enemy_tower_runner', 'enemy_tower_tank', 'enemy_tower_elite',
+    'portal_wave', 'portal_reward', 'portal_elite', 'portal_shop', 'portal_event',
     'hero_purple2_full', 'hero_bluemaid_full', 'hero_orange_full', 'hero_catpurple_full',
     'hero_catmaid_full', 'qwen_full', 'kimi_full', 'grok_full', 'doubao_winter_full', 'doubao_full',
     'enemy_blob', 'enemy_doubao', 'enemy_elite', 'enemy_nail_boss', 'laugh_frog',
@@ -1029,7 +1030,7 @@
   );
 
   const DEFAULT_KEYMAP = {
-    attack: 'KeyJ', skill: 'KeyK', ult: 'KeyL', support: 'KeyU', jump: 'KeyW', dash: 'ShiftLeft'
+    attack: 'KeyJ', skill: 'KeyK', ult: 'KeyL', support: 'KeyU', jump: 'KeyW', dash: 'ShiftLeft', enter: 'KeyF'
   };
   const KEYMAP = Object.assign({}, DEFAULT_KEYMAP, SAVE.keymap || {});
   let keyCapture = null;
@@ -1052,7 +1053,7 @@
     if (!list) return;
     const rows = [
       ['attack', '平A'], ['skill', '技能'], ['ult', '大招'],
-      ['support', '支援'], ['jump', '跳跃'], ['dash', '闪避']
+      ['support', '支援'], ['jump', '跳跃'], ['dash', '闪避'], ['enter', '进入']
     ];
     list.innerHTML = '';
     rows.forEach(function (r) {
@@ -1094,7 +1095,8 @@
       ['平A', [keyOf('attack')]],
       ['技能', [keyOf('skill')]],
       ['大招', [keyOf('ult')]],
-      ['支援', [keyOf('support')]]
+      ['支援', [keyOf('support')]],
+      ['进入', [keyOf('enter')]]
     ];
     rows.forEach(function (r) {
       const li = document.createElement('li');
@@ -1168,7 +1170,7 @@
       startGame();
       return;
     }
-    if (game.portalPick && (e.code === 'KeyE' || e.code === 'Enter')) { enterPortal(); return; }
+    if (game.portalPick && e.code === keyOf('enter')) { enterPortal(); return; }
     if (e.code === keyOf('attack')) { rippleAct('attack'); input.held.attack = true; doAttack(); }
     if (e.code === keyOf('jump')) { flashJump(); input.jumpQueued = true; }
     if (e.code === keyOf('skill')) doSkill();
@@ -3863,11 +3865,11 @@
   }
 
   const PORTAL_DEFS = [
-    { type: 'wave', title: '波次防守', glyph: '波', color: '150,220,255' },
-    { type: 'reward', title: '奖励关卡', glyph: '奖', color: '255,209,102' },
-    { type: 'elite', title: '精英战', glyph: '剑', color: '255,120,150' },
-    { type: 'shop', title: '商店', glyph: '商', color: '110,247,180' },
-    { type: 'event', title: '事件', glyph: '？', color: '167,139,250' }
+    { type: 'wave', title: '波次防守', glyph: '波', sprite: 'portal_wave', color: '150,220,255' },
+    { type: 'reward', title: '奖励关卡', glyph: '奖', sprite: 'portal_reward', color: '255,209,102' },
+    { type: 'elite', title: '精英战', glyph: '剑', sprite: 'portal_elite', color: '255,120,150' },
+    { type: 'shop', title: '商店', glyph: '商', sprite: 'portal_shop', color: '110,247,180' },
+    { type: 'event', title: '事件', glyph: '？', sprite: 'portal_event', color: '167,139,250' }
   ];
 
   function updateEnterBtn() {
@@ -3875,6 +3877,7 @@
     if (!btn) return;
     const near = game.portalPick ? nearestPortal() : null;
     const ok = !!(near && near.dist < U(95));
+    btn.textContent = '进入 ' + keyName(keyOf('enter'));
     btn.classList.toggle('show', ok);
   }
 
@@ -3922,9 +3925,9 @@
       picks.push(remain[Math.floor(Math.random() * remain.length)]);
     }
     game.portals = picks.map(function (d, i) {
-      return { type: d.type, title: d.title, glyph: d.glyph, color: d.color, x: W * (0.3 + i * 0.24), t: rand(0, 6) };
+      return { type: d.type, title: d.title, glyph: d.glyph, sprite: d.sprite, color: d.color, x: W * (0.3 + i * 0.24), t: rand(0, 6) };
     });
-    addText(W * 0.5, H * 0.36, '走到传送门前，按「进入」', '150,220,255', 18);
+    addText(W * 0.5, H * 0.36, '走到传送门前，按 ' + keyName(keyOf('enter')) + ' 进入', '150,220,255', 18);
     updateEnterBtn();
     sfx(620, 0.12, 'triangle', 0.04);
   }
@@ -5449,12 +5452,24 @@
       ctx.strokeStyle = 'rgba(' + p.color + ',0.9)';
       ctx.lineWidth = U(2);
       ctx.stroke();
-      ctx.fillStyle = '#f4ffff';
-      ctx.font = '800 ' + Math.round(U(26)) + 'px "PingFang SC", system-ui';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(p.glyph, 0, -h * 0.55);
-      ctx.textBaseline = 'alphabetic';
+      const icon = SPR[p.sprite];
+      if (icon && icon.width) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(0, -h * 0.55, U(42), 0, TAU);
+        ctx.clip();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.97;
+        ctx.drawImage(icon, -U(46), -h * 0.55 - U(46), U(92), U(92));
+        ctx.restore();
+      } else {
+        ctx.fillStyle = '#f4ffff';
+        ctx.font = '800 ' + Math.round(U(26)) + 'px "PingFang SC", system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(p.glyph, 0, -h * 0.55);
+        ctx.textBaseline = 'alphabetic';
+      }
       /* 标题 */
       ctx.fillStyle = isNear ? '#eafff4' : 'rgba(220,240,255,0.8)';
       ctx.font = '700 ' + Math.round(U(13)) + 'px "PingFang SC", system-ui';
@@ -5462,7 +5477,7 @@
       if (isNear) {
         ctx.fillStyle = '#ffd166';
         ctx.font = '800 ' + Math.round(U(12)) + 'px "PingFang SC", system-ui';
-        ctx.fillText('按「进入」', 0, -h - U(2));
+        ctx.fillText('按 ' + keyName(keyOf('enter')) + ' 进入', 0, -h - U(2));
       }
       ctx.restore();
     }
@@ -10979,8 +10994,7 @@
             showNodeSelect();
             setTimeout(function () {
               player.x = game.portals[0].x;
-              const eb = document.getElementById('btn-enter');
-              if (eb) eb.click();
+              window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF', key: 'f', bubbles: true }));
               setTimeout(function () {
                 document.title = 'PORTALENTER pick=' + game.portalPick + ' room=' + game.roomActive + ' type=' + game.roomType + ' state=' + game.state;
               }, 900);
