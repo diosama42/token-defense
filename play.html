@@ -8476,7 +8476,6 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
   const PORTAL_DEFS = [
     { type: 'wave', title: '波次防守', glyph: '波', sprite: 'portal_wave', color: '150,220,255' },
     { type: 'reward', title: '奖励关卡', glyph: '奖', sprite: 'portal_reward', color: '255,209,102' },
-    { type: 'elite', title: '精英战', glyph: '剑', sprite: 'portal_elite', color: '255,120,150' },
     { type: 'shop', title: '商店', glyph: '商', sprite: 'portal_shop', color: '110,247,180' },
     { type: 'event', title: '事件', glyph: '？', sprite: 'portal_event', color: '167,139,250' }
   ];
@@ -8524,7 +8523,7 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
     /* 三个传送门：至少一个战斗房 + 一个功能房 */
     const pool = PORTAL_DEFS.slice();
     const picks = [];
-    const arena = pool.filter(function (d) { return d.type === 'wave' || d.type === 'reward' || d.type === 'elite'; });
+    const arena = pool.filter(function (d) { return d.type === 'wave' || d.type === 'reward'; });
     picks.push(arena[Math.floor(Math.random() * arena.length)]);
     const utility = pool.filter(function (d) { return d.type === 'shop' || d.type === 'event'; });
     picks.push(utility[Math.floor(Math.random() * utility.length)]);
