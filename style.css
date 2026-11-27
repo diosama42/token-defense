@@ -3562,3 +3562,40 @@ html.layout-edit .controls {
 }
 .achv-toast.show { opacity: 1; transform: translateY(0); }
 .achv-toast span { display: block; font-weight: 500; font-size: 10.5px; color: rgba(190, 255, 220, 0.7); }
+
+
+/* 肉鸽房间选择 */
+.rooms {
+  position: fixed; inset: 0; z-index: 9350;
+  display: flex; align-items: center; justify-content: center; padding: 18px;
+  background: rgba(2, 4, 10, 0.84);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 0.25s, visibility 0.25s;
+}
+.rooms.show { opacity: 1; visibility: visible; pointer-events: auto; }
+.rooms__box {
+  width: min(680px, 94vw); max-height: 90vh; overflow-y: auto; padding: 22px;
+  border-radius: 18px; border: 1px solid rgba(94, 231, 255, 0.3);
+  background: linear-gradient(180deg, rgba(14, 24, 40, 0.98), rgba(6, 10, 18, 0.98));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+  text-align: center;
+}
+.rooms__k { margin: 0 0 6px; font: 700 9px/1 ui-monospace, monospace; letter-spacing: 0.32em; color: rgba(94,231,255,.55); }
+.rooms__title { margin: 0 0 4px; font-size: 22px; color: #eaf8ff; }
+.rooms__sub { margin: 0 0 16px; font-size: 11.5px; color: rgba(190,225,250,.6); }
+.rooms__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.rooms__card {
+  display: flex; flex-direction: column; gap: 5px; align-items: flex-start;
+  padding: 16px 14px; border-radius: 13px; text-align: left;
+  border: 1px solid rgba(94, 231, 255, 0.24);
+  background: linear-gradient(180deg, rgba(20,36,60,.92), rgba(8,14,26,.92));
+  color: #eaf8ff; font-family: inherit; cursor: pointer;
+  transition: transform .15s, border-color .2s;
+}
+.rooms__card:hover, .rooms__card:active { transform: translateY(-2px); border-color: rgba(110,247,180,.7); }
+.rooms__card b { font-size: 15px; }
+.rooms__card span { font-size: 11px; line-height: 1.5; color: rgba(200,232,255,.66); }
+.rooms__card--main { border-color: rgba(110,247,180,.55); background: linear-gradient(180deg, rgba(30,80,70,.9), rgba(8,30,26,.9)); }
+.rooms__card:disabled { opacity: 0.4; cursor: default; transform: none; }
+.rooms__price { align-self: flex-end; font-size: 11px; color: #ffd166; font-weight: 700; }
+body.is-room .controls, body.is-room .hud { pointer-events: none; }

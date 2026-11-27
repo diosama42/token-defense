@@ -451,6 +451,14 @@
     enemyDmgMul: 1,
     spawnT: 1.6,
     nextPlat: 0,
+    coins: 0,
+    nodeCount: 0,
+    roomActive: false,
+    roomType: null,
+    roomT: 0,
+    roomTarget: 0,
+    roomStartScore: 0,
+    scoreMul: 1,
     flash: 0,
     warns: [],
     shake: 0,
@@ -1551,7 +1559,7 @@
     e.dead = true;
     const boss = !!e.isBoss;
     spawnExplosion(e.x, e.y - e.h * 0.5, boss ? '255,209,102' : e.kind === 'doubao' ? '150,220,255' : '255,140,170');
-    game.score += boss ? 3000 : e.kind === 'laugh' ? 500 : 160;
+    game.score += (boss ? 3000 : e.kind === 'laugh' ? 500 : 160) * (game.scoreMul || 1);
     game.kills += 1;
     achvStats().kills += 1;
     checkAchv();
@@ -2564,6 +2572,14 @@
 
     updateVideoPanel(dt);
 
+    if (game.roomActive) {
+      game.stageT += d;
+      spawnLogic(d);
+      game.roomT += d;
+      if (game.roomT >= game.roomTarget) endRoom();
+      return;
+    }
+
     if (!game.bossSpawned) {
       game.stageT += d;
       spawnLogic(d);
@@ -3485,9 +3501,208 @@
     });
   }
 
-  function beginStage() {
+  /* ---------- 肉鸽房间 ---------- */
+  function roomHideAll() {
+    ['rooms', 'room-result', 'rest'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('show');
+    });
+  }
+
+  function showNodeSelect() {
+    if (typeof window !== 'undefined' && window.__SMOKE) {
+      setTimeout(function () { startRoom('wave'); }, 20);
+      return;
+    }
+    roomHideAll();
+    game.state = 'node';
+    game.roomActive = false;
+    document.body.classList.add('is-room');
+    const panel = document.getElementById('rooms');
+    const grid = document.getElementById('rooms-grid');
+    const sub = document.getElementById('rooms-sub');
+    if (!panel || !grid) return;
+    if (sub) sub.textContent = '已完成房间 ' + game.nodeCount + ' / 2 · 金币 ' + game.coins;
+    grid.innerHTML = '';
+    const items = [
+      { type: 'wave', title: '波次防守', desc: '守住 14 秒的敌人波次，按得分获得金币' },
+      { type: 'reward', title: '奖励关卡', desc: '10 秒限时挑战，分数翻倍，金币更多' },
+      { type: 'shop', title: '商店', desc: '用金币换治疗 / 词条 / 装备，不消耗房间次数' }
+    ];
+    items.forEach(function (it) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'rooms__card' + (it.type === 'wave' ? ' rooms__card--main' : '');
+      b.innerHTML = '<b>' + it.title + '</b><span>' + it.desc + '</span>';
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (it.type === 'shop') { openRoomShop(); return; }
+        startRoom(it.type);
+      });
+      grid.appendChild(b);
+    });
+    panel.classList.add('show');
+    sfx(620, 0.12, 'triangle', 0.04);
+  }
+
+  function startRoom(type) {
+    roomHideAll();
+    document.body.classList.remove('is-room');
+    game.roomType = type;
+    game.roomT = 0;
+    game.roomTarget = type === 'reward' ? 10 : 14;
+    game.roomStartScore = game.score;
+    game.scoreMul = type === 'reward' ? 2 : 1;
+    game.roomActive = true;
+    beginStage(true);
+    addText(W * 0.5, H * 0.3, type === 'reward' ? '奖励关卡 · 分数翻倍！' : '波次防守 · 撑住！', '255,209,102', 20);
+    sfx(700, 0.14, 'triangle', 0.05);
+  }
+
+  function endRoom() {
+    game.roomActive = false;
+    if (typeof window !== 'undefined' && window.__SMOKE) {
+      game.coins += 20;
+      game.scoreMul = 1;
+      ebullets = [];
+      pbullets = [];
+      enemies = [];
+      game.nodeCount += 1;
+      if (game.nodeCount >= 2) startBossIntro();
+      else startRoom('wave');
+      return;
+    }
+    const gained = Math.max(12, Math.round((game.score - game.roomStartScore) / 70));
+    game.coins += gained;
+    game.scoreMul = 1;
+    ebullets = [];
+    pbullets = [];
+    enemies = [];
+    game.state = 'node';
+    document.body.classList.add('is-room');
+    const panel = document.getElementById('room-result');
+    const txt = document.getElementById('room-result-text');
+    if (txt) txt.textContent = '本房间获得金币 +' + gained + ' · 当前金币 ' + game.coins;
+    if (panel) panel.classList.add('show');
+    sfx(880, 0.16, 'triangle', 0.05);
+  }
+
+  function purchaseHeal() {
+    if (game.coins < 40) return false;
+    if (player.hp >= player.maxHp) return false;
+    game.coins -= 40;
+    player.hp = player.maxHp;
+    addText(player.x, player.y - U(120), '生命回满', '110,247,180', 18);
+    sfx(720, 0.14, 'triangle', 0.05);
+    return true;
+  }
+
+  function purchaseBuff() {
+    if (game.coins < 50) return false;
+    game.coins -= 50;
+    const b = pick(BUFFS);
+    b.apply();
+    game.buffs.push(b.name);
+    addText(player.x, player.y - U(120), '获得词条：' + b.name, '255,209,102', 18);
+    sfx(820, 0.14, 'triangle', 0.05);
+    return true;
+  }
+
+  function purchaseEquip() {
+    if (game.coins < 60) return false;
+    game.coins -= 60;
+    player.maxHp += 30;
+    player.hp = Math.min(player.maxHp, player.hp + 30);
+    player.defenseMul = Math.max(0.5, player.defenseMul * 0.95);
+    addText(player.x, player.y - U(120), '装备强化：生命 +30 · 减伤 5%', '150,220,255', 18);
+    sfx(760, 0.14, 'triangle', 0.05);
+    return true;
+  }
+
+  function renderRestPanel(shopMode) {
+    const panel = document.getElementById('rest');
+    const grid = document.getElementById('rest-grid');
+    const coinsEl = document.getElementById('rest-coins');
+    const title = panel ? panel.querySelector('.rooms__title') : null;
+    const kicker = panel ? panel.querySelector('.rooms__k') : null;
+    if (!panel || !grid) return;
+    if (title) title.textContent = shopMode ? '商店' : 'Boss 前休整';
+    if (kicker) kicker.textContent = shopMode ? 'SHOP' : 'BEFORE THE BOSS';
+    if (coinsEl) coinsEl.textContent = '当前金币：' + game.coins;
+    grid.innerHTML = '';
+    const mk = function (title2, desc, price, fn, main) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'rooms__card' + (main ? ' rooms__card--main' : '');
+      b.innerHTML = '<b>' + title2 + '</b><span>' + desc + '</span>' + (price ? '<i class="rooms__price">' + price + ' 金币</i>' : '');
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        const old = game.coins;
+        const ok = fn();
+        if (ok) {
+          renderRestPanel(shopMode);
+        } else if (old < (price || 0)) {
+          b.disabled = true;
+          b.querySelector('span').textContent = desc + '（金币不足）';
+        }
+      });
+      grid.appendChild(b);
+    };
+    mk('治疗', player.hp >= player.maxHp ? '生命已满' : '回复全部生命', 40, function () { return purchaseHeal(); });
+    mk('随机词条', '获得一个随机强化词条', 50, function () { return purchaseBuff(); });
+    mk('装备强化', '最大生命 +30，受到的伤害 -5%', 60, function () { return purchaseEquip(); });
+    if (shopMode) {
+      mk('离开商店', '返回房间选择', 0, function () { panel.classList.remove('show'); document.body.classList.remove('is-room'); showNodeSelect(); return true; }, true);
+    } else {
+      mk('进入 Boss', '休整结束，直接开打', 0, function () {
+        panel.classList.remove('show');
+        document.body.classList.remove('is-room');
+        game.roomActive = false;
+        startBossIntro();
+        return true;
+      }, true);
+    }
+    panel.classList.add('show');
+  }
+
+  function openRoomShop() {
+    game.state = 'node';
+    roomHideAll();
+    document.body.classList.add('is-room');
+    renderRestPanel(true);
+  }
+
+  function showBossRest() {
+    if (typeof window !== 'undefined' && window.__SMOKE) {
+      startBossIntro();
+      return;
+    }
+    game.state = 'node';
+    roomHideAll();
+    document.body.classList.add('is-room');
+    renderRestPanel(false);
+  }
+
+  function bindRooms() {
+    const cont = document.getElementById('room-continue');
+    if (cont) cont.addEventListener('click', function (e) {
+      e.stopPropagation();
+      roomHideAll();
+      document.body.classList.remove('is-room');
+      game.nodeCount += 1;
+      if (game.nodeCount >= 2) showBossRest();
+      else showNodeSelect();
+    });
+  }
+  bindRooms();
+
+  function beginStage(combat) {
     const st = STAGES[game.stage];
     if (!st) { playEnding(); return; }
+    if (!combat) {
+      game.nodeCount = 0;
+      game.roomActive = false;
+    }
     game.stageT = 0;
     game.scene = 'street';
     game.slamT = 0;
@@ -3537,6 +3752,10 @@
       sfx(660, 0.2, 'triangle', 0.05);
     };
 
+    if (game.mode !== 'fight' && !combat && !game.roomActive) {
+      showNodeSelect();
+      return;
+    }
     startPlay();
   }
 
@@ -7040,6 +7259,11 @@
     slashes = [];
     supports = [];
     weights = [];
+    game.coins = 0;
+    game.nodeCount = 0;
+    game.roomActive = false;
+    game.roomType = null;
+    game.scoreMul = 1;
     platforms = [];
 
     game.time = 0;
@@ -8679,6 +8903,36 @@
             game.paused = true;
             setTimeout(function () { document.title = 'WBS pb=' + pbullets.length + ' p0=' + (pbullets[0] ? Math.round(pbullets[0].x) + ',' + Math.round(pbullets[0].y) : '-'); }, 400);
           }, 400);
+        } else if (sc === 'roomui') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            beginStage();
+            document.title = 'ROOMUI state=' + game.state + ' panel=' + document.getElementById('rooms').classList.contains('show');
+          }, 700);
+        } else if (sc === 'roomstart') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            beginStage();
+            setTimeout(function () {
+              const cards = document.querySelectorAll('#rooms-grid .rooms__card');
+              if (cards[0]) cards[0].click();
+              setTimeout(function () {
+                document.title = 'ROOMSTART active=' + game.roomActive + ' type=' + game.roomType + ' t=' + game.roomT.toFixed(1) + ' state=' + game.state;
+              }, 800);
+            }, 300);
+          }, 700);
         } else if (sc === 'achvtest') {
           setTimeout(function () {
             const st = achvStats();
