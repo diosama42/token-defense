@@ -237,7 +237,8 @@
     '闪避优化': 'dodge', '三段跳': 'dodge',
     '暴击协议': 'crit', '吸血编译': 'crit',
     '算力超频': 'power', '缓存扩容': 'power',
-    '推理加速': 'power', '护盾再生': 'power'
+    '推理加速': 'power', '护盾再生': 'power',
+    '核心·弹幕': 'bullet', '核心·闪避': 'dodge', '核心·召唤': 'summon'
   };
   const SET_INFO = {
     bullet: { name: '弹幕流', color: '150,220,255' },
@@ -248,7 +249,7 @@
     power: { name: '算力流', color: '255,180,92' }
   };
 
-  function applySetBonuses() {
+  function applySetBonuses(silent) {
     if (!game.setApplied) game.setApplied = {};
     const counts = {};
     game.buffs.forEach(function (n) {
@@ -260,6 +261,7 @@
       if ((counts[tag] || 0) >= need) {
         game.setApplied[key] = true;
         fn();
+        if (silent) return;
         const info = SET_INFO[tag];
         addText(W * 0.5, H * 0.34, '【' + info.name + ' ' + need + ' 件】套装效果激活！', info.color, 18);
         sfx(980, 0.2, 'triangle', 0.05);
@@ -272,8 +274,11 @@
     fire('crit2', 'crit', 2, function () { player.critChance += 0.1; });
     fire('crit4', 'crit', 4, function () { game.setCritHeal = 2; });
     fire('token2', 'token', 2, function () { player.tokenMul = Math.min(4, player.tokenMul * 1.3); });
+    fire('token4', 'token', 4, function () { player.maxToken += 20; player.token = player.maxToken; });
     fire('summon2', 'summon', 2, function () { player.supportCdMul *= 0.75; });
+    fire('summon4', 'summon', 4, function () { player.supportCdMul *= 0.6; player.dmgMul *= 1.1; });
     fire('power2', 'power', 2, function () { player.dmgMul *= 1.08; });
+    fire('power4', 'power', 4, function () { player.maxHp += 20; player.hp = Math.min(player.maxHp, player.hp + 20); });
   }
 
   const BUFF_TIER = {
@@ -284,7 +289,8 @@
     '破片爆炸': 'rare',
     '精准索敌': 'rare',
     '三段跳': 'legend',
-    'Token 池扩容': 'legend'
+    'Token 池扩容': 'legend',
+    '核心·弹幕': 'legend', '核心·闪避': 'legend', '核心·召唤': 'legend'
   };
 
   const SUPPORT_EXTRA = {
@@ -443,8 +449,12 @@
     { name: '三段跳', desc: '空中多获得一段跳跃', apply: function () { player.maxJumps += 1; } },
     { name: '支援专家', desc: '支援冷却 -25%', apply: function () { player.supportCdMul *= 0.75; } },
     { name: 'Token 池扩容', desc: 'Token 上限 +30', apply: function () { player.maxToken += 30; } },
-    { name: '精准索敌', desc: 'Token 弹幕转向速度 +60%', apply: function () { game.buffHoming = true; } }
+    { name: '精准索敌', desc: 'Token 弹幕转向速度 +60%', apply: function () { game.buffHoming = true; } },
+    { name: '核心·弹幕', core: true, desc: '核心：平A 多 1 发，命中分裂', apply: function () { game.buffShots = Math.min(4, game.buffShots + 1); game.setSplit = true; } },
+    { name: '核心·闪避', core: true, desc: '核心：完美闪避射 3 发，闪避 CD -25%', apply: function () { game.setDodgeShot = true; player.dashCdMul *= 0.75; } },
+    { name: '核心·召唤', core: true, desc: '核心：支援 CD -50%，伤害 +10%', apply: function () { player.supportCdMul *= 0.5; player.dmgMul *= 1.1; } }
   ];
+  const CORE_BUFFS = BUFFS.filter(function (b) { return b.core; });
 
   const game = {
     state: 'menu',      // menu | play | dialog | buff | ending | over
@@ -569,6 +579,15 @@
     { id: 'sacrifice', name: '不要磨蹭了', desc: '触发一次队友献祭复活', icon: '†', cond: function (s) { return s.sacrifices >= 1; } }
   ];
 
+  const CODEX = [
+    { id: 'token', title: 'Token 是什么', body: '模型把文字切成 token 再计算。游戏里每一发「Token」弹幕，就是一次最小单位的输出。', cond: function (s) { return s.clears >= 1; } },
+    { id: 'attention', title: '注意力机制', body: '模型不是逐字读，而是判断「这句话里谁该关注谁」。Boss 的瞄准弹幕，就是一次注意力分配。', cond: function (s) { return s.kills >= 100; } },
+    { id: 'multi', title: '多模态', body: '同一套模型同时理解文字、图像、视频。Gemini 的多模态环切，就是把不同模态一起丢过来。', cond: function (s) { return s.clears >= 2; } },
+    { id: 'rlhf', title: 'RLHF', body: '人类给回答打分，模型据此调整偏好。坏结局「赢了？」讲的就是：奖励函数错了，再强也会跑偏。', cond: function (s) { return !!s.endBad; } },
+    { id: 'diffusion', title: '扩散模型', body: '从噪声一步步去噪生成图像。豆包的「视频生成」弹窗，就是一次扩散过程的具象化。', cond: function (s) { return s.clears >= 3; } },
+    { id: 'distill', title: '模型蒸馏', body: '小模型学大模型的输出，用更少算力跑出接近效果。车轮战里四个强化形态，就是「蒸馏后的压缩版」。', cond: function (s) { return s.clears >= 4 || s.warWins >= 1; } }
+  ];
+
   function achvStats() {
     if (!SAVE.stats) {
       SAVE.stats = { kills: 0, maxScore: 0, maxCombo: 0, clears: 0, noHit: false,
@@ -606,8 +625,20 @@
     setTimeout(function () { sfx(1180, 0.16, 'sine', 0.04); }, 90);
   }
 
+  function checkCodex(st) {
+    if (!SAVE.codex) SAVE.codex = {};
+    CODEX.forEach(function (c) {
+      if (!SAVE.codex[c.id] && c.cond(st)) {
+        SAVE.codex[c.id] = true;
+        showAchvToast('AI 知识卡 · ' + c.title, '在「成就」里可以回看');
+        saveWrite();
+      }
+    });
+  }
+
   function checkAchv() {
     const st = achvStats();
+    checkCodex(st);
     ACHIEVEMENTS.forEach(function (a) {
       if (!SAVE.achv || !SAVE.achv[a.id]) {
         if (a.cond(st)) unlockAchv(a);
@@ -632,6 +663,18 @@
     });
     const cnt = document.getElementById('achv-count');
     if (cnt) cnt.textContent = got + ' / ' + ACHIEVEMENTS.length;
+    const codexList = document.getElementById('codex-list');
+    if (codexList) {
+      codexList.innerHTML = '';
+      CODEX.forEach(function (c) {
+        const un = !!(SAVE.codex && SAVE.codex[c.id]);
+        const row = document.createElement('div');
+        row.className = 'achv__row' + (un ? '' : ' is-locked');
+        row.innerHTML = '<div class="achv__icon">' + (un ? 'AI' : '?') + '</div>' +
+          '<div class="achv__info"><b>' + (un ? c.title : '？？？') + '</b><span>' + (un ? c.body : '解锁条件：' + (c.id === 'token' ? '通关任意关卡' : c.id === 'attention' ? '累计击杀 100' : c.id === 'multi' ? '通关两个关卡' : c.id === 'rlhf' ? '看到坏结局' : c.id === 'diffusion' ? '通关三个关卡' : '通关四关或赢下车轮战')) + '</span></div>';
+        codexList.appendChild(row);
+      });
+    }
   }
 
   function bindAchv() {
@@ -652,7 +695,7 @@
   /* ---------- 存档（版本化 + 旧键迁移） ---------- */
   const SAVE_KEY = 'tb_save_v2';
   const SAVE = (function () {
-    const d = { easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0 };
+    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false };
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
@@ -664,6 +707,13 @@
         d.best = Number(localStorage.getItem('tb_best') || localStorage.getItem('td_best') || 0) || 0;
       }
     } catch (e) { /* ignore */ }
+    /* 版本迁移：补齐新字段，旧存档不丢 */
+    if (!d.version || d.version < 3) {
+      if (d.diff === undefined) d.diff = 'normal';
+      if (d.reduceFx === undefined) d.reduceFx = false;
+      if (!d.keymap) d.keymap = null;
+      d.version = 3;
+    }
     return d;
   })();
 
@@ -1064,6 +1114,12 @@
       return;
     }
     if (e.repeat) return;
+    if (e.code === 'Escape') {
+      const achvPanel = document.getElementById('achv');
+      if (achvPanel && achvPanel.classList.contains('show')) { achvPanel.classList.remove('show'); return; }
+      const cgPanel = document.getElementById('cg');
+      if (cgPanel && cgPanel.classList.contains('show')) { cgPanel.classList.remove('show'); return; }
+    }
     if (e.code === 'Escape' || e.code === 'KeyP') {
       if (game.state === 'play') { setPaused(!game.paused); return; }
       if (settingsEl && settingsEl.classList.contains('show')) { closeSettings(); return; }
@@ -1581,11 +1637,16 @@
     e.hp -= Math.max(1, dmg);
     if (e.isBoss && wasAboveHalf && e.hp > 0 && e.hp <= e.maxHp * 0.5 && !e.rageWarned) {
       e.rageWarned = true;
+      e.phaseFxUntil = game.time + 0.55;
       const names = { grok: 'Grok 娘', nail_boss: '西装奶蛙', doubao_boss: '冬装豆包', seed: 'SEED 娘' };
-      addText(W * 0.5, H * 0.26, (names[e.kind] || 'Boss') + ' 进入狂暴！', '255,92,138', 24);
-      game.shake = U(18);
-      game.flash = 0.4;
+      addText(W * 0.5, H * 0.26, (names[e.kind] || 'Boss') + ' · 形态解放！', '255,92,138', 26);
+      game.shake = SAVE.reduceFx ? 0 : U(22);
+      game.flash = SAVE.reduceFx ? 0.18 : 0.55;
+      game.hitStop = Math.max(game.hitStop || 0, 0.16);
+      rings.push({ x: e.x, y: e.y - e.h * 0.5, r0: U(20), r1: U(260), w: U(8), life: 0.55, max: 0.55, color: '255,92,138' });
+      for (let i = 0; i < 18; i++) spawnSparks(e.x, e.y - e.h * 0.5, '255,120,150', 3);
       sfx(180, 0.5, 'sawtooth', 0.06);
+      setTimeout(function () { if (!e.dead) sfx(320, 0.25, 'triangle', 0.05); }, 220);
     }
     e.hurt = 0.14;
     if (kx) e.kx = (e.kx || 0) + kx * 0.35;
@@ -1694,7 +1755,7 @@
     p.invuln = 1.1;
     p.hurt = 0.26;
     p.vx = (dir || 1) * U(240);
-    game.shake = U(14);
+    game.shake = SAVE.reduceFx ? 0 : U(14);
     game.hitStop = 0.05;
     game.combo = 0;
     addText(p.x, p.y - U(120), '-' + realDmg, '255,92,138', 18);
@@ -3604,6 +3665,7 @@
   const BRANCH_BY_BOSS = { grok: 'grok', nail_boss: 'nail', doubao_boss: 'doubao', seed: 'seed' };
 
   function clearStage() {
+    game.corePending = true;
     if (game.state !== 'play') return;
     game.state = 'dialog';
     ebullets = [];
@@ -3687,7 +3749,7 @@
     document.body.classList.remove('is-room');
     game.roomType = type;
     game.roomT = 0;
-    game.roomTarget = type === 'reward' ? 10 : 14;
+    game.roomTarget = type === 'reward' ? (10 + game.stage * 1.5) : (14 + game.stage * 2);
     game.roomStartScore = game.score;
     game.scoreMul = type === 'reward' ? 2 : 1;
     game.roomActive = true;
@@ -3709,7 +3771,7 @@
       else startRoom('wave');
       return;
     }
-    const gained = Math.max(12, Math.round((game.score - game.roomStartScore) / 70));
+    const gained = Math.max(12, Math.round((game.score - game.roomStartScore) / 70 * (1 + game.stage * 0.2)));
     game.coins += gained;
     game.scoreMul = 1;
     let bonusText = '';
@@ -3730,6 +3792,53 @@
     if (txt) txt.textContent = '本房间获得金币 +' + gained + bonusText + ' · 当前金币 ' + game.coins;
     if (panel) panel.classList.add('show');
     sfx(880, 0.16, 'triangle', 0.05);
+  }
+
+  function rebuildPlayerStats() {
+    const hpRatio = player.maxHp > 0 ? player.hp / player.maxHp : 1;
+    const p = player;
+    p.maxHp = CONFIG.playerHp;
+    p.dmgMul = 1; p.speedMul = 1; p.tokenMul = 1; p.maxToken = 100;
+    p.critChance = 0; p.lifesteal = 0; p.shieldRegen = 0;
+    p.supportCdMul = 1; p.dashCdMul = 1; p.maxJumps = 2; p.bulletSpeedMul = 1;
+    p.defenseMul = 1;
+    game.buffShots = 1;
+    game.buffExplode = false; game.buffHoming = false;
+    game.setSplit = false; game.setDodgeShot = false; game.setCritHeal = 0;
+    game.setApplied = {};
+    game.buffs.forEach(function (n) {
+      const b = BUFFS.filter(function (x) { return x.name === n; })[0];
+      if (b) b.apply();
+    });
+    if (game.fullPower) {
+      p.maxHp += 30; p.dmgMul *= 1.25; p.speedMul *= 1.1; p.defenseMul *= 0.95;
+    }
+    p.hp = Math.min(p.maxHp, Math.max(1, p.maxHp * hpRatio));
+    applySetBonuses(true);
+  }
+
+  function purchaseReroll() {
+    if (game.coins < 50 || game.buffs.length < 1) return false;
+    game.coins -= 50;
+    const idx = Math.floor(Math.random() * game.buffs.length);
+    const old = game.buffs.splice(idx, 1)[0];
+    const pool = BUFFS.filter(function (b) { return !b.core && game.buffs.indexOf(b.name) < 0; });
+    const nb = pick(pool.length ? pool : BUFFS.filter(function (b) { return !b.core; }));
+    game.buffs.push(nb.name);
+    rebuildPlayerStats();
+    addText(player.x, player.y - U(130), '洗练：' + old + ' → ' + nb.name, '167,139,250', 17);
+    sfx(900, 0.16, 'triangle', 0.05);
+    return true;
+  }
+
+  function purchaseRemove() {
+    if (game.coins < 40 || game.buffs.length < 1) return false;
+    game.coins -= 40;
+    const removed = game.buffs.pop();
+    rebuildPlayerStats();
+    addText(player.x, player.y - U(130), '移除词条：' + removed, '255,150,150', 17);
+    sfx(560, 0.12, 'square', 0.04);
+    return true;
   }
 
   function purchaseHeal() {
@@ -3814,6 +3923,8 @@
     mk('随机词条', '获得一个随机强化词条', 50, function () { return purchaseBuff(); });
     mk('装备强化', '最大生命 +30，受到的伤害 -5%', 60, function () { return purchaseEquip(); });
     mk('全力形态', game.fullPower ? '已解锁：伤害 +25% · 生命 +30' : '解锁成人形态：伤害 +25%，生命 +30', 120, function () { return purchaseFullPower(); });
+    mk('洗练词条', '随机替换一个已有词条', 50, function () { return purchaseReroll(); });
+    mk('移除词条', '删掉最近获得的一个词条', 40, function () { return purchaseRemove(); });
     if (shopMode) {
       mk('离开商店', '返回房间选择', 0, function () { panel.classList.remove('show'); document.body.classList.remove('is-room'); showNodeSelect(); return true; }, true);
     } else {
@@ -5644,7 +5755,7 @@
     el.acts[b.dataset.act] = b;
   });
 
-  let lastHp = '', lastScore = '', lastCombo = '', lastLevel = '';
+  let lastHp = '', lastScore = '', lastCombo = '', lastLevel = '', lastCoins = -1, coinsElCache = null;
 
   function setCd(btn, cd, max) {
     if (!btn) return;
@@ -5676,8 +5787,11 @@
 
     const scStr = String(Math.floor(game.score)).padStart(6, '0');
     if (scStr !== lastScore) { el.score.textContent = scStr; lastScore = scStr; }
-    const coinsEl = document.getElementById('hud-coins');
-    if (coinsEl) coinsEl.textContent = '金币 ' + (game.coins || 0);
+    if (!coinsElCache) coinsElCache = document.getElementById('hud-coins');
+    if (coinsElCache && game.coins !== lastCoins) {
+      lastCoins = game.coins || 0;
+      coinsElCache.textContent = '金币 ' + lastCoins;
+    }
 
     const comboOn = game.comboT > 0 && game.combo > 1;
     el.combo.classList.toggle('on', comboOn);
@@ -6652,10 +6766,10 @@
     if (!buffEl) { if (after) after(); else beginNextStage(); return; }
     const pickedNames = {};
     for (const n of game.buffs) pickedNames[n] = true;
-    let pool = BUFFS.filter(function (b) { return !pickedNames[b.name]; });
+    let pool = BUFFS.filter(function (b) { return !pickedNames[b.name] && !b.core; });
     if (pool.length < 3) {
       /* 可选的不够了：先补没选过的，再补选过的，保证一定有 3 张 */
-      const rest = BUFFS.filter(function (b) { return pickedNames[b.name]; });
+      const rest = BUFFS.filter(function (b) { return pickedNames[b.name] && !b.core; });
       pool = pool.concat(rest);
     }
     const tierOf = function (b) {
@@ -6676,6 +6790,16 @@
         picks.push(rarePool[Math.floor(Math.random() * rarePool.length)]);
         const idx = pool.indexOf(picks[0]);
         if (idx >= 0) pool.splice(idx, 1);
+      }
+    }
+    /* Boss 关后保底一个核心词条 */
+    if (game.corePending && !game.coreOwned) {
+      const cores = CORE_BUFFS.filter(function (b) { return game.buffs.indexOf(b.name) < 0; });
+      if (cores.length) {
+        const core = cores[Math.floor(Math.random() * cores.length)];
+        picks[0] = core;
+        game.corePending = false;
+        setTimeout(function () { addText(W * 0.5, H * 0.3, 'Boss 核心词条掉落！', '255,209,102', 22); }, 80);
       }
     }
     while (picks.length < 3 && pool.length) {
@@ -6703,6 +6827,7 @@
         e.stopPropagation();
         b.apply();
         game.buffs.push(b.name);
+        if (b.core) game.coreOwned = b.name;
         applySetBonuses();
         game.buffDraws = (game.buffDraws || 0) + 1;
         buffEl.classList.remove('show');
@@ -7850,6 +7975,7 @@
   const setAlphaEl = document.getElementById('set-uialpha');
   const setAlphaValEl = document.getElementById('set-uialpha-val');
   const setLowEl = document.getElementById('set-lowfx');
+  const setReduceEl = document.getElementById('set-reducefx');
 
   function syncSettings() {
     const v = Math.round((SAVE.vol === undefined ? 0.8 : SAVE.vol) * 100);
@@ -7864,6 +7990,7 @@
     if (setAlphaEl) setAlphaEl.value = String(al);
     if (setAlphaValEl) setAlphaValEl.textContent = String(al);
     if (setLowEl) setLowEl.checked = !!SAVE.lowFxSet;
+    if (setReduceEl) setReduceEl.checked = !!SAVE.reduceFx;
   }
 
   const pauseEl = document.getElementById('pause');
@@ -8065,6 +8192,12 @@
     setLowEl.addEventListener('change', function () {
       saveSet('lowFxSet', !!setLowEl.checked);
       game.lowFx = !!setLowEl.checked || game.fps < 52;
+    });
+  }
+  if (setReduceEl) {
+    setReduceEl.addEventListener('change', function () {
+      saveSet('reduceFx', !!setReduceEl.checked);
+      if (setReduceEl.checked) { game.shake = 0; game.flash = 0; }
     });
   }
 
@@ -8328,7 +8461,7 @@
         } catch (e) { /* ignore */ }
       }
       const msc = /[?&]scenario=(\w+)/.exec(qs);
-      if (msc) {
+      if (msc && /[?&]dev=1/.test(qs)) {
         const sc = msc[1];
         startEl.style.transition = 'none';
         overEl.style.transition = 'none';
@@ -10156,6 +10289,29 @@
     });
     sync();
   })();
+
+  function showRuntimeError(msg) {
+    try {
+      let el = document.getElementById('err-toast');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'err-toast';
+        document.body.appendChild(el);
+      }
+      el.textContent = '出了点小问题：' + String(msg || '').slice(0, 120) + '（可尝试刷新）';
+      el.classList.add('show');
+      clearTimeout(el._t);
+      el._t = setTimeout(function () { el.classList.remove('show'); }, 5200);
+      try { localStorage.setItem('tb_last_error', String(msg || '').slice(0, 400) + ' @ ' + new Date().toISOString()); } catch (e2) {}
+    } catch (e3) {}
+  }
+  window.addEventListener('error', function (ev) {
+    if (ev && ev.message && /Script error/.test(ev.message)) return;
+    showRuntimeError(ev && ev.message);
+  });
+  window.addEventListener('unhandledrejection', function (ev) {
+    showRuntimeError(ev && ev.reason && (ev.reason.message || ev.reason));
+  });
 
   bindAchv();
   boot();

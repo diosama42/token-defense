@@ -3637,3 +3637,27 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
   letter-spacing: 0.06em;
   color: rgba(255, 209, 102, 0.9);
 }
+
+
+/* 运行时错误提示 */
+#err-toast {
+  position: fixed; left: 50%; bottom: 18px; z-index: 9990;
+  transform: translateX(-50%) translateY(10px);
+  max-width: min(420px, 90vw);
+  padding: 10px 14px; border-radius: 10px;
+  background: rgba(40, 10, 16, 0.96);
+  border: 1px solid rgba(255, 92, 120, 0.6);
+  color: #ffd6de; font: 500 11px/1.6 "PingFang SC", system-ui;
+  opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s;
+}
+#err-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+
+.achv__section {
+  margin: 18px 0 2px;
+  font: 700 10px/1 ui-monospace, monospace;
+  letter-spacing: 0.24em;
+  color: rgba(94, 231, 255, 0.55);
+}
+.achv__list--codex .achv__row { align-items: flex-start; }
+.achv__list--codex .achv__info span { line-height: 1.6; }
