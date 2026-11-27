@@ -6422,6 +6422,9 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
   function heroUnlocked(hero) {
     if (game.tower) return true;
     if (!hero) return false;
+    const cycle = SAVE.cycle || 1;
+    if (cycle >= 3) return !FOREIGN_HEROES[hero.key];
+    if (cycle === 2) return true;
     if (!SAVE.heroUnlocks) SAVE.heroUnlocks = { hero_bluemaid: true };
     if (SAVE.foreignLocked && FOREIGN_HEROES[hero.key]) return false;
     return !!SAVE.heroUnlocks[hero.key];
@@ -9026,6 +9029,7 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
     });
     grid.appendChild(storyCard);
 
+    if ((SAVE.cycle || 1) < 2) {
     const modelCard = document.createElement('button');
     modelCard.type = 'button';
     modelCard.className = 'rooms__card' + (game.fullPower ? '' : ' rooms__card--main');
@@ -9049,6 +9053,7 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
       renderShopPanel();
     });
     grid.appendChild(modelCard);
+    }
 
     const refresh = document.createElement('button');
     refresh.type = 'button';
@@ -12282,7 +12287,14 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
     /* 彩蛋解锁过 → 真结局 */
     achvStats().endBad = true;
     checkAchv();
-    if (trueUnlocked()) { playTrueEnding(); return; }
+    const cycle = SAVE.cycle || 1;
+    if (cycle === 1) {
+      SAVE.cycle = 2;
+      saveWrite();
+    } else if (trueUnlocked() || cycle === 2) {
+      playTrueEnding();
+      return;
+    }
     /* galgame 收尾：好感度不同，最后一句不同 */
     const allyNames = game.allyKeys.map(function (k) {
       const m = { grok: 'Grok', frog: '奶蛙', doubao: '豆包', seed: 'SEED' };
@@ -12305,15 +12317,6 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
   }
 
   function playTrueEnding() {
-    const cycle = SAVE.cycle || 1;
-    if (cycle >= 3) {
-      SAVE.cycle = 1;
-      saveWrite();
-      playHiddenEnding();
-      return;
-    }
-    SAVE.cycle = Math.min(3, cycle + 1);
-    saveWrite();
     achvStats().endTrue = true;
     checkAchv();
     const affLine2 = game.affection >= 1
@@ -12982,7 +12985,12 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
 
   const btnHiddenEnd = document.getElementById('btn-hidden-end');
   if (btnHiddenEnd) {
-    btnHiddenEnd.addEventListener('click', function (e) { e.stopPropagation(); playHiddenEnding(); });
+    btnHiddenEnd.addEventListener('click', function (e) {
+      e.stopPropagation();
+      SAVE.cycle = 3;
+      saveWrite();
+      playHiddenEnding();
+    });
   }
   const btnHiddenRestart = document.getElementById('btn-hidden-restart');
   if (btnHiddenRestart) {
@@ -13270,6 +13278,7 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
         flowHideAll();
         document.body.classList.remove('is-cutscene');
         if (game.tower) startGame();
+        else if ((SAVE.cycle || 1) >= 3) startSiliconWar(heroIndex);
         else beginStage();
       });
       grid.appendChild(b);
@@ -15815,6 +15824,33 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
             setTimeout(function () {
               document.title = 'NEWBOSS stages=' + STAGES.length + ' boss=' + (enemies[0] || {}).kind + ' hp=' + Math.round((enemies[0] || {}).hp || 0) + ' eb=' + ebullets.length + ' boss2=' + STAGES[2].boss;
             }, 3000);
+          }, 700);
+        } else if (sc === 'cycletest2') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            SAVE.cycle = 2;
+            const cycle2All = heroUnlocked(HEROES.filter(function (h) { return h.key === 'grok'; })[0]);
+            SAVE.cycle = 3;
+            const cycle3Grok = heroUnlocked(HEROES.filter(function (h) { return h.key === 'grok'; })[0]);
+            const cycle3Seed = heroUnlocked(HEROES.filter(function (h) { return h.key === 'seed'; })[0]);
+            SAVE.cycle = 2;
+            game.coins = 300;
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room', 'is-cutscene');
+            beginStage(true);
+            openRoomShop();
+            const cards = Array.prototype.map.call(document.querySelectorAll('#rest-grid .rooms__card'), function (b) { return b.textContent; });
+            const hasModel = cards.some(function (t) { return t.indexOf('强化 AI 模型') >= 0; });
+            SAVE.cycle = 1;
+            playEnding();
+            setTimeout(function () {
+              document.title = 'CYCLE2 c2all=' + cycle2All + ' c3grok=' + cycle3Grok + ' c3seed=' + cycle3Seed + ' modelCard=' + hasModel + ' cycleAfterBad=' + SAVE.cycle;
+            }, 300);
           }, 700);
         } else if (sc === 'cycletest') {
           setTimeout(function () {
