@@ -3879,3 +3879,13 @@ html .pad .act.is-down {
 @media (orientation: portrait) {
   :root { --btn: calc(clamp(50px, 15.2vmin, 70px) * var(--btn-mul, 1)); }
 }
+
+
+.rank-tabs { display: flex; gap: 6px; margin: 4px 0 10px; }
+.rank-tabs button {
+  flex: 1; padding: 7px 0; border-radius: 8px; cursor: pointer;
+  border: 1px solid rgba(94,231,255,.25);
+  background: rgba(10,22,36,.8); color: rgba(200,230,250,.7);
+  font: 700 12px/1 "PingFang SC", system-ui;
+}
+.rank-tabs button.is-on { border-color: rgba(110,247,180,.7); color: #d8ffe9; background: rgba(30,80,65,.8); }

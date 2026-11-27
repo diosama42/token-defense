@@ -580,6 +580,9 @@
     seed: ['数据型', '分镜型']
   };
 
+  /* Supabase 全网榜配置：填 Project URL 和 Publishable key（不是 secret key） */
+  const SUPABASE = { url: '', key: '' };
+
   const CONFIG = {
     playerHp: 120,
     enemyDamageScale: 0.62,
@@ -8372,12 +8375,13 @@
     if (!game.runRecorded) {
       game.runRecorded = true;
       if (!SAVE.scores) SAVE.scores = [];
-      SAVE.scores.push({
+      const entry = {
         score: scoreNum, grade: grade, time: secs,
         hero: (HEROES[heroIndex] || HEROES[0]).name,
         mode: game.daily ? 'daily' : game.tower ? 'tower' : 'story',
         date: new Date().toISOString().slice(0, 10)
-      });
+      };
+      SAVE.scores.push(entry);
       SAVE.scores.sort(function (a, b) { return b.score - a.score; });
       SAVE.scores = SAVE.scores.slice(0, 20);
       if (game.daily) {
@@ -8385,6 +8389,7 @@
         if (!SAVE.daily || SAVE.daily.date !== today) SAVE.daily = { date: today, best: 0 };
         SAVE.daily.best = Math.max(SAVE.daily.best || 0, scoreNum);
       }
+      submitGlobalScore(entry);
       saveWrite();
     }
     if (game.warResult === 'win' || game.warResult === 'lose') {
@@ -8401,11 +8406,52 @@
     e.stopPropagation();
     startGame();
   });
-  function renderLeaderboard() {
+  function renderLeaderboard(tab) {
     const panel = document.getElementById('leaderboard');
     const list = document.getElementById('rank-list');
     if (!panel || !list) return;
     list.innerHTML = '';
+    const which = tab || 'local';
+    if (which === 'global') {
+      if (!SUPABASE.url || !SUPABASE.key) {
+        const tip = document.createElement('p');
+        tip.className = 'rooms__sub';
+        tip.textContent = '全网榜还没配置（需要 Supabase URL 与 Publishable key）。';
+        list.appendChild(tip);
+        panel.classList.add('show');
+        return;
+      }
+      const tip = document.createElement('p');
+      tip.className = 'rooms__sub';
+      tip.textContent = '加载中…';
+      list.appendChild(tip);
+      fetch(SUPABASE.url + '/rest/v1/scores?select=score,grade,hero,mode,time,created_at&order=score.desc&limit=10', {
+        headers: { apikey: SUPABASE.key, Authorization: 'Bearer ' + SUPABASE.key }
+      }).then(function (r) { return r.json(); }).then(function (rows) {
+        list.innerHTML = '';
+        if (!Array.isArray(rows) || !rows.length) {
+          const empty = document.createElement('p');
+          empty.className = 'rooms__sub';
+          empty.textContent = '全网还没有记录，你可以做第一个。';
+          list.appendChild(empty);
+          return;
+        }
+        rows.forEach(function (r, i) {
+          const row = document.createElement('div');
+          row.className = 'rank__row';
+          row.innerHTML = '<span>' + (i + 1) + '. ' + (r.grade || 'D') + ' · ' + r.score + '</span><em>' + (r.hero || '-') + ' · ' + (r.mode || 'story') + ' · ' + Math.floor((r.time || 0) / 60) + ':' + String((r.time || 0) % 60).padStart(2, '0') + '</em>';
+          list.appendChild(row);
+        });
+      }).catch(function () {
+        list.innerHTML = '';
+        const err = document.createElement('p');
+        err.className = 'rooms__sub';
+        err.textContent = '全网榜加载失败，请稍后再试。';
+        list.appendChild(err);
+      });
+      panel.classList.add('show');
+      return;
+    }
     const rows = (SAVE.scores || []).slice(0, 10);
     if (!rows.length) {
       const empty = document.createElement('p');
@@ -8421,6 +8467,22 @@
       list.appendChild(row);
     });
     panel.classList.add('show');
+  }
+
+  function submitGlobalScore(entry) {
+    if (!SUPABASE.url || !SUPABASE.key) return;
+    try {
+      fetch(SUPABASE.url + '/rest/v1/scores', {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE.key,
+          Authorization: 'Bearer ' + SUPABASE.key,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal'
+        },
+        body: JSON.stringify({ score: entry.score, grade: entry.grade, hero: entry.hero, mode: entry.mode, time: entry.time, name: '匿名大学生' })
+      });
+    } catch (e) { /* ignore */ }
   }
 
   function downloadShareCard() {
@@ -11202,12 +11264,16 @@
 
   (function bindShareAndRank() {
     const rankBtn = document.getElementById('btn-rank');
-    if (rankBtn) rankBtn.addEventListener('click', function (e) { e.stopPropagation(); renderLeaderboard(); });
+    if (rankBtn) rankBtn.addEventListener('click', function (e) { e.stopPropagation(); renderLeaderboard(localStorage.getItem('tb_ranktab') || 'local'); });
     const overRank = document.getElementById('btn-over-rank');
-    if (overRank) overRank.addEventListener('click', function (e) { e.stopPropagation(); renderLeaderboard(); });
+    if (overRank) overRank.addEventListener('click', function (e) { e.stopPropagation(); renderLeaderboard('local'); });
     const rankClose = document.getElementById('rank-close');
     const rankPanel = document.getElementById('leaderboard');
     if (rankClose && rankPanel) rankClose.addEventListener('click', function (e) { e.stopPropagation(); rankPanel.classList.remove('show'); });
+    const tabL = document.getElementById('rank-tab-local');
+    const tabG = document.getElementById('rank-tab-global');
+    if (tabL) tabL.addEventListener('click', function (e) { e.stopPropagation(); tabL.classList.add('is-on'); if (tabG) tabG.classList.remove('is-on'); renderLeaderboard('local'); });
+    if (tabG) tabG.addEventListener('click', function (e) { e.stopPropagation(); tabG.classList.add('is-on'); if (tabL) tabL.classList.remove('is-on'); renderLeaderboard('global'); });
     const share = document.getElementById('btn-share');
     if (share) share.addEventListener('click', function (e) { e.stopPropagation(); downloadShareCard(); });
     const daily = document.getElementById('btn-daily');
