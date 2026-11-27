@@ -3616,3 +3616,15 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
   color: #d8ffe9;
   background: rgba(30, 80, 65, 0.85);
 }
+
+
+.buff-card__tag {
+  align-self: flex-start;
+  font-style: normal;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #8fe8ff;
+  background: rgba(94, 231, 255, 0.12);
+  border: 1px solid rgba(94, 231, 255, 0.2);
+}

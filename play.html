@@ -3629,6 +3629,18 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
   background: rgba(30, 80, 65, 0.85);
 }
 
+
+.buff-card__tag {
+  align-self: flex-start;
+  font-style: normal;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #8fe8ff;
+  background: rgba(94, 231, 255, 0.12);
+  border: 1px solid rgba(94, 231, 255, 0.2);
+}
+
 </style>
 </head>
 <body>
@@ -4430,6 +4442,52 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
     { key: 'kimi', name: 'Kimi', badge: 'K', effect: 'guard', desc: '超长上下文：无敌 5 秒' }
   ];
 
+  const BUFF_TAGS = {
+    'Token 虹吸': 'token', 'Token 池扩容': 'token',
+    '无限支援': 'summon', '支援专家': 'summon',
+    '弹幕扩散': 'bullet', '弹幕加速': 'bullet', '破片爆炸': 'bullet', '精准索敌': 'bullet',
+    '闪避优化': 'dodge', '三段跳': 'dodge',
+    '暴击协议': 'crit', '吸血编译': 'crit',
+    '算力超频': 'power', '缓存扩容': 'power',
+    '推理加速': 'power', '护盾再生': 'power'
+  };
+  const SET_INFO = {
+    bullet: { name: '弹幕流', color: '150,220,255' },
+    dodge: { name: '闪避流', color: '110,247,180' },
+    crit: { name: '暴击流', color: '255,209,102' },
+    token: { name: 'Token 流', color: '167,139,250' },
+    summon: { name: '召唤流', color: '255,120,190' },
+    power: { name: '算力流', color: '255,180,92' }
+  };
+
+  function applySetBonuses() {
+    if (!game.setApplied) game.setApplied = {};
+    const counts = {};
+    game.buffs.forEach(function (n) {
+      const tag = BUFF_TAGS[n];
+      if (tag) counts[tag] = (counts[tag] || 0) + 1;
+    });
+    const fire = function (key, tag, need, fn) {
+      if (game.setApplied[key]) return;
+      if ((counts[tag] || 0) >= need) {
+        game.setApplied[key] = true;
+        fn();
+        const info = SET_INFO[tag];
+        addText(W * 0.5, H * 0.34, '【' + info.name + ' ' + need + ' 件】套装效果激活！', info.color, 18);
+        sfx(980, 0.2, 'triangle', 0.05);
+      }
+    };
+    fire('bullet2', 'bullet', 2, function () { game.buffShots = Math.min(4, (game.buffShots || 1) + 1); });
+    fire('bullet4', 'bullet', 4, function () { game.setSplit = true; });
+    fire('dodge2', 'dodge', 2, function () { player.dashCdMul *= 0.8; });
+    fire('dodge4', 'dodge', 4, function () { game.setDodgeShot = true; });
+    fire('crit2', 'crit', 2, function () { player.critChance += 0.1; });
+    fire('crit4', 'crit', 4, function () { game.setCritHeal = 2; });
+    fire('token2', 'token', 2, function () { player.tokenMul = Math.min(4, player.tokenMul * 1.3); });
+    fire('summon2', 'summon', 2, function () { player.supportCdMul *= 0.75; });
+    fire('power2', 'power', 2, function () { player.dmgMul *= 1.08; });
+  }
+
   const BUFF_TIER = {
     '无限支援': 'legend',
     '暴击协议': 'rare',
@@ -4670,6 +4728,7 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
     roomTarget: 0,
     roomStartScore: 0,
     scoreMul: 1,
+    fullPower: false,
     flash: 0,
     warns: [],
     shake: 0,
@@ -6307,6 +6366,12 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
         p.boostT = Math.max(p.boostT || 0, 3.2);
         addText(p.x, p.y - U(140), '完美闪避！伤害 +35%', '255,209,102', 18);
         game.flash = Math.max(game.flash, 0.25);
+        if (game.setDodgeShot) {
+          for (let k = 0; k < 3; k++) {
+            const ang = -0.5 + k * 0.5;
+            tokenBullet(p.x, p.y - U(60), p.face * Math.cos(ang) * U(900), Math.sin(ang) * U(240), 10 * heroDmg(), true);
+          }
+        }
         sfx(1240, 0.12, 'triangle', 0.05);
       } else {
         addText(p.x, p.y - U(120), '闪避反击', '150,220,255', 15);
@@ -7165,6 +7230,15 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
             addText(b.x, b.y - U(18), 'CRIT', '255,220,120', 18);
           }
           hurtEnemy(e, dmg, Math.sign(b.vx) * U(60), 0);
+          if (game.setSplit && !b.split) {
+            for (let k = -1; k <= 1; k += 2) {
+              const ang = Math.atan2(b.vy, b.vx) + k * 0.55;
+              tokenBullet(b.x, b.y, Math.cos(ang) * U(620), Math.sin(ang) * U(620), dmg * 0.5, true);
+            }
+          }
+          if (game.setCritHeal && dmg > b.dmg * 1.5) {
+            player.hp = Math.min(player.maxHp, player.hp + game.setCritHeal);
+          }
           if (player.lifesteal > 0) {
             player.hp = Math.min(player.maxHp, player.hp + dmg * player.lifesteal);
           }
@@ -7867,8 +7941,25 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
     const b = pick(BUFFS);
     b.apply();
     game.buffs.push(b.name);
+    applySetBonuses();
     addText(player.x, player.y - U(120), '获得词条：' + b.name, '255,209,102', 18);
     sfx(820, 0.14, 'triangle', 0.05);
+    return true;
+  }
+
+  function purchaseFullPower() {
+    if (game.fullPower) return false;
+    if (game.coins < 120) return false;
+    game.coins -= 120;
+    game.fullPower = true;
+    player.maxHp += 30;
+    player.hp = player.maxHp;
+    player.dmgMul *= 1.25;
+    player.speedMul *= 1.1;
+    player.defenseMul = Math.max(0.5, player.defenseMul * 0.95);
+    addText(player.x, player.y - U(150), '全力形态！伤害 +25% · 生命 +30', '255,209,102', 20);
+    rings.push({ x: player.x, y: player.y - U(60), r0: U(10), r1: U(240), w: U(7), life: 0.6, max: 0.6, color: '255,209,102' });
+    sfx(1040, 0.3, 'triangle', 0.06);
     return true;
   }
 
@@ -7915,6 +8006,7 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
     mk('治疗', player.hp >= player.maxHp ? '生命已满' : '回复全部生命', 40, function () { return purchaseHeal(); });
     mk('随机词条', '获得一个随机强化词条', 50, function () { return purchaseBuff(); });
     mk('装备强化', '最大生命 +30，受到的伤害 -5%', 60, function () { return purchaseEquip(); });
+    mk('全力形态', game.fullPower ? '已解锁：伤害 +25% · 生命 +30' : '解锁成人形态：伤害 +25%，生命 +30', 120, function () { return purchaseFullPower(); });
     if (shopMode) {
       mk('离开商店', '返回房间选择', 0, function () { panel.classList.remove('show'); document.body.classList.remove('is-room'); showNodeSelect(); return true; }, true);
     } else {
@@ -9029,8 +9121,8 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
     if (game.state === 'menu') return;
     const p = player;
     const hero = HEROES[heroIndex] || HEROES[0];
-    const img = SPR[hero.key];
-    const sprH = U(150);
+    const img = SPR[game.fullPower && hero.fullKey ? hero.fullKey : hero.key] || SPR[hero.key];
+    const sprH = U(game.fullPower && hero.fullKey ? 172 : 150);
     const ratio = img && img.width ? img.width / img.height : 0.52;
     const sprW = sprH * ratio;
 
@@ -9067,6 +9159,28 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
     ctx.ellipse(p.x, groundY + U(3), U(30) * air, U(8) * air, 0, 0, TAU);
     ctx.fill();
     ctx.restore();
+
+    /* 全力形态光环 */
+    if (game.fullPower) {
+      const t = game.time;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const rg = ctx.createRadialGradient(p.x, p.y - U(70), U(10), p.x, p.y - U(70), U(120));
+      rg.addColorStop(0, 'rgba(255,209,102,0.28)');
+      rg.addColorStop(1, 'rgba(255,209,102,0)');
+      ctx.fillStyle = rg;
+      ctx.fillRect(p.x - U(130), p.y - U(200), U(260), U(260));
+      ctx.strokeStyle = 'rgba(255,209,102,' + (0.5 + 0.2 * Math.sin(t * 4)).toFixed(2) + ')';
+      ctx.lineWidth = U(2.2);
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y - U(6), U(46), U(13), 0, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = '#ffd166';
+      ctx.font = '800 ' + (10 * S).toFixed(0) + 'px "PingFang SC", system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('全力形态', p.x, p.y - sprH - U(10));
+    }
 
     /* Astra 紫焰 */
     if (p.astra > 0) {
@@ -10772,11 +10886,14 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
       const tier = tierOf(b);
       card.className = 'buff-card tier-' + tier;
       const tierName = tier === 'legend' ? '传说' : tier === 'rare' ? '稀有' : '';
-      card.innerHTML = '<b>' + b.name + '</b>' + (tierName ? '<i class="buff-card__tier">' + tierName + '</i>' : '') + '<span>' + b.desc + '</span>';
+      const tagName = BUFF_TAGS[b.name] && SET_INFO[BUFF_TAGS[b.name]] ? SET_INFO[BUFF_TAGS[b.name]].name : '';
+      card.innerHTML = '<b>' + b.name + '</b>' + (tierName ? '<i class="buff-card__tier">' + tierName + '</i>' : '') +
+        (tagName ? '<i class="buff-card__tag">' + tagName + '</i>' : '') + '<span>' + b.desc + '</span>';
       card.addEventListener('click', function (e) {
         e.stopPropagation();
         b.apply();
         game.buffs.push(b.name);
+        applySetBonuses();
         game.buffDraws = (game.buffDraws || 0) + 1;
         buffEl.classList.remove('show');
         sfx(720, 0.14, 'triangle', 0.05);
@@ -11528,6 +11645,7 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
     game.roomActive = false;
     game.roomType = null;
     game.scoreMul = 1;
+    game.fullPower = false;
     platforms = [];
 
     game.time = 0;
@@ -13167,6 +13285,41 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
             game.paused = true;
             setTimeout(function () { document.title = 'WBS pb=' + pbullets.length + ' p0=' + (pbullets[0] ? Math.round(pbullets[0].x) + ',' + Math.round(pbullets[0].y) : '-'); }, 400);
           }, 400);
+        } else if (sc === 'fullshot') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            game.fullPower = true;
+            beginStage(true);
+            setTimeout(function () { document.title = 'FULLSHOT ok'; }, 500);
+          }, 700);
+        } else if (sc === 'fullpower') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            game.coins = 200;
+            beginStage(true);
+            showBossRest();
+            setTimeout(function () {
+              const btns = document.querySelectorAll('#rest-grid .rooms__card');
+              let target = null;
+              btns.forEach(function (b) { if (b.textContent.indexOf('全力形态') >= 0) target = b; });
+              if (target) target.click();
+              setTimeout(function () {
+                document.title = 'FULL full=' + game.fullPower + ' coins=' + game.coins + ' dmg=' + player.dmgMul.toFixed(2) + ' maxHp=' + player.maxHp;
+              }, 400);
+            }, 400);
+          }, 700);
         } else if (sc === 'roomui') {
           setTimeout(function () {
             startGame();
