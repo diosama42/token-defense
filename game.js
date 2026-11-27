@@ -3981,6 +3981,9 @@
       player.token = Math.min(player.maxToken, player.token + 15);
       bonusText = ' · Token +15';
     }
+    /* 非 Boss 关卡：额外给一个普通品质词条（攻速/攻击/生命这类） */
+    const commonGain = grantCommonBuff();
+    if (commonGain) bonusText += ' · 词条：' + commonGain;
     ebullets = [];
     pbullets = [];
     enemies = [];
@@ -4038,6 +4041,25 @@
     addText(player.x, player.y - U(130), '移除词条：' + removed, '255,150,150', 17);
     sfx(560, 0.12, 'square', 0.04);
     return true;
+  }
+
+  function isCommonBuff(b) {
+    return b && !b.core && !BUFF_TIER[b.name];
+  }
+
+  function grantCommonBuff() {
+    const pool = BUFFS.filter(function (b) {
+      return isCommonBuff(b) && game.buffs.indexOf(b.name) < 0;
+    });
+    if (!pool.length) {
+      player.hp = Math.min(player.maxHp, player.hp + 8);
+      return '生命 +8';
+    }
+    const b = pick(pool);
+    b.apply();
+    game.buffs.push(b.name);
+    applySetBonuses(true);
+    return b.name;
   }
 
   function purchaseHeal() {
@@ -7232,9 +7254,13 @@
         game.towerFloor += 1;
         game.coins += 10 + game.towerFloor * 2;
         if (game.towerFloor % 3 === 0) {
-          const b = pick(BUFFS.filter(function (x) { return !x.core && game.buffs.indexOf(x.name) < 0; }));
+          let b = null;
+          if (game.towerFloor % 10 === 0) {
+            b = pick(BUFFS.filter(function (x) { return !x.core && BUFF_TIER[x.name] && game.buffs.indexOf(x.name) < 0; }));
+          }
+          if (!b) b = pick(BUFFS.filter(function (x) { return isCommonBuff(x) && game.buffs.indexOf(x.name) < 0; }));
           if (b) { b.apply(); game.buffs.push(b.name); applySetBonuses(); }
-          addText(W * 0.5, H * 0.34, '通关奖励：' + (b ? b.name : 'Token'), '110,247,180', 18);
+          addText(W * 0.5, H * 0.34, '通关奖励：' + (b ? b.name : '生命 +8'), '110,247,180', 18);
         }
         spawnTowerFloor();
       }
@@ -10871,6 +10897,26 @@
             spawnTowerFloor();
             player.invuln = 99;
             document.title = 'TOWERSHOT floor=5 enemies=' + enemies.length + ' skins=' + enemies.map(function (e) { return e.towerSkin || '-'; }).join(',');
+          }, 700);
+        } else if (sc === 'commonbuff') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room', 'is-cutscene');
+            beginStage(true);
+            game.buffs = [];
+            game.coins = 0;
+            startRoom('wave');
+            game.roomT = game.roomTarget - 0.02;
+            setTimeout(function () {
+              const resultText = document.getElementById('room-result-text');
+              document.title = 'COMMON buffs=' + game.buffs.join(',') + ' common=' + game.buffs.every(function (n) { const b = BUFFS.filter(function (x) { return x.name === n; })[0]; return b && !BUFF_TIER[n]; }) + ' text=' + (resultText ? resultText.textContent.slice(0, 60) : '-');
+            }, 1200);
           }, 700);
         } else if (sc === 'portalshot') {
           setTimeout(function () {
