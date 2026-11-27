@@ -3599,3 +3599,20 @@ html.layout-edit .controls {
 .rooms__card:disabled { opacity: 0.4; cursor: default; transform: none; }
 .rooms__price { align-self: flex-end; font-size: 11px; color: #ffd166; font-weight: 700; }
 body.is-room .controls, body.is-room .hud { pointer-events: none; }
+
+
+/* 难度选择 */
+.settings__row--diff { align-items: center; }
+.diff-pick { display: flex; gap: 5px; margin-left: auto; }
+.diff-pick button {
+  padding: 5px 10px; border-radius: 7px; cursor: pointer;
+  border: 1px solid rgba(94, 231, 255, 0.28);
+  background: rgba(10, 22, 36, 0.85);
+  color: rgba(200, 230, 250, 0.7);
+  font: 600 11px/1 "PingFang SC", system-ui;
+}
+.diff-pick button.is-on {
+  border-color: rgba(110, 247, 180, 0.8);
+  color: #d8ffe9;
+  background: rgba(30, 80, 65, 0.85);
+}

@@ -257,6 +257,7 @@
       ],
       bossIntro: [
         'Grok 娘。她蓄力之后会直接突进，别硬接，跳起来躲。',
+        '她好像认识你——因为她也在用同一套模型。',
         '打倒她，我们才能进城堡。'
       ]
     },
@@ -268,6 +269,7 @@
       ],
       bossIntro: [
         '西装奶蛙。黄色弹幕很密，跳起来躲。',
+        '别以为站在角落就安全——它的砸地会扫到墙边。',
         '这只比外头那些奶蛙硬得多。'
       ]
     },
@@ -279,6 +281,7 @@
       ],
       bossIntro: [
         '冬装豆包。它一放「视频生成」，屏幕中间会弹出视频框挡住视野，别站在框里。',
+        '视频框可以打掉，别光顾着躲。',
         '那些 seedance 光球会追着你飞，走位别停。'
       ]
     },
@@ -290,7 +293,8 @@
       ],
       bossIntro: [
         '……SEED 娘。豆包的视频模型，也是这场闹剧的核心。',
-        '它会倾倒数据。撑过这一关，Token 就回来了。'
+        '它会从头顶倾倒数据，注意上方。',
+        '撑过这一关，Token 就回来了。'
       ]
     }
   ];
@@ -471,6 +475,13 @@
   };
 
   /* ---------- 数值配置（想调平衡改这里） ---------- */
+  function diffCfg() {
+    const d = SAVE.diff || 'normal';
+    if (d === 'easy') return { dmg: 0.72, hp: 0.85, label: '简单' };
+    if (d === 'hard') return { dmg: 1.25, hp: 1.15, label: '困难' };
+    return { dmg: 1, hp: 1, label: '普通' };
+  }
+
   const CONFIG = {
     playerHp: 120,
     enemyDamageScale: 0.62,
@@ -1156,6 +1167,14 @@
     p.attackCd = fireRate();
     p.attackT = ATK_DUR;
     game.combo += 1;
+    if (game.combo === 10 || game.combo === 25 || game.combo === 50) {
+      const heal = game.combo === 50 ? 12 : game.combo === 25 ? 6 : 3;
+      player.hp = Math.min(player.maxHp, player.hp + heal);
+      player.token = Math.min(player.maxToken, player.token + 6);
+      addText(player.x, player.y - U(150), '连击 ' + game.combo + '！回复 ' + heal + ' 生命', '110,247,180', 16);
+      rings.push({ x: player.x, y: player.y - U(56), r0: U(10), r1: U(110), w: U(4), life: 0.35, max: 0.35, color: '110,247,180' });
+      sfx(980, 0.12, 'sine', 0.04);
+    }
     { const st0 = achvStats(); if (game.combo > st0.maxCombo) st0.maxCombo = game.combo; }
     game.comboT = 2.2;
 
@@ -1485,7 +1504,16 @@
     /* Boss 破防窗口：定身期间受伤 +50% */
     if (e.isBoss && e.stun > 0) dmg *= 1.5;
     if (e.kind === 'nail_boss') dmg *= 0.82;
+    const wasAboveHalf = e.hp > e.maxHp * 0.5;
     e.hp -= Math.max(1, dmg);
+    if (e.isBoss && wasAboveHalf && e.hp > 0 && e.hp <= e.maxHp * 0.5 && !e.rageWarned) {
+      e.rageWarned = true;
+      const names = { grok: 'Grok 娘', nail_boss: '西装奶蛙', doubao_boss: '冬装豆包', seed: 'SEED 娘' };
+      addText(W * 0.5, H * 0.26, (names[e.kind] || 'Boss') + ' 进入狂暴！', '255,92,138', 24);
+      game.shake = U(18);
+      game.flash = 0.4;
+      sfx(180, 0.5, 'sawtooth', 0.06);
+    }
     e.hurt = 0.14;
     if (kx) e.kx = (e.kx || 0) + kx * 0.35;
     if (ky && !force) e.vy = ky;
@@ -1582,7 +1610,7 @@
     const p = player;
     if (game.state !== 'play') return;
     if (p.dead || p.invuln > 0 || p.shield > 0) return;
-    const realDmg = Math.max(1, Math.round(dmg * CONFIG.enemyDamageScale * (game.enemyDmgMul || 1) * (p.defenseMul || 1)));
+    const realDmg = Math.max(1, Math.round(dmg * CONFIG.enemyDamageScale * (game.enemyDmgMul || 1) * (p.defenseMul || 1) * diffCfg().dmg));
     /* 硅谷决战里弹幕太密，硬直减半，避免被锁在原地动不了 */
     const hurtStun = game.siliconWar ? 0.05 : 0.3;
     buzz(45);
@@ -1634,7 +1662,7 @@
       x: x, y: groundY,
       vx: -side * speed, vy: 0, kx: 0,
       w: w, h: h,
-      hp: hp * (game.enemyHpMul || 1), maxHp: hp * (game.enemyHpMul || 1),
+      hp: hp * (game.enemyHpMul || 1) * diffCfg().hp, maxHp: hp * (game.enemyHpMul || 1) * diffCfg().hp,
       hurt: 0, t: rand(0, 6), fireT: rand(0.8, 1.8), face: -side,
       stun: 0, dead: false, isBoss: false,
       homeX: side > 0 ? W * rand(0.62, 0.88) : W * rand(0.12, 0.38)
@@ -1650,7 +1678,7 @@
       x: conf.x, y: groundY,
       vx: 0, vy: 0, kx: 0,
       w: conf.w, h: conf.h,
-      hp: conf.hp * (game.enemyHpMul || 1), maxHp: conf.hp * (game.enemyHpMul || 1),
+      hp: conf.hp * (game.enemyHpMul || 1) * diffCfg().hp, maxHp: conf.hp * (game.enemyHpMul || 1) * diffCfg().hp,
       hurt: 0, t: 0, fireT: 1.2, face: -1, stun: 0, dead: false,
       homeX: conf.x, phase: 'idle', phaseT: 1.2
     });
@@ -2054,7 +2082,28 @@
       p.invuln = Math.max(p.invuln, 0.34);
       p.dodgeBuffT = 1.5;
       p.dodgeFxT = 0.6;
-      addText(p.x, p.y - U(120), '闪避反击', '150,220,255', 15);
+      /* 完美闪避：在弹幕贴脸时闪开，短暂时缓 + 伤害提升 */
+      let danger = false;
+      for (const b of ebullets) {
+        const dx = b.x - p.x;
+        const dy = b.y - (p.y - U(56));
+        if (dx * dx + dy * dy < U(130) * U(130)) { danger = true; break; }
+      }
+      if (!danger && game.warns) {
+        for (const w of game.warns) {
+          if (Math.abs(w.x - p.x) < U(120) && w.life > 0) { danger = true; break; }
+        }
+      }
+      if (danger) {
+        game.slow = Math.max(game.slow, 0.45);
+        p.dmgMul *= 1.35;
+        p.boostT = Math.max(p.boostT || 0, 3.2);
+        addText(p.x, p.y - U(140), '完美闪避！伤害 +35%', '255,209,102', 18);
+        game.flash = Math.max(game.flash, 0.25);
+        sfx(1240, 0.12, 'triangle', 0.05);
+      } else {
+        addText(p.x, p.y - U(120), '闪避反击', '150,220,255', 15);
+      }
       p.vx = p.face * U(1250);
       rings.push({ x: p.x, y: p.y - U(56), r0: U(16), r1: U(150), w: U(5), life: 0.32, max: 0.32, color: '150,220,255' });
       slashes.push({ x: p.x + p.face * U(20), y: p.y - U(60), r: U(120), face: p.face, life: 0.24, max: 0.24, color: '150,220,255' });
@@ -3575,6 +3624,14 @@
     const gained = Math.max(12, Math.round((game.score - game.roomStartScore) / 70));
     game.coins += gained;
     game.scoreMul = 1;
+    let bonusText = '';
+    if (game.roomType === 'wave') {
+      player.hp = Math.min(player.maxHp, player.hp + 15);
+      bonusText = ' · 生命 +15';
+    } else {
+      player.token = Math.min(player.maxToken, player.token + 15);
+      bonusText = ' · Token +15';
+    }
     ebullets = [];
     pbullets = [];
     enemies = [];
@@ -3582,7 +3639,7 @@
     document.body.classList.add('is-room');
     const panel = document.getElementById('room-result');
     const txt = document.getElementById('room-result-text');
-    if (txt) txt.textContent = '本房间获得金币 +' + gained + ' · 当前金币 ' + game.coins;
+    if (txt) txt.textContent = '本房间获得金币 +' + gained + bonusText + ' · 当前金币 ' + game.coins;
     if (panel) panel.classList.add('show');
     sfx(880, 0.16, 'triangle', 0.05);
   }
@@ -9849,6 +9906,25 @@
     }
   };
   /* 注意：loop 里调用的是被 hook 后的 step */
+
+  /* 难度按钮 */
+  (function bindDiff() {
+    const btns = document.querySelectorAll('.diff-pick button');
+    const sync = function () {
+      const cur = SAVE.diff || 'normal';
+      Array.prototype.forEach.call(btns, function (b) { b.classList.toggle('is-on', b.dataset.diff === cur); });
+    };
+    Array.prototype.forEach.call(btns, function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        SAVE.diff = b.dataset.diff || 'normal';
+        saveWrite();
+        sync();
+        sfx(700, 0.08, 'sine', 0.03);
+      });
+    });
+    sync();
+  })();
 
   bindAchv();
   boot();
