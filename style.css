@@ -3447,3 +3447,45 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
   background: rgba(255, 76, 110, 0.92) !important;
   color: #fff !important;
 }
+
+
+/* 自定义按键 */
+.settings__sub--label {
+  margin: 14px 0 6px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: rgba(190, 225, 250, 0.7);
+  font-size: 11px;
+  text-align: left;
+  cursor: default;
+}
+.settings__sub--mini { margin-top: 8px; font-size: 11px; padding: 7px 0; }
+.keymap { display: flex; flex-direction: column; gap: 6px; }
+.keymap__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: rgba(94, 231, 255, 0.05);
+  border: 1px solid rgba(94, 231, 255, 0.14);
+}
+.keymap__row span { font-size: 12px; color: rgba(220, 240, 255, 0.8); }
+.keymap__key {
+  min-width: 68px;
+  padding: 5px 12px;
+  border-radius: 7px;
+  border: 1px solid rgba(150, 220, 255, 0.5);
+  background: rgba(10, 22, 36, 0.9);
+  color: #eaf8ff;
+  font: 700 12px/1 ui-monospace, monospace;
+  cursor: pointer;
+}
+.keymap__key.is-capturing {
+  border-color: #ffd166;
+  color: #ffd166;
+  animation: kmPulse 0.8s ease-in-out infinite;
+}
+@keyframes kmPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }

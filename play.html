@@ -3460,6 +3460,48 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
   color: #fff !important;
 }
 
+
+/* 自定义按键 */
+.settings__sub--label {
+  margin: 14px 0 6px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: rgba(190, 225, 250, 0.7);
+  font-size: 11px;
+  text-align: left;
+  cursor: default;
+}
+.settings__sub--mini { margin-top: 8px; font-size: 11px; padding: 7px 0; }
+.keymap { display: flex; flex-direction: column; gap: 6px; }
+.keymap__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: rgba(94, 231, 255, 0.05);
+  border: 1px solid rgba(94, 231, 255, 0.14);
+}
+.keymap__row span { font-size: 12px; color: rgba(220, 240, 255, 0.8); }
+.keymap__key {
+  min-width: 68px;
+  padding: 5px 12px;
+  border-radius: 7px;
+  border: 1px solid rgba(150, 220, 255, 0.5);
+  background: rgba(10, 22, 36, 0.9);
+  color: #eaf8ff;
+  font: 700 12px/1 ui-monospace, monospace;
+  cursor: pointer;
+}
+.keymap__key.is-capturing {
+  border-color: #ffd166;
+  color: #ffd166;
+  animation: kmPulse 0.8s ease-in-out infinite;
+}
+@keyframes kmPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
 </style>
 </head>
 <body>
@@ -3798,6 +3840,9 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
         <b id="set-uialpha-val">100</b>
       </label>
       <button class="settings__sub" id="btn-edit-layout" type="button">调整按键位置</button>
+      <p class="settings__sub settings__sub--label">自定义按键（点一下再按新键）</p>
+      <div class="keymap" id="keymap-list"></div>
+      <button class="settings__sub settings__sub--mini" id="keymap-reset" type="button">恢复默认按键</button>
       <label class="settings__row">
         <span>低配模式（少特效）</span>
         <input id="set-lowfx" type="checkbox" />
@@ -4730,8 +4775,86 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
     function () { /* 跳跃不需要持续按住 */ }
   );
 
+  const DEFAULT_KEYMAP = {
+    attack: 'KeyJ', skill: 'KeyK', ult: 'KeyL', support: 'KeyU', jump: 'KeyW', dash: 'ShiftLeft'
+  };
+  const KEYMAP = Object.assign({}, DEFAULT_KEYMAP, SAVE.keymap || {});
+  let keyCapture = null;
+  const KEY_LABEL = {
+    Space: '空格', ShiftLeft: 'Shift', ShiftRight: 'Shift', ControlLeft: 'Ctrl', ControlRight: 'Ctrl',
+    AltLeft: 'Alt', AltRight: 'Alt', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→',
+    Escape: 'Esc', Enter: 'Enter', Tab: 'Tab', Backspace: '退格'
+  };
+  function keyName(code) {
+    if (!code) return '?';
+    if (KEY_LABEL[code]) return KEY_LABEL[code];
+    if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+    if (/^Digit[0-9]$/.test(code)) return code.slice(5);
+    return code.replace('Left', '').replace('Right', '');
+  }
+  function keyOf(action) { return KEYMAP[action] || DEFAULT_KEYMAP[action]; }
+  function saveKeymap() { saveSet('keymap', Object.assign({}, KEYMAP)); }
+  function buildKeymapUI() {
+    const list = document.getElementById('keymap-list');
+    if (!list) return;
+    const rows = [
+      ['attack', '平A'], ['skill', '技能'], ['ult', '大招'],
+      ['support', '支援'], ['jump', '跳跃'], ['dash', '闪避']
+    ];
+    list.innerHTML = '';
+    rows.forEach(function (r) {
+      const row = document.createElement('div');
+      row.className = 'keymap__row';
+      const label = document.createElement('span');
+      label.textContent = r[1];
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'keymap__key';
+      btn.textContent = keyCapture === r[0] ? '按下新键…' : keyName(keyOf(r[0]));
+      if (keyCapture === r[0]) btn.classList.add('is-capturing');
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        keyCapture = r[0];
+        buildKeymapUI();
+      });
+      row.appendChild(label);
+      row.appendChild(btn);
+      list.appendChild(row);
+    });
+  }
+  function bindKeymapUI() {
+    buildKeymapUI();
+    const reset = document.getElementById('keymap-reset');
+    if (reset) {
+      reset.addEventListener('click', function (e) {
+        e.stopPropagation();
+        Object.keys(DEFAULT_KEYMAP).forEach(function (k) { KEYMAP[k] = DEFAULT_KEYMAP[k]; });
+        keyCapture = null;
+        saveKeymap();
+        buildKeymapUI();
+      });
+    }
+  }
+  bindKeymapUI();
+
   window.addEventListener('keydown', function (e) {
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].indexOf(e.code) >= 0) e.preventDefault();
+    if (keyCapture) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.code !== 'Escape') {
+        const action = keyCapture;
+        const old = KEYMAP[action];
+        Object.keys(KEYMAP).forEach(function (k) {
+          if (k !== action && KEYMAP[k] === e.code) KEYMAP[k] = old;
+        });
+        KEYMAP[action] = e.code;
+        saveKeymap();
+      }
+      keyCapture = null;
+      buildKeymapUI();
+      return;
+    }
     if (e.repeat) return;
     if (e.code === 'Escape' || e.code === 'KeyP') {
       if (game.state === 'play') { setPaused(!game.paused); return; }
@@ -4740,21 +4863,21 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
     if (game.paused) return;
     keys[e.code] = true;
 
-    if (game.state === 'menu' && (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyJ')) {
+    if (game.state === 'menu' && (e.code === 'Space' || e.code === 'Enter' || e.code === keyOf('attack'))) {
       startGame();
       return;
     }
-    if (e.code === 'KeyJ') { rippleAct('attack'); input.held.attack = true; doAttack(); }
-    if (e.code === 'KeyW' || e.code === 'Space' || e.code === 'ArrowUp') flashJump();
-    if (e.code === 'KeyK') doSkill();
-    if (e.code === 'KeyL') doUlt();
-    if (e.code === 'KeyU') doSupport();
-    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyS') player.dashReq = true;
-    if (e.code === 'KeyW' || e.code === 'ArrowUp' || e.code === 'Space') input.jumpQueued = true;
+    if (e.code === keyOf('attack')) { rippleAct('attack'); input.held.attack = true; doAttack(); }
+    if (e.code === keyOf('jump')) { flashJump(); input.jumpQueued = true; }
+    if (e.code === keyOf('skill')) doSkill();
+    if (e.code === keyOf('ult')) doUlt();
+    if (e.code === keyOf('support')) doSupport();
+    if (e.code === keyOf('dash') || e.code === 'ShiftLeft' || e.code === 'ShiftRight') player.dashReq = true;
+    if (e.code === 'Space' || e.code === 'ArrowUp') { flashJump(); input.jumpQueued = true; }
   });
   window.addEventListener('keyup', function (e) {
     keys[e.code] = false;
-    if (e.code === 'KeyJ') input.held.attack = false;
+    if (e.code === keyOf('attack')) input.held.attack = false;
   });
   window.addEventListener('blur', function () {
     for (const k in keys) keys[k] = false;
@@ -12258,6 +12381,27 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
             game.paused = true;
             setTimeout(function () { document.title = 'WBS pb=' + pbullets.length + ' p0=' + (pbullets[0] ? Math.round(pbullets[0].x) + ',' + Math.round(pbullets[0].y) : '-'); }, 400);
           }, 400);
+        } else if (sc === 'rebindtest') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            document.getElementById('btn-settings').click();
+            const btn = document.querySelector('#keymap-list .keymap__key');
+            btn.click();
+            window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF', key: 'f', bubbles: true }));
+            const bound = KEYMAP.attack;
+            document.getElementById('set-close').click();
+            game.state = 'play';
+            player.attackCd = 0;
+            window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF', key: 'f', bubbles: true }));
+            setTimeout(function () {
+              document.title = 'REBIND attack=' + bound + ' pb=' + pbullets.length + ' oldJ=' + KEYMAP.attack;
+            }, 200);
+          }, 600);
         } else if (sc === 'wheeltest') {
           setTimeout(function () {
             startGame();
