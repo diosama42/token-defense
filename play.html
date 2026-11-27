@@ -4731,7 +4731,7 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
       startGame();
       return;
     }
-    if (e.code === 'KeyJ') { rippleAct('attack'); doAttack(); }
+    if (e.code === 'KeyJ') { rippleAct('attack'); input.held.attack = true; doAttack(); }
     if (e.code === 'KeyW' || e.code === 'Space' || e.code === 'ArrowUp') flashJump();
     if (e.code === 'KeyK') doSkill();
     if (e.code === 'KeyL') doUlt();
@@ -4739,7 +4739,10 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyS') player.dashReq = true;
     if (e.code === 'KeyW' || e.code === 'ArrowUp' || e.code === 'Space') input.jumpQueued = true;
   });
-  window.addEventListener('keyup', function (e) { keys[e.code] = false; });
+  window.addEventListener('keyup', function (e) {
+    keys[e.code] = false;
+    if (e.code === 'KeyJ') input.held.attack = false;
+  });
   window.addEventListener('blur', function () {
     for (const k in keys) keys[k] = false;
     input.stick = 0;
@@ -4799,12 +4802,12 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
     const target = pickTokenTarget(x, y);
     const spdMul = player.bulletSpeedMul || 1;
     pbullets.push({
-      x: x, y: y,
+      x: x + rand(-U(12), U(12)), y: y + rand(-U(14), U(14)), sx: x, sy: y,
       vx: vx * spdMul, vy: vy * spdMul,
       dmg: dmg,
       text: big ? 'TOKEN' : pick(TOKEN_TEXTS),
-      color: color || pick(HEROES[heroIndex].textColors),
-      size: big ? U(game.siliconWar ? 28 : 22) : U(game.siliconWar ? 19 : 15),
+      color: game.siliconWar ? '#eaffff' : (color || pick(HEROES[heroIndex].textColors)),
+      size: big ? U(game.siliconWar ? 26 : 22) : U(game.siliconWar ? 21 : 15),
       rot: rand(-0.14, 0.14),
       life: 1.6,
       r: big ? U(18) : U(12),
@@ -5572,6 +5575,7 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
       updatePlayer(d, dt, game.slow > 0);
       updateEnemies(d);
       updatePBullets(d);
+      for (let ti = tracers.length - 1; ti >= 0; ti--) { tracers[ti].life -= dt; if (tracers[ti].life <= 0) tracers.splice(ti, 1); }
       updateEBullets(d);
       if (game.angryBoss) {
         game.angryFireT -= d;
@@ -6492,6 +6496,10 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
         const ex = Math.abs(b.x - e.x);
         const ey = Math.abs(b.y - (e.y - e.h * 0.5));
         if (ex < e.w * 0.5 + b.r * 0.7 && ey < e.h * 0.5 + b.r * 0.7) {
+          if (b.sx != null) {
+            tracers.push({ x0: b.sx, y0: b.sy, x1: b.x, y1: b.y, life: 0.2, max: 0.2 });
+            if (tracers.length > 100) tracers.splice(0, tracers.length - 100);
+          }
           let dmg = b.dmg;
           if (player.critChance > 0 && Math.random() < player.critChance) {
             dmg *= 2;
@@ -7140,12 +7148,13 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
     if (slashes.length > 40) slashes.splice(0, slashes.length - 40);
     drawParts();
     drawSupports();
-    if (game.siliconWar) { drawBackRow(); drawAllies(); }
+    if (game.siliconWar) { ensureWarLayout(); drawBackRow(); drawAllies(); }
     drawEnemies();
     drawPlayer();
     drawFollowers();
     drawWeights();
     drawPBullets();
+    drawTracers();
     drawEBullets();
     drawSlashes();
     drawRings();
@@ -8370,7 +8379,7 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
     c2.textAlign = 'center';
     c2.textBaseline = 'middle';
     const cx = cv.width / 2, cy = cv.height / 2;
-    c2.lineWidth = Math.max(2.5, fs * 0.22);
+    c2.lineWidth = Math.max(2.5, fs * 0.3);
     c2.strokeStyle = 'rgba(4,8,16,0.92)';
     c2.lineJoin = 'round';
     c2.strokeText(text, cx, cy);
@@ -8385,9 +8394,40 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
     return cv;
   }
 
+  let tracers = [];
+  function drawTracers() {
+    for (const t of tracers) {
+      const k = clamp(t.life / t.max, 0, 1);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(170,240,255,' + (k * 0.5).toFixed(3) + ')';
+      ctx.lineWidth = Math.max(1.5, U(2.5) * k);
+      ctx.beginPath();
+      ctx.moveTo(t.x0, t.y0);
+      ctx.lineTo(t.x1, t.y1);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   function drawPBullets() {
     for (const b of pbullets) {
       if (!isFinite(b.x) || !isFinite(b.y) || !isFinite(b.size) || b.size <= 0) continue;
+      /* 决战：弹幕外加发光球，保证可见 */
+      if (game.siliconWar) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const br = Math.max(5, b.size * 0.48);
+        const gg = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, br * 1.5);
+        gg.addColorStop(0, 'rgba(190,245,255,0.55)');
+        gg.addColorStop(0.55, 'rgba(110,210,255,0.28)');
+        gg.addColorStop(1, 'rgba(80,180,255,0)');
+        ctx.fillStyle = gg;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, br * 1.5, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+      }
       /* 拖尾：让弹幕飞行轨迹看得见 */
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -8403,7 +8443,7 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
       ctx.rotate(b.rot + game.time * 2.2);
       const fs = Math.max(10, b.size * S);
       const spr = bulletSprite(b.text, fs, b.color);
-      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalCompositeOperation = 'source-over';
       ctx.drawImage(spr, -spr.width / 2, -spr.height / 2);
       ctx.restore();
     }
@@ -9971,7 +10011,7 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
       x: x, y: groundY, vx: 0, vy: 0, kx: 0,
       w: w, h: h, hp: hp, maxHp: hp,
       hurt: 0, t: 0, fireT: 1.4, face: -1, stun: 0, dead: false,
-      homeX: x, phaseT: 1, phase2: false
+      homeX: x, relX: x / Math.max(1, W), phaseT: 1, phase2: false
     });
   }
 
@@ -10241,7 +10281,26 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
     }
   }
 
+  function ensureWarLayout() {
+    if (!game.siliconWar) return;
+    for (const e of enemies) {
+      if (!e.isBoss) continue;
+      e.y = groundY;
+      let rel = e.relX;
+      if (rel == null || !isFinite(rel) || rel <= 0.01) {
+        rel = (e.homeX && isFinite(e.homeX)) ? e.homeX / Math.max(1, W) : 0.5;
+        e.relX = rel;
+      }
+      const hx = clamp(W * rel, U(80), W - U(100));
+      e.homeX = hx;
+      if (!isFinite(e.x) || e.x < U(50) || e.x > W - U(50)) e.x = hx;
+      if (!e.h || e.h < U(40)) e.h = U(100);
+      if (!e.w || e.w < U(20)) e.w = U(54);
+    }
+  }
+
   function updateHiddenFight(dt) {
+    ensureWarLayout();
     game.stageClearPending = false;
     if (enemies.some(function (e) { return e.isBoss && e.dead; })) {
       enemies = enemies.filter(function (e) { return !(e.isBoss && e.dead); });
@@ -12039,6 +12098,38 @@ html.layout-edit .layout-hint span { font-size: 10.5px; color: rgba(4, 24, 16, 0
               else document.title = 'WARDLES deaths=' + deaths + ' allies=' + allies.length + ' state=' + game.state + ' over=' + (overEl && overEl.classList.contains('show')) + ' title=' + (el.overTitle ? el.overTitle.textContent : '-') + ' err=' + (window.__ERR || '');
             };
             tick();
+          }, 300);
+        } else if (sc === 'warbulletshot') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            startSiliconWar(6);
+            player.paused = false;
+            player.attackCd = 0;
+            for (let i = 0; i < 6; i++) {
+              doAttack();
+              player.attackCd = 0;
+              player.chainT = 0;
+            }
+            game.paused = true;
+            setTimeout(function () { document.title = 'WBS pb=' + pbullets.length + ' p0=' + (pbullets[0] ? Math.round(pbullets[0].x) + ',' + Math.round(pbullets[0].y) : '-'); }, 400);
+          }, 400);
+        } else if (sc === 'waroff') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            startSiliconWar(6);
+            enemies.forEach(function (e) { e.y = 0; e.x = -5000; });
+            setTimeout(function () {
+              const b = enemies.find(function (e) { return e.isBoss; });
+              document.title = 'WAROFF x=' + (b ? Math.round(b.x) : '-') + ' y=' + (b ? Math.round(b.y) : '-') + ' gy=' + Math.round(groundY) + ' n=' + enemies.filter(function(e){return e.isBoss;}).length;
+            }, 800);
           }, 300);
         } else if (sc === 'warclear') {
           setTimeout(function () {
