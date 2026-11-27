@@ -6769,6 +6769,14 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
       ctx.beginPath();
       ctx.ellipse(w.x, w.y, w.r, w.r * 0.32, 0, 0, TAU);
       ctx.stroke();
+      ctx.globalAlpha = 0.7;
+      ctx.setLineDash([U(5), U(4)]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+      ctx.lineWidth = U(1.4);
+      ctx.beginPath();
+      ctx.ellipse(w.x, w.y, w.r + U(6), (w.r + U(6)) * 0.32, 0, 0, TAU);
+      ctx.stroke();
+      ctx.setLineDash([]);
       ctx.globalAlpha = 0.16;
       ctx.fillStyle = 'rgba(' + w.color + ',1)';
       ctx.beginPath();
@@ -9410,6 +9418,7 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
     drawPBullets();
     drawTracers();
     drawEBullets();
+    drawOffscreenBulletHints();
     drawSlashes();
     drawRings();
     if (game.freezeT <= 0) drawTexts();
@@ -10862,6 +10871,26 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
       ctx.drawImage(spr2, b.x - spr2.width / 2, b.y - spr2.height / 2);
       ctx.restore();
 
+      /* 形状语义：黄=普通圆、粉=快弹菱形、紫=范围方块、蓝=追踪双环 */
+      ctx.save();
+      ctx.strokeStyle = 'rgba(' + b.color + ',0.95)';
+      ctx.lineWidth = Math.max(1.2, U(1.8));
+      const kind = b.color === '255,92,138' || b.color === '255,120,150' ? 'fast'
+        : (b.color === '167,139,250' || b.color.indexOf('150,220,255') >= 0 ? 'area' : 'normal');
+      if (kind === 'fast') {
+        ctx.translate(b.x, b.y);
+        ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI / 4);
+        const d = bR * 1.15;
+        ctx.strokeRect(-d * 0.7, -d * 0.7, d * 1.4, d * 1.4);
+      } else if (kind === 'area') {
+        ctx.strokeRect(b.x - bR * 1.05, b.y - bR * 1.05, bR * 2.1, bR * 2.1);
+      } else {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, bR * 1.08, 0, TAU);
+        ctx.stroke();
+      }
+      ctx.restore();
+
       if (b.text) {
         ctx.save();
         ctx.font = '700 ' + (14 * S).toFixed(0) + 'px "PingFang SC", system-ui';
@@ -10873,6 +10902,29 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
         ctx.fillText(b.text, b.x, b.y);
         ctx.restore();
       }
+    }
+  }
+
+  function drawOffscreenBulletHints() {
+    const margin = U(12);
+    for (const b of ebullets) {
+      if (!isFinite(b.x) || !isFinite(b.y)) continue;
+      if (b.x >= -U(20) && b.x <= W + U(20) && b.y >= -U(20) && b.y <= H + U(20)) continue;
+      const cx = clamp(b.x, margin, W - margin);
+      const cy = clamp(b.y, margin, H - margin);
+      ctx.save();
+      ctx.globalAlpha = 0.75;
+      ctx.fillStyle = 'rgba(' + b.color + ',0.95)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, U(4), 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath();
+      ctx.arc(cx, cy, U(10), 0, TAU);
+      ctx.strokeStyle = 'rgba(' + b.color + ',0.8)';
+      ctx.lineWidth = U(1.4);
+      ctx.stroke();
+      ctx.restore();
     }
   }
 
@@ -11129,7 +11181,7 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
       const boss = enemies.filter(function (e) { return e.isBoss; })[0];
       ctx.fillStyle = 'rgba(220,245,255,0.9)';
       ctx.font = '700 ' + (13 * S).toFixed(0) + 'px "PingFang SC", system-ui';
-      ctx.fillText(st.name + ' · ' + st.bossName + (boss && boss.variantName ? ' · ' + boss.variantName : '') + (boss ? ' ' + Math.ceil(boss.hp) : ' 已击破'), W * 0.5, by + U(38));
+      ctx.fillText(st.name + ' · ' + (st.bossName || '') + (boss && boss.variantName ? ' · ' + boss.variantName : '') + (boss && boss.hp <= boss.maxHp * 0.5 ? ' · 第二阶段' : '') + (boss ? ' ' + Math.ceil(boss.hp) : ' 已击破'), W * 0.5, by + U(38));
     } else if (danger) {
       const label = '⚠ 还剩 ' + Math.ceil(remaining) + ' 秒！';
       const sc = 1 + pulse * 0.1;
