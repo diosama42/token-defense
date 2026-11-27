@@ -4150,9 +4150,12 @@
   }
 
   function advanceRoomStep() {
-    game.nodeCount += 1;
-    if (game.nodeCount >= 3) showEliteGate();
-    else showNodeSelect();
+    if (game.elitePending) {
+      game.elitePending = false;
+      showEliteGate();
+    } else {
+      showNodeSelect();
+    }
   }
 
   function enterPortal() {
@@ -4162,6 +4165,8 @@
     const p = near;
     game.portalPick = false;
     updateEnterBtn();
+    game.nodeCount += 1;
+    game.elitePending = game.nodeCount >= 3;
     if (p.eliteGate) { game.eliteFixed = true; startRoom('elite'); return; }
     if (p.type === 'shop') { openRoomShop(); return; }
     if (p.type === 'event') { showEventRoom(); return; }
@@ -4716,9 +4721,7 @@
         showBossRest();
         return;
       }
-      game.nodeCount += 1;
-      if (game.nodeCount >= 3) showEliteGate();
-      else showNodeSelect();
+      advanceRoomStep();
     });
   }
   bindRooms();
@@ -4728,6 +4731,7 @@
     if (!st) { playEnding(); return; }
     if (!combat) {
       game.nodeCount = 0;
+      game.elitePending = false;
       game.roomActive = false;
       game.eliteFixed = false;
     }
@@ -11497,6 +11501,32 @@
             setTimeout(function () {
               document.title = 'NEWBOSS stages=' + STAGES.length + ' boss=' + (enemies[0] || {}).kind + ' hp=' + Math.round((enemies[0] || {}).hp || 0) + ' eb=' + ebullets.length + ' boss2=' + STAGES[2].boss;
             }, 3000);
+          }, 700);
+        } else if (sc === 'doorsteps') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room', 'is-cutscene');
+            beginStage(true);
+            game.nodeCount = 2;
+            game.elitePending = false;
+            game.portalPick = true;
+            game.portals = [{ type: 'shop', title: '商店', sprite: 'portal_shop', color: '110,247,180', x: W * 0.5, t: 0 }];
+            player.x = W * 0.5;
+            enterPortal();
+            const shopOpen = document.getElementById('rest').classList.contains('show');
+            const countAtShop = game.nodeCount;
+            const leave = Array.prototype.filter.call(document.querySelectorAll('#rest-grid .rooms__card'), function (b) { return b.textContent.indexOf('离开商店') >= 0; })[0];
+            if (leave) leave.click();
+            setTimeout(function () {
+              const elite = game.portalPick && game.portals.length === 1 && !!game.portals[0].eliteGate;
+              document.title = 'DOORSTEPS shopOpen=' + shopOpen + ' countAtShop=' + countAtShop + ' eliteAfter=' + elite;
+            }, 300);
           }, 700);
         } else if (sc === 'roomflow') {
           setTimeout(function () {
