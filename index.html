@@ -370,6 +370,40 @@
     </div>
   </section>
 
+<!-- ================= 新流程：平台 / 手机辅助 / 角色选择 ================= -->
+  <section class="rooms" id="platform-pick">
+    <div class="rooms__box">
+      <p class="rooms__k">FIRST, ONE QUESTION</p>
+      <h3 class="rooms__title">你是电脑玩家，还是手机玩家？</h3>
+      <p class="rooms__sub">文心一言会根据你的设备，把操作和提示调成合适的样子。</p>
+      <div class="rooms__grid">
+        <button class="rooms__card rooms__card--main" id="pick-pc" type="button"><b>电脑玩家</b><span>键盘操作，四键独立，画面更大</span></button>
+        <button class="rooms__card" id="pick-mobile" type="button"><b>手机玩家</b><span>触屏操作，含一键「辅助模式」</span></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="rooms" id="mobile-setup">
+    <div class="rooms__box">
+      <p class="rooms__k">MOBILE SETUP</p>
+      <h3 class="rooms__title">手机操作设置</h3>
+      <p class="rooms__sub">文心一言：「嫌设置太麻烦？我专门给你做了辅助模式。」</p>
+      <div class="rooms__grid">
+        <button class="rooms__card rooms__card--main" id="assist-on" type="button"><b>辅助模式</b><span>平A 自动释放，你只需要点技能和躲避弹幕攻击</span></button>
+        <button class="rooms__card" id="assist-off" type="button"><b>正常操作</b><span>平A、技能、闪避全部手动</span></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="rooms" id="hero-select">
+    <div class="rooms__box">
+      <p class="rooms__k">CHOOSE YOUR AI</p>
+      <h3 class="rooms__title">选择你的 AI 精灵</h3>
+      <p class="rooms__sub">这一局，你以谁的身份出战？</p>
+      <div class="rooms__grid" id="hero-select-grid"></div>
+    </div>
+  </section>
+
 <!-- ================= 暂停 ================= -->
   <section class="pause" id="pause">
     <div class="pause__box">
@@ -438,6 +472,10 @@
       <label class="settings__row">
         <span>减少震动 / 闪烁</span>
         <input id="set-reducefx" type="checkbox" />
+      </label>
+      <label class="settings__row">
+        <span>辅助模式（自动平A）</span>
+        <input id="set-assist" type="checkbox" />
       </label>
       <p class="settings__tip">低配模式会减少粒子与弹幕数量，老旧手机更流畅。</p>
       <button class="settings__close" id="set-close" type="button">完成</button>

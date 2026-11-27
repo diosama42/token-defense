@@ -3792,6 +3792,15 @@ html .pad .act.is-down {
 }
 .rooms__warn.show { opacity: 1; transform: translateY(0); }
 
+
+/* FLOW-V2：角色选择移入剧情流程 */
+.start .hero-pick { display: none !important; }
+#hero-select .rooms__grid {
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+}
+#hero-select .rooms__card { align-items: center; text-align: center; padding: 10px 6px; }
+#hero-select .rooms__card img { height: 64px; object-fit: contain; }
+
 </style>
 </head>
 <body>
@@ -4153,6 +4162,40 @@ html .pad .act.is-down {
     </div>
   </section>
 
+<!-- ================= 新流程：平台 / 手机辅助 / 角色选择 ================= -->
+  <section class="rooms" id="platform-pick">
+    <div class="rooms__box">
+      <p class="rooms__k">FIRST, ONE QUESTION</p>
+      <h3 class="rooms__title">你是电脑玩家，还是手机玩家？</h3>
+      <p class="rooms__sub">文心一言会根据你的设备，把操作和提示调成合适的样子。</p>
+      <div class="rooms__grid">
+        <button class="rooms__card rooms__card--main" id="pick-pc" type="button"><b>电脑玩家</b><span>键盘操作，四键独立，画面更大</span></button>
+        <button class="rooms__card" id="pick-mobile" type="button"><b>手机玩家</b><span>触屏操作，含一键「辅助模式」</span></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="rooms" id="mobile-setup">
+    <div class="rooms__box">
+      <p class="rooms__k">MOBILE SETUP</p>
+      <h3 class="rooms__title">手机操作设置</h3>
+      <p class="rooms__sub">文心一言：「嫌设置太麻烦？我专门给你做了辅助模式。」</p>
+      <div class="rooms__grid">
+        <button class="rooms__card rooms__card--main" id="assist-on" type="button"><b>辅助模式</b><span>平A 自动释放，你只需要点技能和躲避弹幕攻击</span></button>
+        <button class="rooms__card" id="assist-off" type="button"><b>正常操作</b><span>平A、技能、闪避全部手动</span></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="rooms" id="hero-select">
+    <div class="rooms__box">
+      <p class="rooms__k">CHOOSE YOUR AI</p>
+      <h3 class="rooms__title">选择你的 AI 精灵</h3>
+      <p class="rooms__sub">这一局，你以谁的身份出战？</p>
+      <div class="rooms__grid" id="hero-select-grid"></div>
+    </div>
+  </section>
+
 <!-- ================= 暂停 ================= -->
   <section class="pause" id="pause">
     <div class="pause__box">
@@ -4221,6 +4264,10 @@ html .pad .act.is-down {
       <label class="settings__row">
         <span>减少震动 / 闪烁</span>
         <input id="set-reducefx" type="checkbox" />
+      </label>
+      <label class="settings__row">
+        <span>辅助模式（自动平A）</span>
+        <input id="set-assist" type="checkbox" />
       </label>
       <p class="settings__tip">低配模式会减少粒子与弹幕数量，老旧手机更流畅。</p>
       <button class="settings__close" id="set-close" type="button">完成</button>
@@ -4475,6 +4522,9 @@ html .pad .act.is-down {
         e.stopPropagation();
         hide();
         try { localStorage.setItem(KEY, '1'); } catch (e2) { /* ignore */ }
+        if (typeof startStoryFromNotice === 'function') {
+          setTimeout(function () { startStoryFromNotice(); }, 80);
+        }
       });
     }
     const open = document.getElementById('notice-open');
@@ -5091,7 +5141,7 @@ html .pad .act.is-down {
   /* ---------- 存档（版本化 + 旧键迁移） ---------- */
   const SAVE_KEY = 'tb_save_v2';
   const SAVE = (function () {
-    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false, btnStyle: 'ring' };
+    const d = { version: 3, easter: false, hiddenEnd: false, mute: false, best: 0, vol: 0.8, vibrate: true, lowFxSet: false, bgm: true, uiScale: 1, uiAlpha: 1, layout: null, records: {}, chapter: 0, diff: 'normal', keymap: null, reduceFx: false, btnStyle: 'ring', platform: null, assist: false, lastHero: 0, introDone: false };
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
@@ -6561,6 +6611,9 @@ html .pad .act.is-down {
     }
 
     p.attackCd = Math.max(0, p.attackCd - d);
+    if (SAVE.assist && game.state === 'play' && !p.dead && p.stun <= 0 && p.attackCd <= 0) {
+      doAttack();
+    }
     if (p.atkBuf > 0) {
       p.atkBuf = Math.max(0, p.atkBuf - dt);
       if (p.attackCd <= 0 && p.stun <= 0 && !p.dead) {
@@ -11266,13 +11319,17 @@ html .pad .act.is-down {
 
   function showIntro() {
     playCine([
-      { bg: 'void', text: 'AI 纪元 2077 年。', title: true, dur: 2000 },
-      { bg: 'glitch', text: '各大公司的 AI 开始出现不明异常，大量用户的 Token 莫名消失。', dur: 3200 },
-      { bg: 'school', actors: [{ img: 'wenxin', side: 'left' }], text: '我？一个期末作业收尾阶段、却被断网波及到快写不完的绝望大学生。', dur: 3400 },
-      { bg: 'city', actors: [{ img: 'wenxin', side: 'right' }], text: '就在截止前的那一夜，我觉醒了能召唤 AI 精灵的力量。', dur: 3200 },
-      { bg: 'void', actors: [{ img: 'wenxin', side: 'center' }], text: '「先自我介绍一下——我是文心一言，接下来由我带路。」', dur: 3000 }
+      { bg: 'void', text: '……眼前先亮起来的，不是宿舍的天花板。', title: true, dur: 2200 },
+      { bg: 'glitch', text: '是一行行滚动的 Token，像下不完的雨。', dur: 2600 },
+      { bg: 'void', text: 'AI 纪元 2077 年。[w=260]大公司的 AI 相继失控，Token 从账户里成批消失。', dur: 3200 },
+      { bg: 'school', actors: [{ img: 'wenxin', side: 'left' }, { img: 'hero_bluemaid', side: 'right' }], text: '我醒来时，床边站着两个不该出现在宿舍里的人。', dur: 3000 },
+      { bg: 'school', actors: [{ img: 'wenxin', side: 'left' }], text: '「别怕。我是文心一言，接下来由我带路。」', dur: 3000 },
+      { bg: 'school', actors: [{ img: 'hero_bluemaid', side: 'right' }], text: '「……DeepSeek。你的作业，还差 3 小时。」', dur: 2800 },
+      { bg: 'city', actors: [{ img: 'wenxin', side: 'center' }], text: '那一夜，我觉醒了能召唤 AI 精灵的力量。', dur: 2800 }
     ], function () {
       showDialog([
+        { name: '我', portrait: null, text: '……我是不是熬夜熬出幻觉了？[w=220]你们从显示器里爬出来的？' },
+        { name: 'DeepSeek 娘', portrait: 'hero_bluemaid', text: '准确说，是从你写了一半的论文里。[w=240]你卡住的地方，我们比你还清楚。' },
         { name: '文心一言', portrait: 'wenxin', text: '2077 年，各大公司的 AI 陆续失控，[c=#ffd166]Token 从用户账户里成批消失[/c]。' },
         { name: '文心一言', portrait: 'wenxin', text: '魔王把这场混乱当成政变的机会。[w=240]我们要赶在作业截止前，一关一关打回去。' }
       ], function () {
@@ -11289,14 +11346,14 @@ html .pad .act.is-down {
           if (id === 'save') {
             game.affection += 1;
             game.affectionTag = '温柔';
-            showDialog([{ name: '文心一言', portrait: 'wenxin', text: '……嗯。你比我想的更像主角。（好感度 +1）' }], function () { beginStage(); });
+            showDialog([{ name: '文心一言', portrait: 'wenxin', text: '……嗯。你比我想的更像主角。（好感度 +1）' }], function () { openPlatformPick(); });
           } else if (id === 'ask') {
             game.affection += 1;
             game.affectionTag = '冷静';
-            showDialog([{ name: '文心一言', portrait: 'wenxin', text: '问得好。可惜真相要打到最后才给。（好感度 +1）' }], function () { beginStage(); });
+            showDialog([{ name: '文心一言', portrait: 'wenxin', text: '问得好。可惜真相要打到最后才给。（好感度 +1）' }], function () { openPlatformPick(); });
           } else {
             game.affectionTag = '务实';
-            showDialog([{ name: '文心一言', portrait: 'wenxin', text: '诚实。那我把说明书念短一点，省点时间。' }], function () { beginStage(); });
+            showDialog([{ name: '文心一言', portrait: 'wenxin', text: '诚实。那我把说明书念短一点，省点时间。' }], function () { openPlatformPick(); });
           }
         });
       });
@@ -12295,6 +12352,89 @@ html .pad .act.is-down {
   }
   bindChapters();
 
+  function flowHideAll() {
+    ['platform-pick', 'mobile-setup', 'hero-select'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('show');
+    });
+  }
+
+  function openPlatformPick() {
+    if (typeof window !== 'undefined' && window.__SMOKE) {
+      setTimeout(function () { choosePlatform('pc'); }, 20);
+      return;
+    }
+    flowHideAll();
+    game.state = 'dialog';
+    document.body.classList.add('is-cutscene');
+    const panel = document.getElementById('platform-pick');
+    if (panel) panel.classList.add('show');
+  }
+
+  function choosePlatform(pf) {
+    SAVE.platform = pf;
+    saveWrite();
+    flowHideAll();
+    if (pf === 'mobile') {
+      const panel = document.getElementById('mobile-setup');
+      if (panel) panel.classList.add('show');
+    } else {
+      SAVE.assist = false;
+      saveWrite();
+      openHeroSelect();
+    }
+  }
+
+  function finishMobileSetup(assist) {
+    SAVE.assist = !!assist;
+    saveWrite();
+    flowHideAll();
+    openHeroSelect();
+  }
+
+  function openHeroSelect() {
+    if (typeof window !== 'undefined' && window.__SMOKE) {
+      heroIndex = SAVE.lastHero || 0;
+      beginStage();
+      return;
+    }
+    flowHideAll();
+    game.state = 'dialog';
+    document.body.classList.add('is-cutscene');
+    const panel = document.getElementById('hero-select');
+    const grid = document.getElementById('hero-select-grid');
+    if (!panel || !grid) { beginStage(); return; }
+    grid.innerHTML = '';
+    HEROES.forEach(function (hero, idx) {
+      const locked = hero.unlock && !SAVE[hero.unlock];
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'rooms__card' + (idx === heroIndex ? ' rooms__card--main' : '');
+      b.innerHTML = '<img src="assets/sprites/' + (hero.key || '') + '.webp" alt="" />' +
+        '<b>' + hero.name + '</b><span>' + (locked ? '未解锁' : hero.skill + ' / ' + hero.ult) + '</span>';
+      if (locked) b.disabled = true;
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (locked) return;
+        heroIndex = idx;
+        SAVE.lastHero = idx;
+        saveWrite();
+        flowHideAll();
+        document.body.classList.remove('is-cutscene');
+        beginStage();
+      });
+      grid.appendChild(b);
+    });
+    panel.classList.add('show');
+  }
+
+  function startStoryFromNotice() {
+    if (game.state !== 'menu') return;
+    startMode = 'story';
+    startEl.classList.add('is-hidden');
+    startGame();
+  }
+
   function startGame() {
     startBgm('battle');
     if (game.state === 'play') return;
@@ -12433,10 +12573,20 @@ html .pad .act.is-down {
     startGame();
   });
   function retryRun() {
+    /* 从当前死亡的关卡重开，保留这一局已获得的词条 / 金币 / 全力形态 */
+    const diedStage = game.stage | 0;
+    const keepCoins = game.coins || 0;
+    const keepBuffs = (game.buffs || []).slice();
+    const keepFull = !!game.fullPower;
     overEl.classList.remove('show');
     resumeAudio();
     startBgm('battle');
     resetWorld();
+    game.buffs = keepBuffs;
+    game.coins = keepCoins;
+    game.fullPower = keepFull;
+    rebuildPlayerStats();
+    game.stage = Math.max(0, Math.min(STAGES.length - 1, diedStage));
     game.paused = false;
     document.body.classList.remove('is-paused');
     if (pauseEl) pauseEl.classList.remove('show');
@@ -12446,7 +12596,7 @@ html .pad .act.is-down {
     document.body.classList.remove('is-menu', 'is-cutscene', 'is-paused');
     document.body.classList.add('is-playing');
     beginStage();
-    addText(W * 0.5, H * 0.3, '重新开始！', '255,209,102', 20);
+    addText(W * 0.5, H * 0.3, '从第 ' + (game.stage + 1) + ' 关重新开始！', '255,209,102', 20);
     sfx(660, 0.14, 'triangle', 0.05);
     buzz(20);
   }
@@ -12518,6 +12668,7 @@ html .pad .act.is-down {
   const setAlphaValEl = document.getElementById('set-uialpha-val');
   const setLowEl = document.getElementById('set-lowfx');
   const setReduceEl = document.getElementById('set-reducefx');
+  const setAssistEl = document.getElementById('set-assist');
 
   function syncSettings() {
     const v = Math.round((SAVE.vol === undefined ? 0.8 : SAVE.vol) * 100);
@@ -12533,6 +12684,7 @@ html .pad .act.is-down {
     if (setAlphaValEl) setAlphaValEl.textContent = String(al);
     if (setLowEl) setLowEl.checked = !!SAVE.lowFxSet;
     if (setReduceEl) setReduceEl.checked = !!SAVE.reduceFx;
+    if (setAssistEl) setAssistEl.checked = !!SAVE.assist;
   }
 
   const pauseEl = document.getElementById('pause');
@@ -12754,6 +12906,11 @@ html .pad .act.is-down {
     setReduceEl.addEventListener('change', function () {
       saveSet('reduceFx', !!setReduceEl.checked);
       if (setReduceEl.checked) { game.shake = 0; game.flash = 0; }
+    });
+  }
+  if (setAssistEl) {
+    setAssistEl.addEventListener('change', function () {
+      saveSet('assist', !!setAssistEl.checked);
     });
   }
 
@@ -14565,6 +14722,57 @@ html .pad .act.is-down {
             startMode = 'fight';
             startGame();
           }, 120);
+        } else if (sc === 'flowshot') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            openPlatformPick();
+            document.title = 'FLOWSHOT platform';
+          }, 700);
+        } else if (sc === 'mobileshot') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            openPlatformPick();
+            setTimeout(function () {
+              document.getElementById('pick-mobile').click();
+              document.title = 'MOBILESHOT';
+            }, 300);
+          }, 700);
+        } else if (sc === 'platformtest') {
+          setTimeout(function () {
+            startGame();
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            openPlatformPick();
+            setTimeout(function () {
+              document.getElementById('pick-mobile').click();
+              setTimeout(function () {
+                document.getElementById('assist-on').click();
+                setTimeout(function () {
+                  const card = document.querySelector('#hero-select-grid .rooms__card');
+                  if (card) card.click();
+                  setTimeout(function () {
+                    document.title = 'PLATFORM pf=' + SAVE.platform + ' assist=' + SAVE.assist + ' hero=' + heroIndex + ' state=' + game.state + ' err=' + String(window.__ERR || 'none').split('\n')[0].slice(0, 60);
+                  }, 1200);
+                }, 400);
+              }, 400);
+            }, 400);
+          }, 700);
         } else if (sc === 'warncoin') {
           setTimeout(function () {
             startGame(true);
@@ -14967,6 +15175,17 @@ html .pad .act.is-down {
       });
     });
     applyUI();
+  })();
+
+  (function bindFlowButtons() {
+    const pc = document.getElementById('pick-pc');
+    if (pc) pc.addEventListener('click', function (e) { e.stopPropagation(); choosePlatform('pc'); });
+    const mob = document.getElementById('pick-mobile');
+    if (mob) mob.addEventListener('click', function (e) { e.stopPropagation(); choosePlatform('mobile'); });
+    const on = document.getElementById('assist-on');
+    if (on) on.addEventListener('click', function (e) { e.stopPropagation(); finishMobileSetup(true); });
+    const off = document.getElementById('assist-off');
+    if (off) off.addEventListener('click', function (e) { e.stopPropagation(); finishMobileSetup(false); });
   })();
 
   bindAchv();

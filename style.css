@@ -3779,3 +3779,12 @@ html .pad .act.is-down {
   transition: opacity 0.18s, transform 0.18s;
 }
 .rooms__warn.show { opacity: 1; transform: translateY(0); }
+
+
+/* FLOW-V2：角色选择移入剧情流程 */
+.start .hero-pick { display: none !important; }
+#hero-select .rooms__grid {
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+}
+#hero-select .rooms__card { align-items: center; text-align: center; padding: 10px 6px; }
+#hero-select .rooms__card img { height: 64px; object-fit: contain; }
