@@ -1168,6 +1168,7 @@
       startGame();
       return;
     }
+    if (game.portalPick && (e.code === 'KeyE' || e.code === 'Enter')) { enterPortal(); return; }
     if (e.code === keyOf('attack')) { rippleAct('attack'); input.held.attack = true; doAttack(); }
     if (e.code === keyOf('jump')) { flashJump(); input.jumpQueued = true; }
     if (e.code === keyOf('skill')) doSkill();
@@ -1792,7 +1793,7 @@
     const p = player;
     if (game.state !== 'play') return;
     if (p.dead || p.invuln > 0 || p.shield > 0) return;
-    const realDmg = Math.max(1, Math.round(dmg * CONFIG.enemyDamageScale * (game.enemyDmgMul || 1) * (p.defenseMul || 1) * diffCfg().dmg));
+    const realDmg = Math.max(1, Math.round(dmg * CONFIG.enemyDamageScale * (game.enemyDmgMul || 1) * (game.eliteDmgMul || 1) * (p.defenseMul || 1) * diffCfg().dmg));
     /* 硅谷决战里弹幕太密，硬直减半，避免被锁在原地动不了 */
     const hurtStun = game.siliconWar ? 0.05 : 0.3;
     buzz(45);
@@ -1844,7 +1845,7 @@
       x: x, y: groundY,
       vx: -side * speed, vy: 0, kx: 0,
       w: w, h: h,
-      hp: hp * (game.enemyHpMul || 1) * diffCfg().hp * (game.roomElite ? 1.6 : 1), maxHp: hp * (game.enemyHpMul || 1) * diffCfg().hp * (game.roomElite ? 1.6 : 1),
+      hp: hp * (game.enemyHpMul || 1) * diffCfg().hp * (game.roomElite ? 2.8 : 1), maxHp: hp * (game.enemyHpMul || 1) * diffCfg().hp * (game.roomElite ? 2.8 : 1),
       hurt: 0, t: rand(0, 6), fireT: rand(0.8, 1.8), face: -side,
       stun: 0, dead: false, isBoss: false,
       homeX: side > 0 ? W * rand(0.62, 0.88) : W * rand(0.12, 0.38)
@@ -2163,7 +2164,17 @@
         }
       }
 
-      updateStage(d, dt);
+      if (game.portalPick) {
+        game.portalT = (game.portalT || 0) + d;
+        for (const p of game.portals) p.t += d;
+        if (input.portalEnter) {
+          input.portalEnter = false;
+          enterPortal();
+        }
+        updateEnterBtn();
+      } else {
+        updateStage(d, dt);
+      }
 
       /* 最后 10 秒：每秒报警 */
       if (!game.bossSpawned && STAGES[game.stage]) {
@@ -3849,43 +3860,83 @@
     });
   }
 
+  const PORTAL_DEFS = [
+    { type: 'wave', title: '波次防守', glyph: '波', color: '150,220,255' },
+    { type: 'reward', title: '奖励关卡', glyph: '奖', color: '255,209,102' },
+    { type: 'elite', title: '精英战', glyph: '剑', color: '255,120,150' },
+    { type: 'shop', title: '商店', glyph: '商', color: '110,247,180' },
+    { type: 'event', title: '事件', glyph: '？', color: '167,139,250' }
+  ];
+
+  function updateEnterBtn() {
+    const btn = document.getElementById('btn-enter');
+    if (!btn) return;
+    const near = game.portalPick ? nearestPortal() : null;
+    const ok = !!(near && near.dist < U(95));
+    btn.classList.toggle('show', ok);
+  }
+
+  function nearestPortal() {
+    if (!game.portals || !game.portals.length) return null;
+    let best = null;
+    for (const p of game.portals) {
+      const d = Math.abs(player.x - p.x);
+      if (!best || d < best.dist) best = { portal: p, dist: d };
+    }
+    return best ? Object.assign({}, best.portal, { dist: best.dist }) : null;
+  }
+
   function showNodeSelect() {
     if (typeof window !== 'undefined' && window.__SMOKE) {
       setTimeout(function () { startRoom('wave'); }, 20);
       return;
     }
     roomHideAll();
-    game.state = 'node';
+    document.body.classList.remove('is-room', 'is-cutscene');
+    document.body.classList.add('is-playing');
+    game.state = 'play';
     game.roomActive = false;
-    document.body.classList.add('is-room');
-    const panel = document.getElementById('rooms');
-    const grid = document.getElementById('rooms-grid');
-    const sub = document.getElementById('rooms-sub');
-    if (!panel || !grid) return;
-    if (sub) sub.textContent = '已完成房间 ' + game.nodeCount + ' / 2 · 金币 ' + game.coins;
-    grid.innerHTML = '';
-    const items = [
-      { type: 'wave', title: '波次防守', desc: '守住 14 秒的敌人波次，按得分获得金币' },
-      { type: 'reward', title: '奖励关卡', desc: '10 秒限时挑战，分数翻倍，金币更多' },
-      { type: 'elite', title: '精英战', desc: '12 秒高强度敌人，金币 1.8 倍' },
-      { type: 'event', title: '事件', desc: '随机二选一，不消耗房间次数' },
-      { type: 'shop', title: '商店', desc: '用金币换治疗 / 词条 / 装备，不消耗房间次数' }
-    ];
-    items.forEach(function (it) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'rooms__card' + (it.type === 'wave' ? ' rooms__card--main' : '');
-      b.innerHTML = '<b>' + it.title + '</b><span>' + it.desc + '</span>';
-      b.addEventListener('click', function (e) {
-        e.stopPropagation();
-        if (it.type === 'shop') { openRoomShop(); return; }
-        if (it.type === 'event') { showEventRoom(); return; }
-        startRoom(it.type);
-      });
-      grid.appendChild(b);
+    game.portalPick = true;
+    game.portalT = 0;
+    enemies = [];
+    ebullets = [];
+    pbullets = [];
+    game.bossSpawned = false;
+    player.x = W * 0.12;
+    player.y = groundY;
+    player.vx = 0;
+    player.vy = 0;
+    player.onGround = true;
+    /* 三个传送门：至少一个战斗房 + 一个功能房 */
+    const pool = PORTAL_DEFS.slice();
+    const picks = [];
+    const arena = pool.filter(function (d) { return d.type === 'wave' || d.type === 'reward' || d.type === 'elite'; });
+    picks.push(arena[Math.floor(Math.random() * arena.length)]);
+    const utility = pool.filter(function (d) { return d.type === 'shop' || d.type === 'event'; });
+    picks.push(utility[Math.floor(Math.random() * utility.length)]);
+    while (picks.length < 3) {
+      const remain = pool.filter(function (d) { return picks.indexOf(d) < 0; });
+      if (!remain.length) break;
+      picks.push(remain[Math.floor(Math.random() * remain.length)]);
+    }
+    game.portals = picks.map(function (d, i) {
+      return { type: d.type, title: d.title, glyph: d.glyph, color: d.color, x: W * (0.3 + i * 0.24), t: rand(0, 6) };
     });
-    panel.classList.add('show');
+    addText(W * 0.5, H * 0.36, '走到传送门前，按「进入」', '150,220,255', 18);
+    updateEnterBtn();
     sfx(620, 0.12, 'triangle', 0.04);
+  }
+
+  function enterPortal() {
+    if (!game.portalPick) return;
+    const near = nearestPortal();
+    if (!near || near.dist >= U(95)) return;
+    const p = near;
+    game.portalPick = false;
+    updateEnterBtn();
+    if (p.type === 'shop') { openRoomShop(); return; }
+    if (p.type === 'event') { showEventRoom(); return; }
+    startRoom(p.type);
   }
 
   function startRoom(type) {
@@ -3895,6 +3946,7 @@
     game.roomT = 0;
     game.roomTarget = type === 'reward' ? (10 + game.stage * 1.5) : type === 'elite' ? (12 + game.stage) : (14 + game.stage * 2);
     game.roomElite = type === 'elite';
+    game.eliteDmgMul = type === 'elite' ? 1.35 : 1;
     game.roomStartScore = game.score;
     game.scoreMul = type === 'reward' ? 2 : 1;
     game.roomActive = true;
@@ -3916,8 +3968,9 @@
       else startRoom('wave');
       return;
     }
-    const gained = Math.max(12, Math.round((game.score - game.roomStartScore) / 70 * (1 + game.stage * 0.2) * (game.roomElite ? 1.8 : 1)));
+    const gained = Math.max(12, Math.round((game.score - game.roomStartScore) / 70 * (1 + game.stage * 0.2) * (game.roomElite ? 2.2 : 1)));
     game.roomElite = false;
+    game.eliteDmgMul = 1;
     game.coins += Math.round(gained * (game.coinMul || 1));
     game.scoreMul = 1;
     let bonusText = '';
@@ -4346,6 +4399,7 @@
     drawSceneProps();
     drawWarns();
     drawCastBar();
+    if (game.portalPick) drawPortals();
 
     if (supports.length > 6) supports.splice(0, supports.length - 6);
     if (texts.length > 60) texts.splice(0, texts.length - 60);
@@ -5320,6 +5374,77 @@
   }
 
   /* ---------------- 角色 ---------------- */
+  function drawPortals() {
+    const t = game.time;
+    const near = nearestPortal();
+    for (const p of game.portals) {
+      const baseY = groundY + U(4);
+      const h = U(250), w = U(112);
+      const glow = p.dist !== undefined ? 0 : 0;
+      ctx.save();
+      ctx.translate(p.x, baseY);
+      const isNear = near && near.x === p.x && near.dist < U(95);
+      /* 地面光晕 */
+      const gg = ctx.createRadialGradient(0, 0, U(4), 0, 0, U(120));
+      gg.addColorStop(0, 'rgba(' + p.color + ',' + (isNear ? 0.5 : 0.28) + ')');
+      gg.addColorStop(1, 'rgba(' + p.color + ',0)');
+      ctx.fillStyle = gg;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, U(110), U(26), 0, 0, TAU);
+      ctx.fill();
+      /* 门体 */
+      ctx.globalCompositeOperation = 'lighter';
+      const bodyG = ctx.createLinearGradient(0, -h, 0, 0);
+      bodyG.addColorStop(0, 'rgba(' + p.color + ',0.05)');
+      bodyG.addColorStop(0.55, 'rgba(' + p.color + ',' + (isNear ? 0.32 : 0.18) + ')');
+      bodyG.addColorStop(1, 'rgba(' + p.color + ',0.3)');
+      ctx.fillStyle = bodyG;
+      ctx.beginPath();
+      ctx.ellipse(0, -h * 0.5, w * 0.5, h * 0.5, 0, 0, TAU);
+      ctx.fill();
+      /* 外环 */
+      ctx.strokeStyle = 'rgba(' + p.color + ',' + (isNear ? 0.95 : 0.6) + ')';
+      ctx.lineWidth = U(isNear ? 3.5 : 2.4);
+      ctx.beginPath();
+      ctx.ellipse(0, -h * 0.5, w * 0.5, h * 0.5, 0, 0, TAU);
+      ctx.stroke();
+      /* 旋转符环 */
+      ctx.strokeStyle = 'rgba(' + p.color + ',0.45)';
+      ctx.lineWidth = U(1.6);
+      for (let k = 0; k < 2; k++) {
+        const a0 = t * (0.6 + k * 0.4) + k * 2;
+        ctx.beginPath();
+        ctx.ellipse(0, -h * 0.5, w * 0.5 + U(6 + k * 5), h * 0.5 + U(8 + k * 6), 0, a0, a0 + Math.PI * 1.2);
+        ctx.stroke();
+      }
+      /* 中央图标 */
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(4,8,16,0.55)';
+      ctx.beginPath();
+      ctx.arc(0, -h * 0.55, U(30), 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(' + p.color + ',0.9)';
+      ctx.lineWidth = U(2);
+      ctx.stroke();
+      ctx.fillStyle = '#f4ffff';
+      ctx.font = '800 ' + Math.round(U(26)) + 'px "PingFang SC", system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.glyph, 0, -h * 0.55);
+      ctx.textBaseline = 'alphabetic';
+      /* 标题 */
+      ctx.fillStyle = isNear ? '#eafff4' : 'rgba(220,240,255,0.8)';
+      ctx.font = '700 ' + Math.round(U(13)) + 'px "PingFang SC", system-ui';
+      ctx.fillText(p.title, 0, -h - U(18));
+      if (isNear) {
+        ctx.fillStyle = '#ffd166';
+        ctx.font = '800 ' + Math.round(U(12)) + 'px "PingFang SC", system-ui';
+        ctx.fillText('按「进入」', 0, -h - U(2));
+      }
+      ctx.restore();
+    }
+  }
+
   function drawPlayer() {
     if (game.state === 'menu') return;
     const p = player;
@@ -7049,6 +7174,8 @@
         spawnEnemy(elite && i === 0 ? 'laugh' : (Math.random() < 0.2 ? 'doubao' : 'slime'));
       }
       /* 爬塔专属外观与属性：迅捷 / 重甲 / 精英 */
+      if (elite) game.eliteDmgMul = 1.25;
+      else game.eliteDmgMul = 1;
       enemies.forEach(function (e, i) {
         /* 爬塔怪物直接出现在画面内，别从屏幕外慢慢走进来 */
         e.x = clamp(W * (0.18 + 0.1 * (i % 6)) + rand(-U(20), U(20)), U(80), W - U(110));
@@ -7056,8 +7183,14 @@
         e.vx = (player.x < e.x ? -1 : 1) * U(rand(50, 90));
         if (elite && e.kind === 'laugh') {
           e.towerSkin = 'enemy_tower_elite';
-          e.hp = e.maxHp = Math.round(e.maxHp * 2.2);
-          e.w *= 1.2; e.h *= 1.2;
+          e.hp = e.maxHp = Math.round(e.maxHp * 4.0);
+          e.w *= 1.25; e.h *= 1.25;
+          return;
+        }
+        if (elite && floor >= 15 && i === 1) {
+          e.towerSkin = 'enemy_tower_elite';
+          e.hp = e.maxHp = Math.round(e.maxHp * 3.0);
+          e.w *= 1.15; e.h *= 1.15;
           return;
         }
         if (i % 4 === 0) {
@@ -10739,6 +10872,35 @@
             player.invuln = 99;
             document.title = 'TOWERSHOT floor=5 enemies=' + enemies.length + ' skins=' + enemies.map(function (e) { return e.towerSkin || '-'; }).join(',');
           }, 700);
+        } else if (sc === 'portalshot') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            showNodeSelect();
+            document.title = 'PORTAL n=' + (game.portals ? game.portals.length : 0) + ' types=' + (game.portals || []).map(function (p) { return p.type; }).join(',') + ' x=' + (game.portals || []).map(function (p) { return Math.round(p.x); }).join(',');
+          }, 700);
+        } else if (sc === 'portalenter') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            showNodeSelect();
+            setTimeout(function () {
+              player.x = game.portals[0].x;
+              const eb = document.getElementById('btn-enter');
+              if (eb) eb.click();
+              setTimeout(function () {
+                document.title = 'PORTALENTER pick=' + game.portalPick + ' room=' + game.roomActive + ' type=' + game.roomType + ' state=' + game.state;
+              }, 900);
+            }, 500);
+          }, 700);
         } else if (sc === 'audiotest') {
           setTimeout(function () {
             startGame(true);
@@ -11330,6 +11492,14 @@
     if (on) on.addEventListener('click', function (e) { e.stopPropagation(); finishMobileSetup(true); });
     const off = document.getElementById('assist-off');
     if (off) off.addEventListener('click', function (e) { e.stopPropagation(); finishMobileSetup(false); });
+  })();
+
+  (function bindPortalEnter() {
+    const btn = document.getElementById('btn-enter');
+    if (btn) btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      enterPortal();
+    });
   })();
 
   (function bindShareAndRank() {
