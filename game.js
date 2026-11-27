@@ -241,6 +241,9 @@
     '暴击协议': 'crit', '吸血编译': 'crit',
     '算力超频': 'power', '缓存扩容': 'power',
     '推理加速': 'power', '护盾再生': 'power',
+    '疾跑编译': 'dodge', '铁壁缓存': 'power', '冷却压缩': 'power', '拾荒协议': 'token',
+    '连击充能': 'bullet', '弹药回收': 'token', '穿透弹幕': 'bullet', '暴击爆炸': 'crit',
+    '闪避充能': 'dodge', '支援炮击': 'summon', '绝境协议': 'power', '开局即巅峰': 'power',
     '核心·弹幕': 'bullet', '核心·闪避': 'dodge', '核心·召唤': 'summon'
   };
   const SET_INFO = {
@@ -282,6 +285,9 @@
     fire('summon4', 'summon', 4, function () { player.supportCdMul *= 0.6; player.dmgMul *= 1.1; });
     fire('power2', 'power', 2, function () { player.dmgMul *= 1.08; });
     fire('power4', 'power', 4, function () { player.maxHp += 20; player.hp = Math.min(player.maxHp, player.hp + 20); });
+    fire('dodgeToken', 'dodge', 3, function () { game.buffDashToken = true; });
+    fire('critBoom', 'crit', 3, function () { game.buffCritBoom = true; });
+    fire('bulletPierce', 'bullet', 3, function () { game.buffPierce = Math.max(1, game.buffPierce || 0); });
   }
 
   const BUFF_TIER = {
@@ -293,7 +299,9 @@
     '精准索敌': 'rare',
     '三段跳': 'legend',
     'Token 池扩容': 'legend',
-    '核心·弹幕': 'legend', '核心·闪避': 'legend', '核心·召唤': 'legend'
+    '核心·弹幕': 'legend', '核心·闪避': 'legend', '核心·召唤': 'legend',
+    '穿透弹幕': 'rare', '暴击爆炸': 'rare', '支援炮击': 'rare', '绝境协议': 'rare',
+    '开局即巅峰': 'legend'
   };
 
   const SUPPORT_EXTRA = {
@@ -453,6 +461,18 @@
     { name: '支援专家', desc: '支援冷却 -25%', apply: function () { player.supportCdMul *= 0.75; } },
     { name: 'Token 池扩容', desc: 'Token 上限 +30', apply: function () { player.maxToken += 30; } },
     { name: '精准索敌', desc: 'Token 弹幕转向速度 +60%', apply: function () { game.buffHoming = true; } },
+    { name: '疾跑编译', desc: '移动速度 +12%', apply: function () { player.speedMul = Math.min(1.8, player.speedMul * 1.12); } },
+    { name: '铁壁缓存', desc: '受到的伤害 -8%', apply: function () { player.defenseMul = Math.max(0.55, player.defenseMul * 0.92); } },
+    { name: '冷却压缩', desc: '技能/大招冷却 -12%', apply: function () { player.cdMul = Math.max(0.55, (player.cdMul || 1) * 0.88); } },
+    { name: '拾荒协议', desc: '金币获取 +25%', apply: function () { game.coinMul = (game.coinMul || 1) * 1.25; } },
+    { name: '连击充能', desc: '每 10 连击额外回复 Token', apply: function () { game.buffComboToken = true; } },
+    { name: '弹药回收', desc: '击杀敌人回复 2 Token', apply: function () { game.buffKillToken = true; } },
+    { name: '穿透弹幕', desc: '平A 弹幕可以穿透一个敌人', apply: function () { game.buffPierce = (game.buffPierce || 0) + 1; } },
+    { name: '暴击爆炸', desc: '暴击时对小范围敌人造成溅射', apply: function () { game.buffCritBoom = true; } },
+    { name: '闪避充能', desc: '闪避成功回复 4 Token', apply: function () { game.buffDashToken = true; } },
+    { name: '支援炮击', desc: '召唤支援时额外打出一轮弹幕', apply: function () { game.buffSupportShot = true; } },
+    { name: '绝境协议', desc: '生命低于 30% 时伤害 +25%', apply: function () { game.buffLowHp = true; } },
+    { name: '开局即巅峰', desc: '每关开始获得 1 层护盾', apply: function () { game.buffStartShield = true; } },
     { name: '核心·弹幕', core: true, desc: '核心：平A 多 1 发，命中分裂', apply: function () { game.buffShots = Math.min(4, game.buffShots + 1); game.setSplit = true; } },
     { name: '核心·闪避', core: true, desc: '核心：完美闪避射 3 发，闪避 CD -25%', apply: function () { game.setDodgeShot = true; player.dashCdMul *= 0.75; } },
     { name: '核心·召唤', core: true, desc: '核心：支援 CD -50%，伤害 +10%', apply: function () { player.supportCdMul *= 0.5; player.dmgMul *= 1.1; } }
@@ -530,6 +550,10 @@
     roomStartScore: 0,
     scoreMul: 1,
     fullPower: false,
+    tower: false,
+    towerFloor: 1,
+    towerClearT: 0,
+    towerBossKilled: false,
     flash: 0,
     warns: [],
     shake: 0,
@@ -1254,11 +1278,12 @@
 
   function heroDmg() {
     let m = player.dmgMul;
+    if (game.buffLowHp && player.hp > 0 && player.hp / player.maxHp <= 0.3) m *= 1.25;
     if (player.astra > 0) m *= 1.2;
     if (player.rage > 0) m *= 1.3;
     /* 闪避反击：闪完 1.5 秒内伤害 +35%，鼓励贴脸躲弹 */
     if (player.dodgeBuffT > 0) m *= 1.35;
-    return Math.min(2.2, m);
+    return Math.min(2.8, m);
   }
 
   function fireRate() {
@@ -1291,7 +1316,7 @@
     if (game.combo === 10 || game.combo === 25 || game.combo === 50) {
       const heal = game.combo === 50 ? 12 : game.combo === 25 ? 6 : 3;
       player.hp = Math.min(player.maxHp, player.hp + heal);
-      player.token = Math.min(player.maxToken, player.token + 6);
+      player.token = Math.min(player.maxToken, player.token + (game.buffComboToken ? 12 : 6));
       addText(player.x, player.y - U(150), '连击 ' + game.combo + '！回复 ' + heal + ' 生命', '110,247,180', 16);
       rings.push({ x: player.x, y: player.y - U(56), r0: U(10), r1: U(110), w: U(4), life: 0.35, max: 0.35, color: '110,247,180' });
       sfx(980, 0.12, 'sine', 0.04);
@@ -1351,7 +1376,7 @@
     if (p.skillCd > 0 || p.token < SKILL_COST) { deny(el.acts.skill); return; }
 
     p.token -= SKILL_COST;
-    p.skillCd = SKILL_CD;
+    p.skillCd = SKILL_CD * (p.cdMul || 1);
 
     if (heroIndex === 0) {
       /* ChatGPT：狂暴 Astra 模式 */
@@ -1468,7 +1493,7 @@
     if (p.ultCd > 0 || (!game.infinite && p.token < ULT_COST)) { deny(el.acts.ult); return; }
 
     if (!game.infinite) p.token -= ULT_COST;
-    p.ultCd = game.infinite ? 0 : ULT_CD;
+    p.ultCd = game.infinite ? 0 : ULT_CD * (p.cdMul || 1);
     p.invuln = Math.max(p.invuln, 1.0);
 
     if (heroIndex === 0) {
@@ -1591,9 +1616,9 @@
     if (p.supportCd > 0 && !game.buffSupportFree && !game.infinite) { deny(el.acts.support); return; }
     p.supportLock = 0.35;
 
-    if (game.buffSupportFive) p.supportCd = 5 * (p.supportCdMul || 1);
+    if (game.buffSupportFive) p.supportCd = 5 * (p.supportCdMul || 1) * (p.cdMul || 1);
     else if (game.buffSupportFree || game.infinite) p.supportCd = 0;
-    else p.supportCd = (game.wenxinSupport ? SUPPORT_CD * 0.5 : SUPPORT_CD) * (p.supportCdMul || 1);
+    else p.supportCd = (game.wenxinSupport ? SUPPORT_CD * 0.5 : SUPPORT_CD) * (p.supportCdMul || 1) * (p.cdMul || 1);
     let supPool = (game.siliconWar ? SILICON_SUPPORTS : SUPPORTS).slice();
     for (const k of game.allyKeys) {
       if (SUPPORT_EXTRA[k]) supPool.push(SUPPORT_EXTRA[k]);
@@ -1635,6 +1660,12 @@
       p.token = p.maxToken;
     }
     sfx(760, 0.18, 'sine', 0.05);
+    if (game.buffSupportShot) {
+      for (let i = 0; i < 6; i++) {
+        const a = -0.4 + i * 0.16;
+        tokenBullet(p.x + p.face * U(30), p.y - U(60), p.face * Math.cos(a) * U(900), Math.sin(a) * U(240), 12 * heroDmg(), true);
+      }
+    }
   }
 
   /* ---------- 伤害结算 ---------- */
@@ -1733,6 +1764,7 @@
     const boss = !!e.isBoss;
     spawnExplosion(e.x, e.y - e.h * 0.5, boss ? '255,209,102' : e.kind === 'doubao' ? '150,220,255' : '255,140,170');
     game.score += (boss ? 3000 : e.kind === 'laugh' ? 500 : 160) * (game.scoreMul || 1);
+    if (game.buffKillToken) player.token = Math.min(player.maxToken, player.token + 2);
     game.kills += 1;
     achvStats().kills += 1;
     checkAchv();
@@ -2234,6 +2266,7 @@
       p.invuln = Math.max(p.invuln, 0.34);
       p.dodgeBuffT = 1.5;
       p.dodgeFxT = 0.6;
+      if (game.buffDashToken) player.token = Math.min(player.maxToken, player.token + 4);
       /* 完美闪避：在弹幕贴脸时闪开，短暂时缓 + 伤害提升 */
       let danger = false;
       for (const b of ebullets) {
@@ -2842,6 +2875,7 @@
       }
     }
     if (game.hiddenFight) { updateHiddenFight(dt); return; }
+    if (game.tower) { updateTower(dt); return; }
     const st = STAGES[game.stage];
     if (!st) return;
 
@@ -3182,6 +3216,13 @@
             dmg *= 2;
             hitSfx('crit');
             addText(b.x, b.y - U(18), 'CRIT', '255,220,120', 18);
+            if (game.buffCritBoom) {
+              for (const e2 of enemies.slice()) {
+                if (e2 !== e && !e2.dead && Math.abs(e2.x - e.x) < U(110) && Math.abs(e2.y - e.y) < U(110)) {
+                  hurtEnemy(e2, dmg * 0.4, 0, 0);
+                }
+              }
+            }
           }
           hurtEnemy(e, dmg, Math.sign(b.vx) * U(60), 0);
           if (game.setSplit && !b.split) {
@@ -3210,6 +3251,7 @@
           break;
         }
       }
+      if (hit && game.buffPierce && !b.pierced) { b.pierced = true; hit = false; }
       if (hit || b.life <= 0 || b.x < -U(60) || b.x > W + U(60)) pbullets.splice(i, 1);
     }
   }
@@ -3864,7 +3906,7 @@
     }
     const gained = Math.max(12, Math.round((game.score - game.roomStartScore) / 70 * (1 + game.stage * 0.2) * (game.roomElite ? 1.8 : 1)));
     game.roomElite = false;
-    game.coins += gained;
+    game.coins += Math.round(gained * (game.coinMul || 1));
     game.scoreMul = 1;
     let bonusText = '';
     if (game.roomType === 'wave') {
@@ -4157,6 +4199,7 @@
     if (player.dead) { player.dead = false; player.hp = player.maxHp * 0.6; }
     player.hp = Math.min(player.maxHp, player.hp + 30);
     player.token = Math.max(player.token, 60);
+    if (game.buffStartShield) player.shield = Math.max(player.shield || 0, 1);
 
     if (game.stage === 1) {
       platforms.length = 0;
@@ -5941,7 +5984,7 @@
       prog = clamp(game.stageT / st.defense, 0, 1);
     }
     el.waveFill.style.transform = 'scaleX(' + clamp(prog, 0, 1).toFixed(3) + ')';
-    const lvStr = String(game.stage + 1);
+    const lvStr = game.tower ? String(game.towerFloor) : String(game.stage + 1);
     if (lvStr !== lastLevel) { el.waveText.textContent = lvStr; lastLevel = lvStr; }
 
     const scStr = String(Math.floor(game.score)).padStart(6, '0');
@@ -6881,6 +6924,69 @@
     });
   }
 
+  function spawnTowerFloor() {
+    const floor = game.towerFloor;
+    enemies = [];
+    ebullets = [];
+    pbullets = [];
+    game.bossSpawned = false;
+    game.stageClearPending = false;
+    game.enemyHpMul = 1 + floor * 0.1;
+    game.enemyDmgMul = 1 + floor * 0.04;
+    player.hp = Math.min(player.maxHp, player.hp + 8);
+    if (floor % 10 === 0) {
+      const bosses = ['grok', 'nail_boss', 'doubao_boss', 'seed'];
+      spawnBoss(bosses[(floor / 10 - 1) % bosses.length]);
+      const b = enemies[enemies.length - 1];
+      if (b) {
+        b.hp = b.maxHp = Math.round(b.maxHp * (1 + floor * 0.25));
+        b.towerBoss = true;
+      }
+      game.bossSpawned = true;
+      addText(W * 0.5, H * 0.26, '第 ' + floor + ' 层 · BOSS', '255,120,150', 26);
+    } else {
+      const elite = floor % 5 === 0;
+      const count = Math.min(8, 2 + Math.floor(floor / 2) + (elite ? 2 : 0));
+      for (let i = 0; i < count; i++) {
+        spawnEnemy(elite && i === 0 ? 'laugh' : (Math.random() < 0.2 ? 'doubao' : 'slime'));
+      }
+      if (elite) {
+        enemies.forEach(function (e) { if (e.kind === 'laugh') { e.hp = e.maxHp = Math.round(e.maxHp * 2.2); e.w *= 1.2; e.h *= 1.2; } });
+        addText(W * 0.5, H * 0.26, '第 ' + floor + ' 层 · 精英', '255,180,92', 22);
+      } else {
+        addText(W * 0.5, H * 0.26, '第 ' + floor + ' 层', '150,220,255', 20);
+      }
+    }
+    game.flash = 0.25;
+    sfx(520, 0.14, 'triangle', 0.04);
+  }
+
+  function updateTower(dt) {
+    if (game.bossSpawned) {
+      const bossAlive = enemies.some(function (e) { return e.isBoss && !e.dead && e.hp > 0; });
+      if (!bossAlive && !game.towerClearT) {
+        game.towerClearT = 0.9;
+        addText(W * 0.5, H * 0.3, 'BOSS 击破！', '255,209,102', 24);
+      }
+    } else if (!enemies.some(function (e) { return !e.dead; })) {
+      if (!game.towerClearT) game.towerClearT = 0.7;
+    }
+    if (game.towerClearT > 0) {
+      game.towerClearT -= dt;
+      if (game.towerClearT <= 0) {
+        game.towerClearT = 0;
+        game.towerFloor += 1;
+        game.coins += 10 + game.towerFloor * 2;
+        if (game.towerFloor % 3 === 0) {
+          const b = pick(BUFFS.filter(function (x) { return !x.core && game.buffs.indexOf(x.name) < 0; }));
+          if (b) { b.apply(); game.buffs.push(b.name); applySetBonuses(); }
+          addText(W * 0.5, H * 0.34, '通关奖励：' + (b ? b.name : 'Token'), '110,247,180', 18);
+        }
+        spawnTowerFloor();
+      }
+    }
+  }
+
   function showIntro() {
     playCine([
       { bg: 'void', text: '……眼前先亮起来的，不是宿舍的天花板。', title: true, dur: 2200 },
@@ -7744,6 +7850,9 @@
     game.roomType = null;
     game.scoreMul = 1;
     game.fullPower = false;
+    game.tower = false;
+    game.towerFloor = 1;
+    game.towerClearT = 0;
     platforms = [];
 
     game.time = 0;
@@ -8018,9 +8127,13 @@
     document.body.classList.remove('is-cutscene');
     sfx(660, 0.14, 'triangle', 0.05);
     if (startMode === 'fight') {
-      /* 战斗爽模式：跳过开场剧情，直接开打 */
-      beginStage();
-      addText(W * 0.5, H * 0.34, '战斗爽模式 · 直接开打', '255,209,102', 16);
+      /* 无限爬塔模式 */
+      game.tower = true;
+      game.towerFloor = 1;
+      game.towerClearT = 0;
+      game.stage = 0;
+      spawnTowerFloor();
+      addText(W * 0.5, H * 0.3, '无限爬塔 · 第 1 层', '255,209,102', 22);
     } else {
       showIntro();
     }
@@ -8138,6 +8251,8 @@
   });
   function retryRun() {
     /* 从当前死亡的关卡重开，保留这一局已获得的词条 / 金币 / 全力形态 */
+    const wasTower = !!game.tower;
+    const diedFloor = game.towerFloor || 1;
     const diedStage = game.stage | 0;
     const keepCoins = game.coins || 0;
     const keepBuffs = (game.buffs || []).slice();
@@ -8151,6 +8266,19 @@
     game.fullPower = keepFull;
     rebuildPlayerStats();
     game.stage = Math.max(0, Math.min(STAGES.length - 1, diedStage));
+    if (wasTower) {
+      game.tower = true;
+      game.towerFloor = Math.max(1, diedFloor);
+      game.towerClearT = 0;
+      game.stage = 0;
+      spawnTowerFloor();
+      game.paused = false;
+      document.body.classList.remove('is-menu', 'is-cutscene', 'is-paused');
+      document.body.classList.add('is-playing');
+      addText(W * 0.5, H * 0.3, '从第 ' + game.towerFloor + ' 层重开！', '255,209,102', 20);
+      sfx(660, 0.14, 'triangle', 0.05);
+      return;
+    }
     game.paused = false;
     document.body.classList.remove('is-paused');
     if (pauseEl) pauseEl.classList.remove('show');
@@ -10286,6 +10414,18 @@
             startMode = 'fight';
             startGame();
           }, 120);
+        } else if (sc === 'towertest') {
+          setTimeout(function () {
+            startMode = 'fight';
+            startGame();
+            setTimeout(function () {
+              const before = game.towerFloor;
+              enemies.slice().forEach(function (e) { if (!e.dead) { e.hp = 1; hurtEnemy(e, 99999, 0, 0, true); } });
+              setTimeout(function () {
+                document.title = 'TOWER on=' + game.tower + ' floor=' + before + '->' + game.towerFloor + ' enemies=' + enemies.length + ' err=' + String(window.__ERR || 'none').split('\n')[0].slice(0, 50);
+              }, 2500);
+            }, 1200);
+          }, 700);
         } else if (sc === 'flowshot') {
           setTimeout(function () {
             startGame();
