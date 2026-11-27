@@ -581,7 +581,7 @@
   };
 
   /* Supabase 全网榜配置：填 Project URL 和 Publishable key（不是 secret key） */
-  const SUPABASE = { url: '', key: '' };
+  const SUPABASE = { url: 'https://fldkthelzgtbzgqqrpzl.supabase.co', key: 'sb_publishable_a3A_TdHpu-3cCuFXNwd0GQ_ty7_tc-5' };
 
   const CONFIG = {
     playerHp: 120,
@@ -8427,8 +8427,9 @@
       list.appendChild(tip);
       fetch(SUPABASE.url + '/rest/v1/scores?select=score,grade,hero,mode,time,created_at&order=score.desc&limit=10', {
         headers: { apikey: SUPABASE.key, Authorization: 'Bearer ' + SUPABASE.key }
-      }).then(function (r) { return r.json(); }).then(function (rows) {
+      }).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); }).then(function (rows) {
         list.innerHTML = '';
+        if (rows && !Array.isArray(rows) && rows.code) throw new Error(rows.message || rows.code);
         if (!Array.isArray(rows) || !rows.length) {
           const empty = document.createElement('p');
           empty.className = 'rooms__sub';
@@ -8446,7 +8447,7 @@
         list.innerHTML = '';
         const err = document.createElement('p');
         err.className = 'rooms__sub';
-        err.textContent = '全网榜加载失败，请稍后再试。';
+        err.textContent = '全网榜还没建好表，或网络异常。';
         list.appendChild(err);
       });
       panel.classList.add('show');
