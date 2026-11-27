@@ -6361,6 +6361,7 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
       game.shake = SAVE.reduceFx ? 0 : U(22);
       game.flash = SAVE.reduceFx ? 0.18 : 0.55;
       game.hitStop = Math.max(game.hitStop || 0, 0.16);
+      sfx(520, 0.35, 'triangle', 0.06);
       rings.push({ x: e.x, y: e.y - e.h * 0.5, r0: U(20), r1: U(260), w: U(8), life: 0.55, max: 0.55, color: '255,92,138' });
       for (let i = 0; i < 18; i++) spawnSparks(e.x, e.y - e.h * 0.5, '255,120,150', 3);
       sfx(180, 0.5, 'sawtooth', 0.06);
@@ -11372,7 +11373,17 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
     story:  { bpm: 90,  root: 104.0, vol: 0.019, prog: [0, 0, 5, 3], arp: [0, 2, 4, 7, 4, 2, 0, 2], bass: [0, 0, 3, 3, 5, 5, 3, 3] },
     battle: { bpm: 104, root: 98.0,  vol: 0.020, prog: [0, 0, 5, 7], arp: [0, 4, 7, 4, 2, 4, 7, 9], bass: [0, 0, 0, 5, 5, 3, 3, 0] },
     boss:   { bpm: 116, root: 92.5,  vol: 0.021, prog: [0, 5, 3, 7], arp: [0, 3, 7, 10, 7, 3, 0, 3], bass: [0, 0, 5, 5, 3, 3, 7, 7] },
-    ending: { bpm: 76,  root: 110.0, vol: 0.021, prog: [0, 5, 3, 0], arp: [0, 2, 4, 2, 0, 2, 4, 7], bass: [0, 0, 0, 3, 3, 3, 5, 5] }
+    ending: { bpm: 76,  root: 110.0, vol: 0.021, prog: [0, 5, 3, 0], arp: [0, 2, 4, 2, 0, 2, 4, 7], bass: [0, 0, 0, 3, 3, 3, 5, 5] },
+    /* 七个章节主题：同一套音轨，不同调式与节奏 */
+    ch1: { bpm: 96,  root: 98.0, vol: 0.020, prog: [0, 0, 5, 3], arp: [0, 2, 4, 7, 4, 2, 0, 2], bass: [0, 0, 0, 3, 5, 5, 3, 0] },
+    ch2: { bpm: 102, root: 92.0, vol: 0.020, prog: [0, 3, 5, 3], arp: [0, 4, 7, 9, 7, 4, 2, 4], bass: [0, 0, 3, 3, 5, 3, 0, 0] },
+    ch3: { bpm: 108, root: 88.0, vol: 0.021, prog: [0, 5, 7, 5], arp: [0, 3, 7, 10, 7, 3, 0, 3], bass: [0, 5, 5, 7, 3, 3, 0, 0] },
+    ch4: { bpm: 100, root: 94.0, vol: 0.020, prog: [0, 7, 5, 3], arp: [0, 2, 7, 9, 7, 2, 0, 4], bass: [0, 0, 7, 7, 5, 3, 3, 0] },
+    ch5: { bpm: 112, root: 84.0, vol: 0.021, prog: [0, 3, 7, 5], arp: [0, 5, 7, 12, 7, 5, 3, 0], bass: [0, 3, 3, 7, 5, 5, 3, 0] },
+    ch6: { bpm: 104, root: 90.0, vol: 0.021, prog: [0, 5, 3, 7], arp: [0, 4, 7, 11, 7, 4, 2, 4], bass: [0, 0, 5, 5, 3, 7, 3, 0] },
+    ch7: { bpm: 116, root: 86.0, vol: 0.022, prog: [0, 7, 5, 3], arp: [0, 3, 8, 12, 8, 3, 0, 5], bass: [0, 7, 7, 5, 3, 3, 0, 0] },
+    boss2: { bpm: 128, root: 82.0, vol: 0.024, prog: [0, 6, 3, 7], arp: [0, 3, 6, 10, 13, 10, 6, 3], bass: [0, 0, 6, 6, 3, 3, 7, 7] },
+    hidden: { bpm: 72, root: 76.0, vol: 0.020, prog: [0, 3, 5, 2], arp: [0, 2, 3, 7, 3, 2, 0, 2], bass: [0, 0, 3, 3, 5, 5, 2, 2] }
   };
 
   function bgmTone(freq, dur, wave, vol) {
@@ -11432,12 +11443,18 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
   }
 
   function currentBgmMode() {
-    const hasBoss = enemies.some(function (e) { return e.isBoss; });
+    const boss = enemies.filter(function (e) { return e.isBoss && !e.dead; })[0];
+    const hasBoss = !!boss;
     if (game.state === 'menu') return 'menu';
-    if (game.state === 'over' || game.state === 'ending') return 'ending';
+    if (game.state === 'over') return 'ending';
+    if (game.state === 'ending') {
+      if (hiddenEndEl && hiddenEndEl.classList.contains('show')) return 'hidden';
+      return 'ending';
+    }
     if (game.state === 'cine') return 'story';
     if (game.state === 'dialog') return hasBoss ? 'boss' : 'story';
-    return hasBoss ? 'boss' : 'battle';
+    if (hasBoss) return (boss.hp <= boss.maxHp * 0.5) ? 'boss2' : 'boss';
+    return 'ch' + Math.min(7, Math.max(1, (game.stage || 0) + 1));
   }
 
   function setBgm(mode) {
@@ -16016,6 +16033,24 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
             setTimeout(function () {
               document.title = 'NEWBOSS stages=' + STAGES.length + ' boss=' + (enemies[0] || {}).kind + ' hp=' + Math.round((enemies[0] || {}).hp || 0) + ' eb=' + ebullets.length + ' boss2=' + STAGES[2].boss;
             }, 3000);
+          }, 700);
+        } else if (sc === 'bgmtest') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room', 'is-cutscene');
+            beginStage(true);
+            const m1 = currentBgmMode();
+            spawnBoss('grok');
+            const m2 = currentBgmMode();
+            enemies[0].hp = enemies[0].maxHp * 0.4;
+            const m3 = currentBgmMode();
+            document.title = 'BGM battle=' + m1 + ' boss=' + m2 + ' boss2=' + m3 + ' cfg=' + (BGM_CFG[m3] ? 'yes' : 'no');
           }, 700);
         } else if (sc === 'shopdepth') {
           setTimeout(function () {
