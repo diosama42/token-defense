@@ -3628,3 +3628,12 @@ body.is-room .controls, body.is-room .hud { pointer-events: none; }
   background: rgba(94, 231, 255, 0.12);
   border: 1px solid rgba(94, 231, 255, 0.2);
 }
+
+
+.hud__coins {
+  display: block;
+  margin-top: 3px;
+  font: 700 10px/1.4 ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  color: rgba(255, 209, 102, 0.9);
+}

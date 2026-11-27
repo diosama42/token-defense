@@ -3801,9 +3801,9 @@
         e.stopPropagation();
         const old = game.coins;
         const ok = fn();
-        if (ok) {
+        if (ok && panel.classList.contains('show')) {
           renderRestPanel(shopMode);
-        } else if (old < (price || 0)) {
+        } else if (!ok && old < (price || 0)) {
           b.disabled = true;
           b.querySelector('span').textContent = desc + '（金币不足）';
         }
@@ -5676,6 +5676,8 @@
 
     const scStr = String(Math.floor(game.score)).padStart(6, '0');
     if (scStr !== lastScore) { el.score.textContent = scStr; lastScore = scStr; }
+    const coinsEl = document.getElementById('hud-coins');
+    if (coinsEl) coinsEl.textContent = '金币 ' + (game.coins || 0);
 
     const comboOn = game.comboT > 0 && game.combo > 1;
     el.combo.classList.toggle('on', comboOn);
@@ -9812,6 +9814,31 @@
             startMode = 'fight';
             startGame();
           }, 120);
+        } else if (sc === 'restclose') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.state = 'play';
+            game.stage = 0;
+            game.coins = 200;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room');
+            beginStage(true);
+            showBossRest();
+            setTimeout(function () {
+              const btns = document.querySelectorAll('#rest-grid .rooms__card');
+              let enter = null;
+              btns.forEach(function (b) { if (b.textContent.indexOf('进入 Boss') >= 0) enter = b; });
+              if (enter) enter.click();
+              setTimeout(function () {
+                const rest = document.getElementById('rest');
+                document.title = 'RESTCLOSE show=' + (rest ? rest.classList.contains('show') : '?') + ' state=' + game.state + ' coins=' + game.coins + ' hud=' + (document.getElementById('hud-coins') ? document.getElementById('hud-coins').textContent : '-');
+              }, 900);
+            }, 400);
+          }, 700);
         } else if (sc === 'warboss2') {
           setTimeout(function () {
             startGame(true);
