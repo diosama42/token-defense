@@ -4148,7 +4148,8 @@
     { type: 'reward', title: '奖励关卡', glyph: '奖', sprite: 'portal_reward', color: '255,209,102' },
     { type: 'shop', title: '商店', glyph: '商', sprite: 'portal_shop', color: '110,247,180' },
     { type: 'event', title: '事件', glyph: '？', sprite: 'portal_event', color: '167,139,250' },
-    { type: 'statue', title: '神像', glyph: '像', sprite: 'portal_statue', color: '255,209,102' }
+    { type: 'statue', title: '石化神像', glyph: '像', sprite: 'portal_statue', color: '255,209,102' },
+    { type: 'chest', title: '数据宝箱', glyph: '箱', sprite: 'portal_reward', color: '255,230,150' }
   ];
 
   function updateEnterBtn() {
@@ -4168,6 +4169,65 @@
       if (!best || d < best.dist) best = { portal: p, dist: d };
     }
     return best ? Object.assign({}, best.portal, { dist: best.dist }) : null;
+  }
+
+  function genChapterMap(stage) {
+    const combat = ['wave', 'reward'];
+    const utility = ['shop', 'event', 'statue', 'chest'];
+    const layers = [];
+    for (let L = 0; L < 3; L++) {
+      const first = combat[Math.floor(Math.random() * combat.length)];
+      let second = (Math.random() < 0.72)
+        ? combat[Math.floor(Math.random() * combat.length)]
+        : utility[Math.floor(Math.random() * utility.length)];
+      if (L === 2 && Math.random() < 0.5) {
+        second = utility[Math.floor(Math.random() * utility.length)];
+      }
+      layers.push([{ type: first }, { type: second }]);
+    }
+    return { layers: layers, layer: 0 };
+  }
+
+  function drawMiniMap() {
+    if (!game.portals || !game.portalPick || !game.map) return;
+    const lx = W * 0.5;
+    const by = H - U(104);
+    const gapX = U(42);
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.font = '700 ' + U(9) + 'px "PingFang SC", system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(220,245,255,0.65)';
+    ctx.fillText('路线图 · 第 ' + (game.map.layer + 1) + ' / 3 层', lx, by - U(16));
+    const cur = game.map.layer;
+    for (let L = 0; L < game.map.layers.length; L++) {
+      const x = lx + (L - 1) * gapX;
+      const done = L < cur;
+      const now = L === cur;
+      game.map.layers[L].forEach(function (node, i) {
+        const yy = by + (i === 0 ? -U(7) : U(7));
+        ctx.beginPath();
+        ctx.arc(x, yy, now ? U(4) : U(3), 0, TAU);
+        ctx.fillStyle = now ? 'rgba(255,209,102,0.95)' : done ? 'rgba(110,247,180,0.55)' : 'rgba(150,200,230,0.35)';
+        ctx.fill();
+        if (now) {
+          ctx.strokeStyle = 'rgba(255,209,102,0.9)';
+          ctx.lineWidth = U(1.2);
+          ctx.beginPath();
+          ctx.arc(x, yy, U(7), 0, TAU);
+          ctx.stroke();
+        }
+      });
+      if (L < game.map.layers.length - 1) {
+        ctx.strokeStyle = 'rgba(150,200,230,0.25)';
+        ctx.lineWidth = U(1);
+        ctx.beginPath();
+        ctx.moveTo(x + U(6), by);
+        ctx.lineTo(x + gapX - U(6), by);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
   }
 
   function showNodeSelect() {
@@ -4191,35 +4251,13 @@
     player.vx = 0;
     player.vy = 0;
     player.onGround = true;
-    /* 加权门池：普通防守最多，事件/商店压低 */
-    const waveA = PORTAL_DEFS.filter(function (d) { return d.type === 'wave'; })[0];
-    const rewardA = PORTAL_DEFS.filter(function (d) { return d.type === 'reward'; })[0];
-    const shopA = PORTAL_DEFS.filter(function (d) { return d.type === 'shop'; })[0];
-    const eventA = PORTAL_DEFS.filter(function (d) { return d.type === 'event'; })[0];
-    const statueA = PORTAL_DEFS.filter(function (d) { return d.type === 'statue'; })[0];
-    const pool2 = [
-      { def: waveA, weight: 34, title: '波次防守' },
-      { def: waveA, weight: 26, title: '清剿行动' },
-      { def: rewardA, weight: 20, title: '奖励关卡' },
-      { def: shopA, weight: 10, title: '商店' },
-      { def: eventA, weight: 7, title: '事件' },
-      { def: statueA, weight: 10, title: '神像' }
-    ];
-    const picks = [];
-    while (picks.length < 3 && pool2.length) {
-      let total = 0;
-      pool2.forEach(function (x) { total += x.weight; });
-      let roll = Math.random() * total;
-      let idx = 0;
-      for (let i = 0; i < pool2.length; i++) { roll -= pool2[i].weight; if (roll <= 0) { idx = i; break; } }
-      picks.push(pool2.splice(idx, 1)[0]);
-    }
-    if (!picks.some(function (x) { return x.def.type === 'wave'; })) {
-      picks[0] = { def: waveA, weight: 1, title: '波次防守' };
-    }
-    game.portals = picks.map(function (x, i) {
-      const d = x.def;
-      return { type: d.type, title: x.title || d.title, glyph: d.glyph, sprite: d.sprite, color: d.color, x: W * (0.3 + i * 0.24), t: rand(0, 6) };
+    if (!game.map) game.map = genChapterMap(game.stage);
+    const layer = game.map.layers[game.map.layer] || game.map.layers[0];
+    const picks = layer.map(function (node) {
+      return PORTAL_DEFS.filter(function (d) { return d.type === node.type; })[0] || PORTAL_DEFS[0];
+    });
+    game.portals = picks.map(function (d, i) {
+      return { type: d.type, title: d.title, glyph: d.glyph, sprite: d.sprite, color: d.color, x: W * (0.38 + i * 0.24), t: rand(0, 6) };
     });
     addText(W * 0.5, H * 0.32, '房间 ' + (game.nodeCount + 1) + ' / 3', '255,209,102', 16);
     addText(W * 0.5, H * 0.38, '走到传送门前，按 ' + keyName(keyOf('enter')) + ' 进入', '150,220,255', 18);
@@ -4245,9 +4283,11 @@
     updateEnterBtn();
     game.nodeCount += 1;
     game.elitePending = game.nodeCount >= 3;
+    if (game.map && !p.eliteGate) game.map.layer += 1;
     if (p.eliteGate) { game.eliteFixed = true; startRoom('elite'); return; }
     if (p.type === 'shop') { openRoomShop(); return; }
     if (p.type === 'statue') { showStatueRoom(); return; }
+    if (p.type === 'chest') { showChestRoom(); return; }
     if (p.type === 'event') { showEventRoom(); return; }
     startRoom(p.type);
   }
@@ -4797,6 +4837,52 @@
     } }
   };
 
+  function showChestRoom() {
+    game.state = 'node';
+    roomHideAll();
+    document.body.classList.add('is-room');
+    const panel = document.getElementById('rest');
+    const grid = document.getElementById('rest-grid');
+    const coinsEl = document.getElementById('rest-coins');
+    const title = panel ? panel.querySelector('.rooms__title') : null;
+    const kicker = panel ? panel.querySelector('.rooms__k') : null;
+    if (!panel || !grid) return;
+    if (title) title.textContent = '数据宝箱';
+    if (kicker) kicker.textContent = 'DATA CACHE';
+    if (coinsEl) coinsEl.textContent = '一个没上锁的缓存箱。';
+    grid.innerHTML = '';
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'rooms__card rooms__card--main';
+    open.innerHTML = '<b>打开缓存</b><span>获得金币与 Token，可能还有词条</span>';
+    open.addEventListener('click', function (e) {
+      e.stopPropagation();
+      const coins = 20 + Math.floor(Math.random() * 30);
+      game.coins += coins;
+      player.token = Math.min(player.maxToken, player.token + 20);
+      let extra = '';
+      if (Math.random() < 0.5) extra = ' · 词条：' + grantCommonBuff();
+      addText(player.x, player.y - U(130), '缓存 +' + coins + ' 金币' + extra, '255,230,150', 18);
+      sfx(880, 0.22, 'triangle', 0.05);
+      panel.classList.remove('show');
+      document.body.classList.remove('is-room');
+      advanceRoomStep();
+    });
+    grid.appendChild(open);
+    const skip = document.createElement('button');
+    skip.type = 'button';
+    skip.className = 'rooms__card';
+    skip.innerHTML = '<b>不打开</b><span>直接去下一间</span>';
+    skip.addEventListener('click', function (e) {
+      e.stopPropagation();
+      panel.classList.remove('show');
+      document.body.classList.remove('is-room');
+      advanceRoomStep();
+    });
+    grid.appendChild(skip);
+    panel.classList.add('show');
+  }
+
   function showStatueRoom() {
     game.state = 'node';
     roomHideAll();
@@ -4896,6 +4982,7 @@
       game.elitePending = false;
       game.roomActive = false;
       game.eliteFixed = false;
+      game.map = genChapterMap(game.stage);
     }
     game.sceneT = 0;
     game.laserHitT = 0;
@@ -4913,7 +5000,7 @@
       const lines = OPENINGS[game.stage] || [];
       lines.forEach(function (line, i) {
         setTimeout(function () {
-          if (game.state === 'play' && game.stage === game.stage) {
+          if (game.state === 'play' && game.roomActive) {
             addText(W * 0.5, H * (0.24 + i * 0.06), line, i === 0 ? '150,220,255' : '255,209,102', i === 0 ? 15 : 14);
           }
         }, 500 + i * 1600);
@@ -5013,7 +5100,7 @@
     drawSceneHazards();
     drawWarns();
     drawCastBar();
-    if (game.portalPick) drawPortals();
+    if (game.portalPick) { drawPortals(); drawMiniMap(); }
 
     if (supports.length > 6) supports.splice(0, supports.length - 6);
     if (texts.length > 60) texts.splice(0, texts.length - 60);
@@ -11775,6 +11862,46 @@
             enterPortal();
             game.sceneT = 6.2;
             updateSceneHazards(0.05);
+          }, 700);
+        } else if (sc === 'maptest') {
+          setTimeout(function () {
+            const out = [];
+            const ok = function (k, v) { out.push(k + '=' + v); };
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            beginStage(true);
+            game.nodeCount = 0;
+            game.map = { layers: [[{ type: 'wave' }, { type: 'wave' }], [{ type: 'wave' }, { type: 'wave' }], [{ type: 'wave' }, { type: 'wave' }]], layer: 0 };
+            game.portalPick = true;
+            showNodeSelect();
+            ok('mapPortals', game.portals.length);
+            ok('mapLayer0', game.map.layer);
+            player.x = game.portals[0].x;
+            enterPortal();
+            setTimeout(function () {
+              ok('roomType', game.roomType);
+              game.roomT = game.roomTarget - 0.01;
+              setTimeout(function () {
+                const cont = document.getElementById('room-continue');
+                if (cont) cont.click();
+                setTimeout(function () {
+                  ok('afterLayer', game.map.layer);
+                  ok('nodeAfter', game.nodeCount);
+                  game.coins = 0;
+                  showChestRoom();
+                  const open = Array.prototype.filter.call(document.querySelectorAll('#rest-grid .rooms__card'), function (b) { return b.textContent.indexOf('打开缓存') >= 0; })[0];
+                  if (open) open.click();
+                  setTimeout(function () {
+                    ok('chestCoins', game.coins > 0);
+                    document.title = 'MAPTEST ' + out.join(' ');
+                  }, 300);
+                }, 350);
+              }, 300);
+            }, 300);
           }, 700);
         } else if (sc === 'storybgm') {
           setTimeout(function () {
