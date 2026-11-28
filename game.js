@@ -1769,6 +1769,8 @@
       if (heavy) {
         game.hitStop = Math.max(game.hitStop, 0.05);
         game.shake = Math.max(game.shake, U(6));
+        game.kickY = (game.kickY || 0) - U(2.6);
+        game.kickX = (game.kickX || 0) + (Math.random() < 0.5 ? -1 : 1) * U(2.2);
         buzz(22);
       } else {
         game.hitStop = Math.max(game.hitStop, 0.014);
@@ -1897,6 +1899,7 @@
       addText(e.x, e.y - e.h - U(12), 'KILL', '255,120,150', 20);
     }
     buzz(boss ? 60 : 18);
+    if (!boss) { game.kickY = (game.kickY || 0) - U(4.5); game.hitStop = Math.max(game.hitStop || 0, 0.07); }
     if (game.buffKillBoom && !boss) {
       for (const e2 of enemies.slice()) {
         if (e2 !== e && !e2.dead && Math.abs(e2.x - e.x) < U(100) && Math.abs(e2.y - e.y) < U(100)) {
@@ -2211,6 +2214,8 @@
    * ========================================================= */
   function step(dt) {
     game.time += dt;
+    if (game.kickX) game.kickX *= Math.pow(0.0008, dt);
+    if (game.kickY) game.kickY *= Math.pow(0.0012, dt);
     if (game.recoverT > 0) game.recoverT = Math.max(0, game.recoverT - dt);
 
     let scale = 1;
@@ -4176,55 +4181,61 @@
     const utility = ['shop', 'event', 'statue', 'chest'];
     const layers = [];
     for (let L = 0; L < 3; L++) {
-      const first = combat[Math.floor(Math.random() * combat.length)];
-      let second = (Math.random() < 0.72)
-        ? combat[Math.floor(Math.random() * combat.length)]
-        : utility[Math.floor(Math.random() * utility.length)];
-      if (L === 2 && Math.random() < 0.5) {
-        second = utility[Math.floor(Math.random() * utility.length)];
+      const nodes = [];
+      for (let c = 0; c < 3; c++) {
+        let type;
+        if (c === 0) type = combat[Math.floor(Math.random() * combat.length)];
+        else type = Math.random() < 0.62 ? combat[Math.floor(Math.random() * combat.length)]
+          : utility[Math.floor(Math.random() * utility.length)];
+        nodes.push({ type: type, col: c, next: L < 2 ? [c, (c + 1) % 3] : [] });
       }
-      layers.push([{ type: first }, { type: second }]);
+      layers.push(nodes);
     }
-    return { layers: layers, layer: 0 };
+    return { layers: layers, layer: 0, available: [0, 1, 2], chosen: [] };
   }
 
   function drawMiniMap() {
     if (!game.portals || !game.portalPick || !game.map) return;
     const lx = W * 0.5;
-    const by = H - U(104);
-    const gapX = U(42);
+    const by = H - U(106);
+    const gapX = U(46);
+    const gapY = U(9);
     ctx.save();
-    ctx.globalAlpha = 0.85;
+    ctx.globalAlpha = 0.9;
     ctx.font = '700 ' + U(9) + 'px "PingFang SC", system-ui';
     ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(220,245,255,0.65)';
-    ctx.fillText('路线图 · 第 ' + (game.map.layer + 1) + ' / 3 层', lx, by - U(16));
+    ctx.fillStyle = 'rgba(220,245,255,0.7)';
+    ctx.fillText('路线图 · 第 ' + (game.map.layer + 1) + ' / 3 层', lx, by - U(18));
     const cur = game.map.layer;
-    for (let L = 0; L < game.map.layers.length; L++) {
+    const avail = game.map.available || [0, 1, 2];
+    for (let L = 0; L < 3; L++) {
       const x = lx + (L - 1) * gapX;
-      const done = L < cur;
-      const now = L === cur;
-      game.map.layers[L].forEach(function (node, i) {
-        const yy = by + (i === 0 ? -U(7) : U(7));
+      for (let c = 0; c < 3; c++) {
+        const y = by + (c - 1) * gapY;
+        const active = L === cur && avail.indexOf(c) >= 0;
+        const taken = game.map.chosen[L] === c;
         ctx.beginPath();
-        ctx.arc(x, yy, now ? U(4) : U(3), 0, TAU);
-        ctx.fillStyle = now ? 'rgba(255,209,102,0.95)' : done ? 'rgba(110,247,180,0.55)' : 'rgba(150,200,230,0.35)';
+        ctx.arc(x, y, active ? U(4) : U(2.6), 0, TAU);
+        ctx.fillStyle = active ? 'rgba(255,209,102,0.98)' : taken ? 'rgba(110,247,180,0.85)' : 'rgba(150,200,230,0.3)';
         ctx.fill();
-        if (now) {
-          ctx.strokeStyle = 'rgba(255,209,102,0.9)';
-          ctx.lineWidth = U(1.2);
+        if (active) {
+          ctx.strokeStyle = 'rgba(255,209,102,0.8)';
+          ctx.lineWidth = U(1.1);
           ctx.beginPath();
-          ctx.arc(x, yy, U(7), 0, TAU);
+          ctx.arc(x, y, U(7), 0, TAU);
           ctx.stroke();
         }
-      });
-      if (L < game.map.layers.length - 1) {
-        ctx.strokeStyle = 'rgba(150,200,230,0.25)';
-        ctx.lineWidth = U(1);
-        ctx.beginPath();
-        ctx.moveTo(x + U(6), by);
-        ctx.lineTo(x + gapX - U(6), by);
-        ctx.stroke();
+        if (L < 2) {
+          const nxt = game.map.layers[L][c].next || [];
+          nxt.forEach(function (nc) {
+            ctx.strokeStyle = 'rgba(150,200,230,0.16)';
+            ctx.lineWidth = U(0.9);
+            ctx.beginPath();
+            ctx.moveTo(x + U(5), y);
+            ctx.lineTo(x + gapX - U(5), by + (nc - 1) * gapY);
+            ctx.stroke();
+          });
+        }
       }
     }
     ctx.restore();
@@ -4253,11 +4264,17 @@
     player.onGround = true;
     if (!game.map) game.map = genChapterMap(game.stage);
     const layer = game.map.layers[game.map.layer] || game.map.layers[0];
-    const picks = layer.map(function (node) {
-      return PORTAL_DEFS.filter(function (d) { return d.type === node.type; })[0] || PORTAL_DEFS[0];
+    const avail = (game.map.available || [0, 1, 2]).filter(function (c) { return layer[c]; });
+    const picks = avail.map(function (c) {
+      const node = layer[c];
+      const def = PORTAL_DEFS.filter(function (d) { return d.type === node.type; })[0] || PORTAL_DEFS[0];
+      return { def: def, col: c };
     });
-    game.portals = picks.map(function (d, i) {
-      return { type: d.type, title: d.title, glyph: d.glyph, sprite: d.sprite, color: d.color, x: W * (0.38 + i * 0.24), t: rand(0, 6) };
+    const n = picks.length;
+    game.portals = picks.map(function (x, i) {
+      const d = x.def;
+      const px = n === 1 ? 0.5 : n === 2 ? 0.38 + i * 0.24 : 0.3 + i * 0.2;
+      return { type: d.type, title: d.title, glyph: d.glyph, sprite: d.sprite, color: d.color, x: W * px, t: rand(0, 6), nodeCol: x.col };
     });
     addText(W * 0.5, H * 0.32, '房间 ' + (game.nodeCount + 1) + ' / 3', '255,209,102', 16);
     addText(W * 0.5, H * 0.38, '走到传送门前，按 ' + keyName(keyOf('enter')) + ' 进入', '150,220,255', 18);
@@ -4283,7 +4300,16 @@
     updateEnterBtn();
     game.nodeCount += 1;
     game.elitePending = game.nodeCount >= 3;
-    if (game.map && !p.eliteGate) game.map.layer += 1;
+    if (game.map && !p.eliteGate) {
+      const layer = game.map.layers[game.map.layer];
+      if (layer && p.nodeCol !== undefined && layer[p.nodeCol]) {
+        game.map.chosen[game.map.layer] = p.nodeCol;
+        game.map.available = layer[p.nodeCol].next && layer[p.nodeCol].next.length
+          ? layer[p.nodeCol].next.slice()
+          : [0, 1, 2];
+      }
+      game.map.layer += 1;
+    }
     if (p.eliteGate) { game.eliteFixed = true; startRoom('elite'); return; }
     if (p.type === 'shop') { openRoomShop(); return; }
     if (p.type === 'statue') { showStatueRoom(); return; }
@@ -5082,6 +5108,7 @@
     ctx.shadowColor = 'transparent';
 
     ctx.save();
+    if (game.kickX || game.kickY) ctx.translate(game.kickX || 0, game.kickY || 0);
     if (game.shake > 0.3) {
       ctx.translate(rand(-1, 1) * game.shake, rand(-1, 1) * game.shake);
     }
@@ -11863,6 +11890,31 @@
             game.sceneT = 6.2;
             updateSceneHazards(0.05);
           }, 700);
+        } else if (sc === 'branchmap') {
+          setTimeout(async function () {
+            const sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            game.nodeCount = 0;
+            game.map = genChapterMap(0);
+            game.portalPick = true;
+            showNodeSelect();
+            const first = game.portals.length;
+            const chosen = game.portals[0].nodeCol;
+            player.x = game.portals[0].x;
+            enterPortal();
+            await sleep(200);
+            const avail = (game.map.available || []).length;
+            game.portalPick = true;
+            game.roomActive = false;
+            showNodeSelect();
+            const second = game.portals.length;
+            document.title = 'BRANCHMAP first=' + first + ' chosen=' + chosen + ' avail=' + avail + ' second=' + second + ' chosenPath=' + (game.map.chosen[0] === chosen);
+          }, 600);
         } else if (sc === 'bosskill') {
           setTimeout(async function () {
             const sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
