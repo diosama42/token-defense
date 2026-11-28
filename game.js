@@ -2220,6 +2220,7 @@
    * ========================================================= */
   function step(dt) {
     game.time += dt;
+    if (game.roomFade > 0) game.roomFade = Math.max(0, game.roomFade - dt * 2.2);
     if (game.kickX) game.kickX *= Math.pow(0.0008, dt);
     if (game.kickY) game.kickY *= Math.pow(0.0012, dt);
     if (game.recoverT > 0) game.recoverT = Math.max(0, game.recoverT - dt);
@@ -4154,6 +4155,44 @@
     });
   }
 
+  const ROOM_SCENES = [
+    [
+      { name: '废弃街区', tint: '90,140,200', a: 0.10 },
+      { name: '信号塔下', tint: '120,90,200', a: 0.12 },
+      { name: '雨棚长廊', tint: '60,110,160', a: 0.14 }
+    ],
+    [
+      { name: '作业长廊', tint: '200,170,90', a: 0.10 },
+      { name: '打卡门厅', tint: '90,120,150', a: 0.12 },
+      { name: '奶蛙办公室', tint: '170,120,80', a: 0.12 }
+    ],
+    [
+      { name: '数据回廊', tint: '80,200,255', a: 0.12 },
+      { name: '缓存夹层', tint: '90,120,210', a: 0.14 },
+      { name: '错误日志间', tint: '210,60,110', a: 0.12 }
+    ],
+    [
+      { name: '镜厅', tint: '160,110,240', a: 0.12 },
+      { name: '温室中庭', tint: '80,210,170', a: 0.10 },
+      { name: '倒影回廊', tint: '120,90,200', a: 0.14 }
+    ],
+    [
+      { name: '规则前厅', tint: '230,160,80', a: 0.10 },
+      { name: '条款走廊', tint: '90,150,220', a: 0.12 },
+      { name: '审判间', tint: '200,80,100', a: 0.12 }
+    ],
+    [
+      { name: '雪厅', tint: '150,210,255', a: 0.12 },
+      { name: '王座前庭', tint: '200,80,120', a: 0.10 },
+      { name: '冻土长廊', tint: '110,170,220', a: 0.14 }
+    ],
+    [
+      { name: '核心外层', tint: '90,230,255', a: 0.10 },
+      { name: '数据井', tint: '100,90,230', a: 0.14 },
+      { name: '坍缩前厅', tint: '230,80,120', a: 0.12 }
+    ]
+  ];
+
   const PORTAL_DEFS = [
     { type: 'wave', title: '波次防守', glyph: '波', sprite: 'portal_wave', color: '150,220,255' },
     { type: 'reward', title: '奖励关卡', glyph: '奖', sprite: 'portal_reward', color: '255,209,102' },
@@ -4375,6 +4414,9 @@
     game.scoreMul = type === 'reward' ? 2 : 1;
     game.roomActive = true;
     game.roomLayout = ['flat', 'towers', 'gap', 'bridges'][Math.floor(Math.random() * 4)];
+    const scenes = ROOM_SCENES[Math.min(ROOM_SCENES.length - 1, game.stage)] || ROOM_SCENES[0];
+    game.roomScene = scenes[Math.floor(Math.random() * scenes.length)];
+    game.roomFade = 0.55;
     beginStage(true);
     if (fixedElite) {
       spawnEnemy('laugh');
@@ -5045,7 +5087,7 @@
       lines.forEach(function (line, i) {
         setTimeout(function () {
           if (game.state === 'play' && game.roomActive) {
-            addText(W * 0.5, H * (0.24 + i * 0.06), line, i === 0 ? '150,220,255' : '255,209,102', i === 0 ? 15 : 14);
+            addText(W * 0.5, H * (0.53 + i * 0.05), line, i === 0 ? '150,220,255' : '255,209,102', i === 0 ? 14 : 13);
           }
         }, 500 + i * 1600);
       });
@@ -5057,7 +5099,7 @@
       5: '场景机制：暴风雪会把你往一侧推',
       6: '场景机制：数据雨从上方砸落'
     };
-    if (hazardTips[game.stage]) addText(W * 0.5, H * 0.45, hazardTips[game.stage], '180,230,255', 14);
+    if (hazardTips[game.stage]) addText(W * 0.5, H * 0.47, hazardTips[game.stage], '180,230,255', 13);
     game.stageT = 0;
     game.scene = 'street';
     game.slamT = 0;
@@ -5101,9 +5143,9 @@
       game.state = 'play';
       document.body.classList.remove('is-cutscene', 'is-paused');
       document.body.classList.add('is-playing');
-      addText(W * 0.5, H * 0.32, '第 ' + (game.stage + 1) + ' 关 · ' + st.name, '255,209,102', 24);
+      addText(W * 0.5, H * 0.34, '第 ' + (game.stage + 1) + ' 关 · ' + st.name, '255,209,102', 22);
       if (game.stage === 0) {
-        addText(W * 0.5, H * 0.4, 'A/D 移动 · W 跳 · J 连发 · K 技能 · L 大招 · U 支援', '150,220,255', 13);
+        addText(W * 0.5, H * 0.41, 'A/D 移动 · W 跳 · J 连发 · K 技能 · L 大招 · U 支援', '150,220,255', 12);
       }
       sfx(660, 0.2, 'triangle', 0.05);
     };
@@ -5130,6 +5172,10 @@
     if (game.shake > 0.3) {
       ctx.translate(rand(-1, 1) * game.shake, rand(-1, 1) * game.shake);
     }
+    if (game.roomFade > 0) {
+      ctx.fillStyle = 'rgba(2,4,10,' + Math.min(0.85, game.roomFade * 1.2).toFixed(2) + ')';
+      ctx.fillRect(0, 0, W, H);
+    }
     if (game.cinemaT > 0) {
       const ck = clamp(game.cinemaT / game.cinemaMax, 0, 1);
       const zoom = 1 + 0.09 * Math.sin(Math.PI * clamp(1 - ck, 0, 1));
@@ -5139,6 +5185,7 @@
     }
 
     drawBackdrop();
+    drawRoomOverlay();
     drawPlatforms();
     drawSafeZone();
     drawSceneProps();
@@ -6141,6 +6188,26 @@
         ctx.restore();
       }
     }
+  }
+
+  function drawRoomOverlay() {
+    const sc = game.roomScene;
+    if (!sc) return;
+    ctx.save();
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, 'rgba(' + sc.tint + ',' + sc.a.toFixed(2) + ')');
+    g.addColorStop(1, 'rgba(' + sc.tint + ',0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    /* 前景柱影，增加房间层次 */
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = '#020610';
+    const n = game.roomLayout === 'towers' ? 3 : 2;
+    for (let i = 0; i < n; i++) {
+      const px = W * (0.12 + (i / Math.max(1, n - 1)) * 0.76);
+      ctx.fillRect(px - U(7), 0, U(14), H);
+    }
+    ctx.restore();
   }
 
   function drawPlatforms() {
@@ -11907,6 +11974,22 @@
             enterPortal();
             game.sceneT = 6.2;
             updateSceneHazards(0.05);
+          }, 700);
+        } else if (sc === 'scene3') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 2;
+            game.nodeCount = 0;
+            const rp = document.getElementById('rooms'); if (rp) rp.classList.remove('show');
+            document.body.classList.remove('is-room', 'is-cutscene');
+            startRoom('wave');
+            game.roomScene = { name: '缓存夹层', tint: '90,120,210', a: 0.16 };
+            game.roomFade = 0;
+            document.title = 'SCENE3 ' + game.roomScene.name;
           }, 700);
         } else if (sc === 'seedable') {
           setTimeout(async function () {
