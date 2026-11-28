@@ -51,7 +51,7 @@
   const SPRITE_LIST = [
     'hero_purple2', 'hero_bluemaid', 'hero_orange', 'hero_catpurple', 'hero_catmaid',
     'grok', 'seed', 'wenxin', 'doubao_winter', 'doubao', 'enemy_tower_runner', 'enemy_tower_tank', 'enemy_tower_elite',
-    'portal_wave', 'portal_reward', 'portal_elite', 'portal_shop', 'portal_event',
+    'portal_wave', 'portal_reward', 'portal_elite', 'portal_shop', 'portal_event', 'portal_statue',
     'hero_purple2_full', 'hero_bluemaid_full', 'hero_orange_full', 'hero_catpurple_full',
     'hero_catmaid_full', 'qwen_full', 'kimi_full', 'grok_full', 'doubao_winter_full', 'doubao_full',
     'enemy_blob', 'enemy_doubao', 'enemy_elite', 'enemy_nail_boss', 'laugh_frog',
@@ -1344,6 +1344,7 @@
   function fireRate() {
     let cd = ATK_CD;
     if (game.buffComboRate) cd *= clamp(1 - (game.combo || 0) * 0.004, 0.65, 1);
+    cd *= (game.statueRate || 1);
     if (player.astra > 0) cd *= 0.72;
     if (player.rage > 0) cd *= 0.7;
     if (player.speedMul > 1) cd /= player.speedMul;
@@ -3093,6 +3094,7 @@
     if (!st) return;
 
     updateVideoPanel(dt);
+    if (game.roomActive && !game.portalPick) updateSceneHazards(d);
 
     if (game.roomActive) {
       game.stageT += d;
@@ -3126,6 +3128,44 @@
       } else {
         game.bossDeadT -= dt;
         if (game.bossDeadT <= 0) clearStage();
+      }
+    }
+  }
+
+  function updateSceneHazards(d) {
+    game.sceneT = (game.sceneT || 0) + d;
+    game.laserHitT = Math.max(0, (game.laserHitT || 0) - d);
+    const idx = game.stage;
+    if (idx === 2) {
+      /* 数据回廊：横向扫描激光，必须跳起来躲 */
+      const cyc = game.sceneT % 6.5;
+      if (cyc > 5.7 && cyc < 6.5) {
+        game.hazardWarn = 'laser';
+      } else if (cyc > 0 && cyc < 0.55) {
+        game.hazardFire = true;
+        if (game.laserHitT <= 0 && player.y > groundY - U(60)) {
+          game.laserHitT = 0.6;
+          damagePlayer(14, 1);
+        }
+      } else {
+        game.hazardFire = false;
+      }
+    } else if (idx === 5) {
+      /* 王座之间：暴风雪推人 */
+      const cyc = game.sceneT % 5;
+      if (cyc < 0.8 && game.gustT !== Math.floor(game.sceneT / 5)) {
+        game.gustT = Math.floor(game.sceneT / 5);
+        const dir = Math.random() < 0.5 ? -1 : 1;
+        player.vx += dir * U(260);
+        addText(W * 0.5, H * 0.26, dir > 0 ? '暴风雪 →' : '← 暴风雪', '180,230,255', 16);
+      }
+    } else if (idx === 6) {
+      /* 数据核心：数据雨 */
+      const cyc = game.sceneT % 3.6;
+      if (cyc < 0.06) {
+        const rx = rand(W * 0.15, W * 0.85);
+        warnAt(rx, groundY, U(46), 0.6, '255,90,120');
+        ebullet(rx, -U(20), Math.PI / 2, U(320), '80,200,255', U(18), '数据', 10);
       }
     }
   }
@@ -4072,7 +4112,8 @@
     { type: 'wave', title: '波次防守', glyph: '波', sprite: 'portal_wave', color: '150,220,255' },
     { type: 'reward', title: '奖励关卡', glyph: '奖', sprite: 'portal_reward', color: '255,209,102' },
     { type: 'shop', title: '商店', glyph: '商', sprite: 'portal_shop', color: '110,247,180' },
-    { type: 'event', title: '事件', glyph: '？', sprite: 'portal_event', color: '167,139,250' }
+    { type: 'event', title: '事件', glyph: '？', sprite: 'portal_event', color: '167,139,250' },
+    { type: 'statue', title: '神像', glyph: '像', sprite: 'portal_statue', color: '255,209,102' }
   ];
 
   function updateEnterBtn() {
@@ -4120,12 +4161,14 @@
     const rewardA = PORTAL_DEFS.filter(function (d) { return d.type === 'reward'; })[0];
     const shopA = PORTAL_DEFS.filter(function (d) { return d.type === 'shop'; })[0];
     const eventA = PORTAL_DEFS.filter(function (d) { return d.type === 'event'; })[0];
+    const statueA = PORTAL_DEFS.filter(function (d) { return d.type === 'statue'; })[0];
     const pool2 = [
       { def: waveA, weight: 34, title: '波次防守' },
       { def: waveA, weight: 26, title: '清剿行动' },
       { def: rewardA, weight: 20, title: '奖励关卡' },
-      { def: shopA, weight: 12, title: '商店' },
-      { def: eventA, weight: 8, title: '事件' }
+      { def: shopA, weight: 10, title: '商店' },
+      { def: eventA, weight: 7, title: '事件' },
+      { def: statueA, weight: 10, title: '神像' }
     ];
     const picks = [];
     while (picks.length < 3 && pool2.length) {
@@ -4169,6 +4212,7 @@
     game.elitePending = game.nodeCount >= 3;
     if (p.eliteGate) { game.eliteFixed = true; startRoom('elite'); return; }
     if (p.type === 'shop') { openRoomShop(); return; }
+    if (p.type === 'statue') { showStatueRoom(); return; }
     if (p.type === 'event') { showEventRoom(); return; }
     startRoom(p.type);
   }
@@ -4699,6 +4743,74 @@
     panel.classList.add('show');
   }
 
+  function showStatueRoom() {
+    game.state = 'node';
+    roomHideAll();
+    document.body.classList.add('is-room');
+    const panel = document.getElementById('rest');
+    const grid = document.getElementById('rest-grid');
+    const coinsEl = document.getElementById('rest-coins');
+    const title = panel ? panel.querySelector('.rooms__title') : null;
+    const kicker = panel ? panel.querySelector('.rooms__k') : null;
+    if (!panel || !grid) return;
+    if (title) title.textContent = '神像';
+    if (kicker) kicker.textContent = 'SHRINE';
+    if (coinsEl) coinsEl.textContent = '金币 ' + game.coins + ' · 选一尊神像，获得本局增益';
+    grid.innerHTML = '';
+
+    const addStatue = function (name, desc, cost, fn) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'rooms__card rooms__card--main';
+      b.innerHTML = '<b>' + name + '</b><span>' + desc + '</span><i class="rooms__price">' + cost + ' 金币</i>';
+      b.disabled = game.coins < cost;
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (game.coins < cost) return;
+        game.coins -= cost;
+        fn();
+        panel.classList.remove('show');
+        document.body.classList.remove('is-room');
+        advanceRoomStep();
+      });
+      grid.appendChild(b);
+    };
+
+    addStatue('战意神像', '伤害 +12%，攻速 +10%', 40, function () {
+      player.dmgMul *= 1.12;
+      game.statueRate = (game.statueRate || 1) * 0.9;
+      addText(player.x, player.y - U(130), '战意：伤害 +12%', '255,150,120', 18);
+      sfx(520, 0.25, 'triangle', 0.05);
+    });
+    addStatue('守护神像', '最大生命 +30，受伤 -8%', 50, function () {
+      player.maxHp += 30;
+      player.hp = Math.min(player.maxHp, player.hp + 30);
+      player.defenseMul = Math.max(0.5, player.defenseMul * 0.92);
+      addText(player.x, player.y - U(130), '守护：生命 +30', '110,247,180', 18);
+      sfx(640, 0.25, 'sine', 0.05);
+    });
+    addStatue('贪婪神像', '金币 +30%，最大生命 -15', 30, function () {
+      game.coinMul = (game.coinMul || 1) * 1.3;
+      player.maxHp = Math.max(60, player.maxHp - 15);
+      player.hp = Math.min(player.hp, player.maxHp);
+      addText(player.x, player.y - U(130), '贪婪：金币 +30%', '255,209,102', 18);
+      sfx(760, 0.25, 'triangle', 0.05);
+    });
+
+    const leave = document.createElement('button');
+    leave.type = 'button';
+    leave.className = 'rooms__card';
+    leave.innerHTML = '<b>离开神像</b><span>不花金币，直接去下一间</span>';
+    leave.addEventListener('click', function (e) {
+      e.stopPropagation();
+      panel.classList.remove('show');
+      document.body.classList.remove('is-room');
+      advanceRoomStep();
+    });
+    grid.appendChild(leave);
+    panel.classList.add('show');
+  }
+
   function showBossRest() {
     if (typeof window !== 'undefined' && window.__SMOKE) {
       startBossIntro();
@@ -4739,6 +4851,16 @@
       game.roomActive = false;
       game.eliteFixed = false;
     }
+    game.sceneT = 0;
+    game.laserHitT = 0;
+    game.hazardWarn = '';
+    game.hazardFire = false;
+    const hazardTips = {
+      2: '场景机制：扫描激光贴地扫过，跳起来躲',
+      5: '场景机制：暴风雪会把你往一侧推',
+      6: '场景机制：数据雨从上方砸落'
+    };
+    if (hazardTips[game.stage]) addText(W * 0.5, H * 0.45, hazardTips[game.stage], '180,230,255', 14);
     game.stageT = 0;
     game.scene = 'street';
     game.slamT = 0;
@@ -4822,6 +4944,7 @@
     drawPlatforms();
     drawSafeZone();
     drawSceneProps();
+    drawSceneHazards();
     drawWarns();
     drawCastBar();
     if (game.portalPick) drawPortals();
@@ -5781,6 +5904,45 @@
     ctx.font = '700 ' + (11 * S).toFixed(0) + 'px "PingFang SC", system-ui';
     ctx.textAlign = 'center';
     ctx.fillText('安全区', z.x, groundY - U(24));
+  }
+
+  function drawSceneHazards() {
+    if (game.stage === 2 && game.roomActive) {
+      const beamY = groundY - U(52);
+      if (game.hazardFire) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = 'rgba(255,90,120,0.95)';
+        ctx.lineWidth = U(12);
+        ctx.beginPath();
+        ctx.moveTo(0, beamY);
+        ctx.lineTo(W, beamY);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,230,240,0.95)';
+        ctx.lineWidth = U(3);
+        ctx.beginPath();
+        ctx.moveTo(0, beamY);
+        ctx.lineTo(W, beamY);
+        ctx.stroke();
+        ctx.restore();
+      } else if (game.hazardWarn === 'laser') {
+        ctx.save();
+        ctx.globalAlpha = 0.45 + 0.35 * Math.sin(game.time * 18);
+        ctx.strokeStyle = 'rgba(255,90,120,0.9)';
+        ctx.setLineDash([U(10), U(8)]);
+        ctx.lineWidth = U(2.5);
+        ctx.beginPath();
+        ctx.moveTo(0, beamY);
+        ctx.lineTo(W, beamY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255,120,150,0.95)';
+        ctx.font = '800 ' + U(16) + 'px "PingFang SC", system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('激光来袭 · 跳起来', W * 0.5, beamY - U(14));
+        ctx.restore();
+      }
+    }
   }
 
   function drawPlatforms() {
@@ -8651,6 +8813,10 @@
     game.roomType = null;
     game.scoreMul = 1;
     game.fullPower = false;
+    game.statueRate = 1;
+    game.sceneT = 0;
+    game.hazardWarn = '';
+    game.hazardFire = false;
     game.tower = false;
     game.towerFloor = 1;
     game.towerClearT = 0;
@@ -11506,6 +11672,71 @@
             setTimeout(function () {
               document.title = 'NEWBOSS stages=' + STAGES.length + ' boss=' + (enemies[0] || {}).kind + ' hp=' + Math.round((enemies[0] || {}).hp || 0) + ' eb=' + ebullets.length + ' boss2=' + STAGES[2].boss;
             }, 3000);
+          }, 700);
+        } else if (sc === 'statueshot') {
+          setTimeout(function () {
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 2;
+            game.roomActive = true;
+            document.body.classList.remove('is-room', 'is-cutscene');
+            beginStage(true);
+            game.roomActive = true;
+            game.nodeCount = 1;
+            game.coins = 200;
+            game.portalPick = true;
+            game.portals = [{ type: 'statue', title: '神像', sprite: 'portal_statue', color: '255,209,102', x: W * 0.5, t: 0 }];
+            player.x = W * 0.5;
+            enterPortal();
+            game.sceneT = 6.2;
+            updateSceneHazards(0.05);
+          }, 700);
+        } else if (sc === 'statuescene') {
+          setTimeout(function () {
+            const out = [];
+            const ok = function (k, v) { out.push(k + '=' + v); };
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 2;
+            game.roomActive = true;
+            document.body.classList.remove('is-room', 'is-cutscene');
+            beginStage(true);
+            game.roomActive = true;
+            game.nodeCount = 1;
+            game.coins = 200;
+            game.portalPick = true;
+            game.portals = [{ type: 'statue', title: '神像', sprite: 'portal_statue', color: '255,209,102', x: W * 0.5, t: 0 }];
+            player.x = W * 0.5;
+            enterPortal();
+            ok('statueCards', document.querySelectorAll('#rest-grid .rooms__card').length);
+            const buy = Array.prototype.filter.call(document.querySelectorAll('#rest-grid .rooms__card'), function (b) { return b.textContent.indexOf('战意神像') >= 0; })[0];
+            if (buy) buy.click();
+            setTimeout(function () {
+              ok('afterBuyNode', game.nodeCount);
+              ok('dmgMul', player.dmgMul.toFixed(2));
+              game.stage = 2;
+              game.roomActive = true;
+              game.sceneT = 6.0;
+              updateSceneHazards(0.1);
+              ok('laserWarn', game.hazardWarn);
+              player.y = groundY;
+              player.invuln = 0;
+              game.sceneT = 0.1;
+              updateSceneHazards(0.1);
+              ok('laserFire', !!game.hazardFire);
+              game.stage = 6;
+              ebullets = [];
+              game.sceneT = 3.55;
+              updateSceneHazards(0.06);
+              ok('dataRain', ebullets.length);
+              document.title = 'STATUESCENE ' + out.join(' ');
+            }, 300);
           }, 700);
         } else if (sc === 'e2e2') {
           setTimeout(function () {
