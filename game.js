@@ -1415,6 +1415,9 @@
       tokenBullet(bx, by, p.face * U(950), 0, dmg, false);
       sfx(720, 0.04, 'square', 0.025);
     }
+    if (game.statueExtraShot) {
+      tokenBullet(bx, by + U(18), p.face * U(900), U(30), dmg * 0.6, false);
+    }
 
     /* 强化：弹幕扩散 */
     if (game.buffShots > 0) {
@@ -2375,6 +2378,9 @@
     if (p.hp > 0 && p.hp / p.maxHp <= 0.3 && game.heartT <= 0) {
       game.heartT = 0.9;
       sfx(58, 0.12, 'sine', 0.05);
+    }
+    if (game.statueRegen && !p.dead) {
+      p.hp = Math.min(p.maxHp, p.hp + game.statueRegen * dt);
     }
     if (SAVE.assist && game.state === 'play' && !p.dead && p.stun <= 0 && p.attackCd <= 0) {
       doAttack();
@@ -4743,6 +4749,25 @@
     panel.classList.add('show');
   }
 
+  const STATUE_BUFFS = {
+    hero_bluemaid: { desc: '思维链：技能冷却 -15%，Token 上限 +20', cost: 40, apply: function () {
+      player.cdMul = Math.max(0.55, (player.cdMul || 1) * 0.85); player.maxToken += 20;
+    } },
+    hero_purple2: { desc: '图像生成：平A 伤害 +15%', cost: 45, apply: function () { player.dmgMul *= 1.15; } },
+    hero_orange: { desc: '最强代码：暴击率 +10%', cost: 50, apply: function () { player.critChance += 0.1; } },
+    hero_catpurple: { desc: '反超：攻速 +15%', cost: 45, apply: function () { game.statueRate = (game.statueRate || 1) * 0.85; } },
+    qwen: { desc: '通义万相：平A 额外发射 1 发 Token', cost: 55, apply: function () { game.statueExtraShot = true; } },
+    kimi: { desc: '超长上下文：技能冷却 -25%，护盾 +1', cost: 50, apply: function () {
+      player.cdMul = Math.max(0.55, (player.cdMul || 1) * 0.75); player.shield = Math.min(10, (player.shield || 0) + 1);
+    } },
+    hero_catmaid: { desc: '深度睡眠：每秒回复 1 生命', cost: 35, apply: function () { game.statueRegen = (game.statueRegen || 0) + 1; } },
+    grok: { desc: '真相引擎：伤害 +10%，移速 +10%', cost: 50, apply: function () { player.dmgMul *= 1.1; player.speedMul *= 1.1; } },
+    seed: { desc: '视频生成：击杀敌人引发爆炸', cost: 55, apply: function () { game.buffKillBoom = true; } },
+    doubao: { desc: '冬装：最大生命 +40，受伤 -10%', cost: 45, apply: function () {
+      player.maxHp += 40; player.hp = Math.min(player.maxHp, player.hp + 40); player.defenseMul = Math.max(0.5, player.defenseMul * 0.9);
+    } }
+  };
+
   function showStatueRoom() {
     game.state = 'node';
     roomHideAll();
@@ -4753,48 +4778,40 @@
     const title = panel ? panel.querySelector('.rooms__title') : null;
     const kicker = panel ? panel.querySelector('.rooms__k') : null;
     if (!panel || !grid) return;
-    if (title) title.textContent = '神像';
-    if (kicker) kicker.textContent = 'SHRINE';
-    if (coinsEl) coinsEl.textContent = '金币 ' + game.coins + ' · 选一尊神像，获得本局增益';
-    grid.innerHTML = '';
+    if (title) title.textContent = '石化 AI 神像';
+    if (kicker) kicker.textContent = 'PETRIFIED SHRINE';
+    if (coinsEl) coinsEl.textContent = '金币 ' + game.coins + ' · 选择一尊石化 AI，继承她的技能';
 
-    const addStatue = function (name, desc, cost, fn) {
+    const pool = HEROES.filter(function (h) {
+      return Object.prototype.hasOwnProperty.call(STATUE_BUFFS, h.key);
+    }).slice();
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+    }
+    const picks = pool.slice(0, 3);
+
+    grid.innerHTML = '';
+    picks.forEach(function (hero) {
+      const buff = STATUE_BUFFS[hero.key];
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'rooms__card rooms__card--main';
-      b.innerHTML = '<b>' + name + '</b><span>' + desc + '</span><i class="rooms__price">' + cost + ' 金币</i>';
-      b.disabled = game.coins < cost;
+      b.className = 'rooms__card rooms__card--main statue-card';
+      b.disabled = game.coins < buff.cost;
+      b.innerHTML = '<div class="statue-thumb"><img src="assets/sprites/' + (hero.key || '') + '.webp" alt="" /></div>' +
+        '<b>石化 · ' + hero.name + '</b><span>' + buff.desc + '</span><i class="rooms__price">' + buff.cost + ' 金币</i>';
       b.addEventListener('click', function (e) {
         e.stopPropagation();
-        if (game.coins < cost) return;
-        game.coins -= cost;
-        fn();
+        if (game.coins < buff.cost) return;
+        game.coins -= buff.cost;
+        buff.apply();
+        addText(player.x, player.y - U(130), hero.name + ' 的技能已继承', '255,209,102', 18);
+        sfx(560, 0.25, 'triangle', 0.05);
         panel.classList.remove('show');
         document.body.classList.remove('is-room');
         advanceRoomStep();
       });
       grid.appendChild(b);
-    };
-
-    addStatue('战意神像', '伤害 +12%，攻速 +10%', 40, function () {
-      player.dmgMul *= 1.12;
-      game.statueRate = (game.statueRate || 1) * 0.9;
-      addText(player.x, player.y - U(130), '战意：伤害 +12%', '255,150,120', 18);
-      sfx(520, 0.25, 'triangle', 0.05);
-    });
-    addStatue('守护神像', '最大生命 +30，受伤 -8%', 50, function () {
-      player.maxHp += 30;
-      player.hp = Math.min(player.maxHp, player.hp + 30);
-      player.defenseMul = Math.max(0.5, player.defenseMul * 0.92);
-      addText(player.x, player.y - U(130), '守护：生命 +30', '110,247,180', 18);
-      sfx(640, 0.25, 'sine', 0.05);
-    });
-    addStatue('贪婪神像', '金币 +30%，最大生命 -15', 30, function () {
-      game.coinMul = (game.coinMul || 1) * 1.3;
-      player.maxHp = Math.max(60, player.maxHp - 15);
-      player.hp = Math.min(player.hp, player.maxHp);
-      addText(player.x, player.y - U(130), '贪婪：金币 +30%', '255,209,102', 18);
-      sfx(760, 0.25, 'triangle', 0.05);
     });
 
     const leave = document.createElement('button');
@@ -8814,6 +8831,8 @@
     game.scoreMul = 1;
     game.fullPower = false;
     game.statueRate = 1;
+    game.statueExtraShot = false;
+    game.statueRegen = 0;
     game.sceneT = 0;
     game.hazardWarn = '';
     game.hazardFire = false;
@@ -11715,7 +11734,7 @@
             player.x = W * 0.5;
             enterPortal();
             ok('statueCards', document.querySelectorAll('#rest-grid .rooms__card').length);
-            const buy = Array.prototype.filter.call(document.querySelectorAll('#rest-grid .rooms__card'), function (b) { return b.textContent.indexOf('战意神像') >= 0; })[0];
+            const buy = document.querySelector('#rest-grid .statue-card');
             if (buy) buy.click();
             setTimeout(function () {
               ok('afterBuyNode', game.nodeCount);
