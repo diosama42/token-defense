@@ -2196,11 +2196,17 @@
       { lo: 90, hi: 140, upLo: 170, upHi: 250, gapLo: 140, gapHi: 250 },
       { lo: 150, hi: 220, upLo: 260, upHi: 350, gapLo: 120, gapHi: 210 }
     ][Math.min(6, game.stage || 0)];
+    const RL = {
+      flat: { gap: 0.78, lift: 0.85, high: 0.8 },
+      towers: { gap: 1.05, lift: 1.15, high: 1.15 },
+      gap: { gap: 1.3, lift: 1.0, high: 1.0 },
+      bridges: { gap: 0.9, lift: 0.9, high: 0.9 }
+    }[game.roomLayout || 'flat'] || { gap: 1, lift: 1, high: 1 };
     while (game.nextPlat < W + U(300)) {
-      const gap = rand(U(layout.gapLo), U(layout.gapHi));
+      const gap = rand(U(layout.gapLo), U(layout.gapHi)) * RL.gap;
       const w = rand(U(90), U(170));
       /* 两层台阶：低层好跳，高层需要二段跳 */
-      const lift = (n % 2 === 0) ? rand(U(layout.lo), U(layout.hi)) : rand(U(layout.upLo), U(layout.upHi));
+      const lift = ((n % 2 === 0) ? rand(U(layout.lo), U(layout.hi)) : rand(U(layout.upLo), U(layout.upHi))) * ((n % 2 === 0) ? RL.lift : RL.high);
       const x = game.nextPlat + gap;
       platforms.push({ x: x, w: w, lift: lift });
       game.nextPlat = x + w;
@@ -4187,7 +4193,12 @@
         if (c === 0) type = combat[Math.floor(Math.random() * combat.length)];
         else type = Math.random() < 0.62 ? combat[Math.floor(Math.random() * combat.length)]
           : utility[Math.floor(Math.random() * utility.length)];
-        nodes.push({ type: type, col: c, next: L < 2 ? [c, (c + 1) % 3] : [] });
+        nodes.push({ type: type, col: c, secret: false, next: L < 2 ? [c, (c + 1) % 3] : [] });
+      }
+      if (Math.random() < 0.3) {
+        const sc = Math.floor(Math.random() * 3);
+        nodes[sc].secret = true;
+        nodes[sc].type = Math.random() < 0.5 ? 'chest' : 'statue';
       }
       layers.push(nodes);
     }
@@ -4215,8 +4226,9 @@
         const active = L === cur && avail.indexOf(c) >= 0;
         const taken = game.map.chosen[L] === c;
         ctx.beginPath();
-        ctx.arc(x, y, active ? U(4) : U(2.6), 0, TAU);
-        ctx.fillStyle = active ? 'rgba(255,209,102,0.98)' : taken ? 'rgba(110,247,180,0.85)' : 'rgba(150,200,230,0.3)';
+        ctx.arc(x, y, secretNode ? U(4.6) : active ? U(4) : U(2.6), 0, TAU);
+        const secretNode = game.map.layers[L][c].secret;
+        ctx.fillStyle = secretNode ? 'rgba(255,230,150,0.95)' : active ? 'rgba(255,209,102,0.98)' : taken ? 'rgba(110,247,180,0.85)' : 'rgba(150,200,230,0.3)';
         ctx.fill();
         if (active) {
           ctx.strokeStyle = 'rgba(255,209,102,0.8)';
@@ -4268,13 +4280,15 @@
     const picks = avail.map(function (c) {
       const node = layer[c];
       const def = PORTAL_DEFS.filter(function (d) { return d.type === node.type; })[0] || PORTAL_DEFS[0];
-      return { def: def, col: c };
+      return { def: def, col: c, node: node };
     });
     const n = picks.length;
     game.portals = picks.map(function (x, i) {
       const d = x.def;
+      const node = x.node;
       const px = n === 1 ? 0.5 : n === 2 ? 0.38 + i * 0.24 : 0.3 + i * 0.2;
-      return { type: d.type, title: d.title, glyph: d.glyph, sprite: d.sprite, color: d.color, x: W * px, t: rand(0, 6), nodeCol: x.col };
+      const secret = !!node.secret;
+      return { type: d.type, title: (secret ? '隐藏·' : '') + d.title, glyph: d.glyph, sprite: d.sprite, color: secret ? '255,230,150' : d.color, x: W * px, t: rand(0, 6), nodeCol: x.col, secret: secret };
     });
     addText(W * 0.5, H * 0.32, '房间 ' + (game.nodeCount + 1) + ' / 3', '255,209,102', 16);
     addText(W * 0.5, H * 0.38, '走到传送门前，按 ' + keyName(keyOf('enter')) + ' 进入', '150,220,255', 18);
@@ -4298,6 +4312,7 @@
     const p = near;
     game.portalPick = false;
     updateEnterBtn();
+    game.roomSecret = !!p.secret;
     game.nodeCount += 1;
     game.elitePending = game.nodeCount >= 3;
     if (game.map && !p.eliteGate) {
@@ -4359,6 +4374,7 @@
     game.roomStartScore = game.score;
     game.scoreMul = type === 'reward' ? 2 : 1;
     game.roomActive = true;
+    game.roomLayout = ['flat', 'towers', 'gap', 'bridges'][Math.floor(Math.random() * 4)];
     beginStage(true);
     if (fixedElite) {
       spawnEnemy('laugh');
@@ -4873,7 +4889,7 @@
     const title = panel ? panel.querySelector('.rooms__title') : null;
     const kicker = panel ? panel.querySelector('.rooms__k') : null;
     if (!panel || !grid) return;
-    if (title) title.textContent = '数据宝箱';
+    if (title) title.textContent = game.roomSecret ? '隐藏缓存' : '数据宝箱';
     if (kicker) kicker.textContent = 'DATA CACHE';
     if (coinsEl) coinsEl.textContent = '一个没上锁的缓存箱。';
     grid.innerHTML = '';
@@ -4883,11 +4899,12 @@
     open.innerHTML = '<b>打开缓存</b><span>获得金币与 Token，可能还有词条</span>';
     open.addEventListener('click', function (e) {
       e.stopPropagation();
-      const coins = 20 + Math.floor(Math.random() * 30);
+      const secret = !!game.roomSecret;
+      const coins = (20 + Math.floor(Math.random() * 30)) * (secret ? 2 : 1);
       game.coins += coins;
       player.token = Math.min(player.maxToken, player.token + 20);
       let extra = '';
-      if (Math.random() < 0.5) extra = ' · 词条：' + grantCommonBuff();
+      if (secret || Math.random() < 0.5) extra = ' · 词条：' + grantCommonBuff();
       addText(player.x, player.y - U(130), '缓存 +' + coins + ' 金币' + extra, '255,230,150', 18);
       sfx(880, 0.22, 'triangle', 0.05);
       panel.classList.remove('show');
@@ -5008,6 +5025,7 @@
       game.elitePending = false;
       game.roomActive = false;
       game.eliteFixed = false;
+      game.roomSecret = false;
       game.map = genChapterMap(game.stage);
     }
     game.sceneT = 0;
@@ -11890,6 +11908,43 @@
             game.sceneT = 6.2;
             updateSceneHazards(0.05);
           }, 700);
+        } else if (sc === 'seedable') {
+          setTimeout(async function () {
+            const sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+            const out = [];
+            const ok = function (k, v) { out.push(k + '=' + v); };
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            beginStage(true);
+            const counts = {};
+            ['flat', 'towers', 'gap', 'bridges'].forEach(function (lay) {
+              game.roomLayout = lay;
+              platforms = [];
+              game.nextPlat = 0;
+              ensurePlatforms();
+              counts[lay] = platforms.length;
+            });
+            ok('layouts', JSON.stringify(counts));
+            game.map = { layers: [[{ type: 'chest', col: 0, secret: true, next: [0] }, { type: 'wave', col: 1, secret: false, next: [1] }], [{ type: 'wave', col: 0, secret: false, next: [0] }, { type: 'wave', col: 1, secret: false, next: [1] }], [{ type: 'wave', col: 0, secret: false, next: [] }, { type: 'wave', col: 1, secret: false, next: [] }]], layer: 0, available: [0, 1], chosen: [] };
+            game.portalPick = true;
+            showNodeSelect();
+            ok('secretTitle', game.portals[0].title);
+            player.x = game.portals[0].x;
+            enterPortal();
+            await sleep(150);
+            ok('secretRoom', game.roomSecret);
+            ok('chestTitle', document.querySelector('#rest .rooms__title').textContent);
+            game.coins = 0;
+            const open = Array.prototype.filter.call(document.querySelectorAll('#rest-grid .rooms__card'), function (b) { return b.textContent.indexOf('打开缓存') >= 0; })[0];
+            if (open) open.click();
+            await sleep(200);
+            ok('coins', game.coins);
+            document.title = 'ROOMEXP ' + out.join(' ');
+          }, 600);
         } else if (sc === 'branchmap') {
           setTimeout(async function () {
             const sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
