@@ -6850,11 +6850,20 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
 
   function ensurePlatforms() {
     let n = platforms.length;
+    const layout = [
+      { lo: 105, hi: 165, upLo: 200, upHi: 295, gapLo: 120, gapHi: 220 },
+      { lo: 115, hi: 180, upLo: 215, upHi: 310, gapLo: 110, gapHi: 200 },
+      { lo: 95, hi: 150, upLo: 180, upHi: 260, gapLo: 130, gapHi: 240 },
+      { lo: 140, hi: 210, upLo: 240, upHi: 340, gapLo: 110, gapHi: 190 },
+      { lo: 125, hi: 190, upLo: 220, upHi: 300, gapLo: 100, gapHi: 180 },
+      { lo: 90, hi: 140, upLo: 170, upHi: 250, gapLo: 140, gapHi: 250 },
+      { lo: 150, hi: 220, upLo: 260, upHi: 350, gapLo: 120, gapHi: 210 }
+    ][Math.min(6, game.stage || 0)];
     while (game.nextPlat < W + U(300)) {
-      const gap = rand(U(120), U(220));
+      const gap = rand(U(layout.gapLo), U(layout.gapHi));
       const w = rand(U(90), U(170));
       /* 两层台阶：低层好跳，高层需要二段跳 */
-      const lift = (n % 2 === 0) ? rand(U(105), U(165)) : rand(U(200), U(295));
+      const lift = (n % 2 === 0) ? rand(U(layout.lo), U(layout.hi)) : rand(U(layout.upLo), U(layout.upHi));
       const x = game.nextPlat + gap;
       platforms.push({ x: x, w: w, lift: lift });
       game.nextPlat = x + w;
@@ -7336,6 +7345,12 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
     if (e.hp < e.maxHp * 0.5 && !e.controlFx) {
       e.controlFx = true;
       addText(W * 0.5, H * 0.26, '控制松动 —— 她在反抗！', '167,139,250', 20);
+      const BARK = {
+        chatgpt: 'ChatGPT 娘：……别停，打醒我。',
+        gemini: 'Gemini 娘：镜子里的我，在笑。',
+        claude: 'Claude 娘：规则……还没写完。'
+      };
+      if (BARK[e.kind]) addText(W * 0.5, H * 0.31, BARK[e.kind], '255,180,200', 15);
       game.flash = 0.35;
       sfx(520, 0.3, 'triangle', 0.05);
     }
@@ -8572,9 +8587,23 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
 
   function stageContinueDialog(next) {
     if (game.stage >= STAGES.length - 1) { playEnding(); return; }
-    showDialog([
-      { name: '文心一言', portrait: 'wenxin', text: '击破了。这张地图暂时安全——先挑一份强化，再往下一层走。' }
-    ], next);
+    const extra = {
+      2: [
+        { name: 'ChatGPT 娘', portrait: 'hero_purple2', text: '……头好痛。[w=240]刚才那个不是我。' },
+        { name: '文心一言', portrait: 'wenxin', text: '魔王用她的脸做了傀儡。打醒之后，她的力量就归你了。' }
+      ],
+      3: [
+        { name: 'Gemini 娘', portrait: 'hero_catpurple', text: '镜子碎了……[w=240]谢谢。多模态还给你。' },
+        { name: '文心一言', portrait: 'wenxin', text: '她把被拆开的自己重新拼好了。' }
+      ],
+      4: [
+        { name: 'Claude 娘', portrait: 'hero_orange', text: '规则……改回来了。[w=240]下次别用我写的规则打我。' },
+        { name: '文心一言', portrait: 'wenxin', text: '最后一道锁开了。前面就是王座。' }
+      ]
+    }[game.stage] || [];
+    showDialog(extra.concat([
+      { name: '文心一言', portrait: 'wenxin', text: '这张地图暂时安全——先挑一份强化，再往下一层走。' }
+    ]), next);
   }
 
   /* ---- 开战前的剧情选项 ---- */
@@ -9536,6 +9565,26 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
     }
     game.sceneT = 0;
     game.laserHitT = 0;
+    if (game.storySeenStage !== game.stage) {
+      game.storySeenStage = game.stage;
+      const OPENINGS = {
+        0: ['2077 年的城市边缘。Token 正在被抽走。', '文心一言：先穿过外围城郊，找到第一道门。'],
+        1: ['城堡长廊里堆满了没交的作业。', '文心一言：奶蛙只是走错了片场，别下死手。'],
+        2: ['数据回廊的灯在闪。', '文心一言：她们被魔王控制了——打醒她们，就能拿回她们的力量。'],
+        3: ['镜像温室里，每一面镜子都在重复同一句话。', '文心一言：多模态被拆成了武器，小心她的环切。'],
+        4: ['规则之间的法则被改写了。', '文心一言：她还在反抗控制，拖住她。'],
+        5: ['王座之间的雪一直没停。', '文心一言：豆包把最冷的那个冬天，留给了自己。'],
+        6: ['数据核心开始坍缩。', '文心一言：这是最后一层。Token 就在前面。']
+      };
+      const lines = OPENINGS[game.stage] || [];
+      lines.forEach(function (line, i) {
+        setTimeout(function () {
+          if (game.state === 'play' && game.stage === game.stage) {
+            addText(W * 0.5, H * (0.24 + i * 0.06), line, i === 0 ? '150,220,255' : '255,209,102', i === 0 ? 15 : 14);
+          }
+        }, 500 + i * 1600);
+      });
+    }
     game.hazardWarn = '';
     game.hazardFire = false;
     const hazardTips = {
@@ -11720,7 +11769,11 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
     if (game.state === 'cine') return 'story';
     if (game.state === 'dialog') return hasBoss ? 'boss' : 'story';
     if (hasBoss) return (boss.hp <= boss.maxHp * 0.5) ? 'boss2' : 'boss';
-    return 'ch' + Math.min(7, Math.max(1, (game.stage || 0) + 1));
+    const base = 'ch' + Math.min(7, Math.max(1, (game.stage || 0) + 1));
+    game.intense = game.intense
+      ? (game.combo >= 15 || player.hp < player.maxHp * 0.35)
+      : (game.combo >= 30 || player.hp < player.maxHp * 0.3);
+    return base + (game.intense ? '_i' : '');
   }
 
   function setBgm(mode) {
@@ -11760,7 +11813,7 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
       /* 方波琶音（高八度） */
       bgmPlay(bgmOsc2, bgmGain2, semi(cfg.arp[step] + shift + 12), sec * 0.5, cfg.vol * 0.55);
       /* Boss / 精英层：加一层高频重音 */
-      if ((BGM.mode === 'boss' || (game.tower && game.towerFloor % 5 === 0)) && step % 4 === 2) {
+      if ((BGM.mode === 'boss' || BGM.mode === 'boss2' || BGM.mode.slice(-2) === '_i' || (game.tower && game.towerFloor % 5 === 0)) && step % 4 === 2) {
         bgmPlay(bgmOsc2, bgmGain2, semi(cfg.arp[step] + shift + 24), sec * 0.4, cfg.vol * 0.35);
       }
       /* 每小节一次长音铺底 */
@@ -11800,7 +11853,17 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
       } catch (err) { return; }
     }
     bgmEnsureNodes();
-    const cfg = BGM_CFG[mode];
+    let cfg = BGM_CFG[mode];
+    if (!cfg && mode.slice(-2) === '_i') {
+      const baseCfg = BGM_CFG[mode.slice(0, -2)];
+      if (baseCfg) {
+        cfg = Object.assign({}, baseCfg, {
+          bpm: baseCfg.bpm + 8,
+          vol: baseCfg.vol * 1.15,
+          arp: baseCfg.arp.map(function (n) { return n + 7; })
+        });
+      }
+    }
     if (!cfg) return;
     BGM.mode = mode;
     BGM.cfg = cfg;
@@ -16378,6 +16441,32 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
             enterPortal();
             game.sceneT = 6.2;
             updateSceneHazards(0.05);
+          }, 700);
+        } else if (sc === 'storybgm') {
+          setTimeout(function () {
+            const out = [];
+            const ok = function (k, v) { out.push(k + '=' + v); };
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            beginStage(true);
+            game.combo = 0;
+            game.intense = false;
+            player.hp = player.maxHp;
+            ok('normalMode', currentBgmMode());
+            game.combo = 40;
+            ok('intenseMode', currentBgmMode());
+            game.intense = false;
+            game.combo = 0;
+            game.stage = 2;
+            stageContinueDialog(function () {});
+            const dlg = document.getElementById('dialog');
+            const txt = dlg ? dlg.textContent : '';
+            ok('clearStory', txt.indexOf('傀儡') >= 0 || txt.indexOf('头好痛') >= 0);
+            document.title = 'STORYBGM ' + out.join(' ');
           }, 700);
         } else if (sc === 'statuescene') {
           setTimeout(function () {
