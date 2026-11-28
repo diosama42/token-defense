@@ -16529,6 +16529,90 @@ body.is-playing .hud .tool { pointer-events: auto !important; }
             game.sceneT = 6.2;
             updateSceneHazards(0.05);
           }, 700);
+        } else if (sc === 'bosskill') {
+          setTimeout(async function () {
+            const sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            beginStage(true);
+            game.bossSpawned = true;
+            spawnBoss('grok');
+            const b = enemies.filter(function (e) { return e.isBoss; })[0];
+            if (b) { b.hp = 1; hurtEnemy(b, 999999, 0, 0); }
+            await sleep(2400);
+            const res = document.getElementById('room-result');
+            document.title = 'BOSSKILL boss=' + !!b + ' alive=' + enemies.filter(function (e) { return e.isBoss; }).length + ' state=' + game.state + ' result=' + !!(res && res.classList.contains('show')) + ' pending=' + game.stageClearPending + ' deadT=' + (game.bossDeadT || 0).toFixed(2) + ' time=' + game.time.toFixed(1);
+          }, 600);
+        } else if (sc === 'fullflow') {
+          setTimeout(async function () {
+            const sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+            const out = [];
+            const ok = function (k, v) { out.push(k + '=' + v); };
+            startGame(true);
+            cineActive = false;
+            clearTimeout(cineTimer);
+            document.querySelectorAll('.cine.show, .dialog.show, .notice.show').forEach(function (x) { x.classList.remove('show'); });
+            dialogQueue = [];
+            game.stage = 0;
+            beginStage();
+            for (let si = 0; si < STAGES.length; si++) {
+              if (game.stage !== si) game.stage = si;
+              for (let r = 0; r < 3; r++) {
+                game.map = { layers: [[{ type: 'wave' }, { type: 'wave' }], [{ type: 'wave' }, { type: 'wave' }], [{ type: 'wave' }, { type: 'wave' }]], layer: r };
+                game.portalPick = true;
+                game.portals = [{ type: 'wave', title: '波次防守', sprite: 'portal_wave', color: '150,220,255', x: W * 0.5, t: 0 }];
+                player.x = W * 0.5;
+                enterPortal();
+                await sleep(60);
+                game.roomT = game.roomTarget - 0.01;
+                await sleep(120);
+                const cont = document.getElementById('room-continue');
+                if (cont) cont.click();
+                await sleep(80);
+              }
+              ok('elite' + si, !!(game.portals && game.portals[0] && game.portals[0].eliteGate));
+              if (game.portals && game.portals[0] && game.portals[0].eliteGate) {
+                player.x = game.portals[0].x;
+                enterPortal();
+                await sleep(60);
+                game.roomT = game.roomTarget - 0.01;
+                await sleep(120);
+                const c2 = document.getElementById('room-continue');
+                if (c2) c2.click();
+                await sleep(80);
+              }
+              roomHideAll();
+              document.body.classList.remove('is-room', 'is-cutscene');
+              game.state = 'play';
+              game.bossSpawned = true;
+              enemies = [];
+              clearStage();
+              await sleep(120);
+              showBuff();
+              await sleep(120);
+              const card = document.querySelector('.buff-card');
+              if (card) card.click();
+              await sleep(150);
+              ok('afterStage' + si, game.stage);
+              if (game.state === 'ending') break;
+            }
+            for (let k = 0; k < 10; k++) {
+              const dlg = document.getElementById('dialog');
+              if (dlg && dlg.classList.contains('show')) {
+                const next = document.getElementById('dialog-next');
+                if (next) next.click();
+              }
+              await sleep(120);
+            }
+            ok('finalState', game.state);
+            ok('finalStage', game.stage);
+            ok('cycle', SAVE.cycle || 1);
+            document.title = 'FULLFLOW ' + out.join(' ');
+          }, 600);
         } else if (sc === 'maptest') {
           setTimeout(function () {
             const out = [];
